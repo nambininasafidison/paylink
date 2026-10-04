@@ -1,0 +1,23 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "PayLink.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\n/// @title PayLink — shareable USDC payment links on Arc\n/// @notice On Arc, USDC is the native gas token, so payments are plain\n///         `msg.value` transfers (18-decimal native units). Funds are never\n///         held by this contract: every payment is forwarded to the payee\n///         in the same transaction.\n/// @dev Two kinds of links:\n///      - fixed amount (an invoice): one exact payment, then the link closes;\n///      - open amount (amount == 0): a reusable tip jar / donation link.\ncontract PayLink {\n    struct Link {\n        address payee;\n        uint128 amount; // native units (18 decimals); 0 = payer chooses\n        uint64 expiresAt; // unix seconds; 0 = never\n        bool active;\n        uint128 totalReceived;\n        uint32 payments;\n        string memo;\n    }\n\n    uint256 public constant MAX_MEMO_BYTES = 280;\n\n    uint256 public nextId = 1;\n    mapping(uint256 => Link) private _links;\n    mapping(address => uint256[]) private _linksOf;\n    uint256 private _lock = 1;\n\n    event LinkCreated(uint256 indexed id, address indexed payee, uint256 amount, uint64 expiresAt, string memo);\n    event Paid(uint256 indexed id, address indexed payer, address indexed payee, uint256 amount, string note);\n    event LinkClosed(uint256 indexed id, bool paid);\n\n    error UnknownLink();\n    error Inactive();\n    error Expired();\n    error WrongAmount(uint256 expected, uint256 sent);\n    error NotPayee();\n    error MemoTooLong();\n    error BadExpiry();\n    error TransferFailed();\n    error Reentrancy();\n\n    modifier nonReentrant() {\n        if (_lock != 1) revert Reentrancy();\n        _lock = 2;\n        _;\n        _lock = 1;\n    }\n\n    /// @notice Create a payment link that pays `msg.sender`.\n    function create(uint128 amount, uint64 expiresAt, string calldata memo) external returns (uint256 id) {\n        if (bytes(memo).length > MAX_MEMO_BYTES) revert MemoTooLong();\n        if (expiresAt != 0 && expiresAt <= block.timestamp) revert BadExpiry();\n        id = nextId++;\n        _links[id] = Link({\n            payee: msg.sender,\n            amount: amount,\n            expiresAt: expiresAt,\n            active: true,\n            totalReceived: 0,\n            payments: 0,\n            memo: memo\n        });\n        _linksOf[msg.sender].push(id);\n        emit LinkCreated(id, msg.sender, amount, expiresAt, memo);\n    }\n\n    /// @notice Pay a link. Fixed links need the exact amount; open links accept any non-zero amount.\n    function pay(uint256 id, string calldata note) external payable nonReentrant {\n        Link storage l = _links[id];\n        if (l.payee == address(0)) revert UnknownLink();\n        if (!l.active) revert Inactive();\n        if (l.expiresAt != 0 && block.timestamp > l.expiresAt) revert Expired();\n        if (bytes(note).length > MAX_MEMO_BYTES) revert MemoTooLong();\n        if (l.amount != 0) {\n            if (msg.value != l.amount) revert WrongAmount(l.amount, msg.value);\n            l.active = false;\n        } else if (msg.value == 0) {\n            revert WrongAmount(1, 0);\n        }\n        l.totalReceived += uint128(msg.value);\n        l.payments += 1;\n\n        address payee = l.payee;\n        (bool ok,) = payee.call{value: msg.value}(\"\");\n        if (!ok) revert TransferFailed();\n\n        emit Paid(id, msg.sender, payee, msg.value, note);\n        if (l.amount != 0) emit LinkClosed(id, true);\n    }\n\n    /// @notice The payee can close an active link.\n    function cancel(uint256 id) external {\n        Link storage l = _links[id];\n        if (l.payee == address(0)) revert UnknownLink();\n        if (l.payee != msg.sender) revert NotPayee();\n        if (!l.active) revert Inactive();\n        l.active = false;\n        emit LinkClosed(id, false);\n    }\n\n    function getLink(uint256 id) external view returns (Link memory) {\n        if (_links[id].payee == address(0)) revert UnknownLink();\n        return _links[id];\n    }\n\n    function linksOf(address payee) external view returns (uint256[] memory) {\n        return _linksOf[payee];\n    }\n\n    /// @dev Reject stray transfers: this contract never holds funds.\n    receive() external payable {\n        revert();\n    }\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "evmVersion": "paris",
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode.object"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deploy PayLink</title>
+<meta name="description" content="Deploy the PayLink contract to Arc from your own wallet. Your key never leaves your wallet.">
+<style>
+:root { --bg:#f5f7fb; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --brand:#2563eb; --brand-ink:#fff; --ok:#059669; --bad:#dc2626; --soft:#eef2ff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1020; --card:#131a2e; --ink:#e5e7eb; --muted:#9ca3af; --line:#24304d; --brand:#60a5fa; --brand-ink:#0b1020; --ok:#34d399; --bad:#f87171; --soft:#1b2542; } }
+:root[data-theme="dark"] { --bg:#0b1020; --card:#131a2e; --ink:#e5e7eb; --muted:#9ca3af; --line:#24304d; --brand:#60a5fa; --brand-ink:#0b1020; --ok:#34d399; --bad:#f87171; --soft:#1b2542; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.wrap { max-width:600px; margin:0 auto; padding:16px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-top:16px; }
+h1 { margin:0; font-size:1.4rem; } h2 { margin:0 0 8px; font-size:1.1rem; }
+button { font:inherit; cursor:pointer; border-radius:10px; padding:11px 16px; font-weight:600; border:1px solid var(--brand); background:var(--brand); color:var(--brand-ink); }
+button:disabled { opacity:.5; cursor:default; }
+.muted { color:var(--muted); font-size:.9rem; }
+.status { margin-top:12px; font-size:.95rem; word-break:break-word; } .err { color:var(--bad); } .ok { color:var(--ok); }
+code, pre { font-size:.85rem; word-break:break-all; } pre { background:var(--soft); padding:12px; border-radius:10px; white-space:pre-wrap; }
+ol { padding-left:20px; } a { color:var(--brand); }
+dl { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:12px 0 0; } dt { color:var(--muted); } dd { margin:0; word-break:break-all; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚡ Deploy PayLink to Arc</h1>
+  <p class="muted">This page deploys the PayLink contract from <strong>your own wallet</strong>. Your private key never leaves the wallet. You only approve one transaction, and the gas is paid in USDC (a few cents).</p>
+
+  <section class="card">
+    <h2>1. Connect</h2>
+    <button id="connect">Connect wallet</button>
+    <dl id="info" hidden>
+      <dt>Network</dt><dd id="net"></dd>
+      <dt>Account</dt><dd id="acct"></dd>
+      <dt>Balance</dt><dd id="bal"></dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>2. Deploy</h2>
+    <p class="muted">Compiler: <code id="compiler"></code> · bytecode <span id="size"></span> bytes</p>
+    <button id="deploy" disabled>Deploy PayLink</button>
+    <div id="status" class="status"></div>
+  </section>
+
+  <section class="card" id="done" hidden>
+    <h2>3. Done</h2>
+    <dl>
+      <dt>Contract</dt><dd><a id="addrLink" target="_blank" rel="noopener"></a></dd>
+      <dt>Transaction</dt><dd><a id="txLink" target="_blank" rel="noopener"></a></dd>
+    </dl>
+    <p>This browser now uses the new contract. <a href="./">Open PayLink</a> and create your first link.</p>
+    <p class="muted">To make it permanent for everyone, put this in <code>web/config.js</code>:</p>
+    <pre id="cfg"></pre>
+  </section>
+</div>
+<script src="ethers.umd.min.js"></script>
+<script src="abi.js"></script>
+<script src="bytecode.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { ethers } = window;
+  const CFG = window.PAYLINK_CONFIG;
+  const $ = (id) => document.getElementById(id);
+  const hexId = "0x" + CFG.chainId.toString(16);
+  let signer = null;
+
+  $("compiler").textContent = window.PAYLINK_COMPILER;
+  $("size").textContent = (window.PAYLINK_BYTECODE.length - 2) / 2;
+
+  function say(msg, cls) { $("status").className = "status " + (cls || ""); $("status").textContent = msg; }
+  function errMsg(e) { return (e && (e.shortMessage || e.reason || e.message)) || String(e); }
+
+  $("connect").addEventListener("click", async () => {
+    try {
+      if (!window.ethereum) throw new Error("No wallet found. Install MetaMask or Rabby.");
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexId }] });
+      } catch (e) {
+        if (e.code !== 4902) throw e;
+        await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{
+          chainId: hexId, chainName: CFG.network === "mainnet" ? "Arc" : "Arc Testnet",
+          nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+          rpcUrls: [CFG.rpc], blockExplorerUrls: [CFG.explorer],
+        }] });
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const net = await provider.getNetwork();
+      if (Number(net.chainId) !== CFG.chainId) throw new Error("Wallet is on chain " + net.chainId + ", expected Arc (" + CFG.chainId + ")");
+      signer = await provider.getSigner();
+      const addr = await signer.getAddress();
+      const bal = await provider.getBalance(addr);
+      $("net").textContent = (CFG.network === "mainnet" ? "Arc mainnet" : "Arc testnet") + " (chainId " + CFG.chainId + ")";
+      $("acct").textContent = addr;
+      $("bal").textContent = ethers.formatUnits(bal, 18) + " USDC";
+      $("info").hidden = false;
+      $("connect").textContent = "Connected";
+      $("deploy").disabled = bal === 0n;
+      if (bal === 0n) say("This account has no USDC on Arc for gas. Add 1 USDC and reconnect.", "err");
+      window.ethereum.on && window.ethereum.on("accountsChanged", () => location.reload());
+      window.ethereum.on && window.ethereum.on("chainChanged", () => location.reload());
+    } catch (e) { say(errMsg(e), "err"); }
+  });
+
+  $("deploy").addEventListener("click", async () => {
+    try {
+      $("deploy").disabled = true;
+      say("Confirm the deployment in your wallet…");
+      const factory = new ethers.ContractFactory(window.PAYLINK_ABI, window.PAYLINK_BYTECODE, signer);
+      const contract = await factory.deploy();
+      const tx = contract.deploymentTransaction();
+      say("Deploying… " + tx.hash);
+      await contract.waitForDeployment();
+      const address = await contract.getAddress();
+      const receipt = await tx.wait();
+      // Sanity check: the new contract answers like PayLink.
+      const next = await contract.nextId();
+      if (next !== 1n) throw new Error("Unexpected contract state after deploy");
+      try { localStorage.setItem("paylink.address." + CFG.chainId, address); } catch (e) { /* storage unavailable */ }
+      say("PayLink deployed ✓", "ok");
+      $("addrLink").href = CFG.explorer + "/address/" + address; $("addrLink").textContent = address;
+      $("txLink").href = CFG.explorer + "/tx/" + tx.hash; $("txLink").textContent = tx.hash;
+      $("cfg").textContent = "window.PAYLINK_CONFIG = " + JSON.stringify(Object.assign({}, CFG, { address, deployBlock: receipt.blockNumber }), null, 2) + ";";
+      $("done").hidden = false;
+    } catch (e) { say(errMsg(e), "err"); $("deploy").disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "arc-paylink",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PayLink: shareable USDC invoices on Arc mainnet",
+  "scripts": {
+    "compile": "node scripts/compile.js",
+    "test": "node scripts/compile.js && node --test test/paylink.test.js",
+    "deploy": "node scripts/compile.js && node scripts/deploy.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0",
+    "solc": "0.8.26"
+  },
+  "devDependencies": {
+    "ganache": "^7.9.2"
+  }
+}
