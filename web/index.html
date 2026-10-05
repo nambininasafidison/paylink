@@ -1,54 +1,144 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-view="create">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PayLink on Arc</title>
 <meta name="description" content="Create a USDC payment link on Arc in one click. Share it. Get paid in under a second, straight to your wallet.">
-<style>
-:root { --bg:#f5f7fb; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --brand:#2563eb; --brand-ink:#fff; --ok:#059669; --bad:#dc2626; --soft:#eef2ff; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1020; --card:#131a2e; --ink:#e5e7eb; --muted:#9ca3af; --line:#24304d; --brand:#60a5fa; --brand-ink:#0b1020; --ok:#34d399; --bad:#f87171; --soft:#1b2542; } }
-:root[data-theme="dark"] { --bg:#0b1020; --card:#131a2e; --ink:#e5e7eb; --muted:#9ca3af; --line:#24304d; --brand:#60a5fa; --brand-ink:#0b1020; --ok:#34d399; --bad:#f87171; --soft:#1b2542; }
-* { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-.wrap { max-width:600px; margin:0 auto; padding:16px; }
-header { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-h1 { margin:0; font-size:1.4rem; } h1 small { color:var(--muted); font-weight:500; font-size:.85rem; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-top:16px; }
-h2 { margin:0 0 12px; font-size:1.15rem; }
-label { display:block; font-weight:600; font-size:.9rem; margin:12px 0 4px; }
-input { width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); font-size:1rem; }
-button { font:inherit; cursor:pointer; border-radius:10px; padding:11px 16px; font-weight:600; border:1px solid var(--brand); background:var(--brand); color:var(--brand-ink); }
-button.ghost { background:transparent; color:var(--brand); }
-button:disabled { opacity:.5; cursor:default; }
-.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:16px; }
-.muted { color:var(--muted); font-size:.9rem; }
-.amount { font-size:2.2rem; font-weight:800; margin:4px 0; }
-.pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.8rem; font-weight:700; }
-.pill.open { background:var(--soft); color:var(--brand); } .pill.paid { background:var(--ok); color:#fff; } .pill.closed { background:var(--line); color:var(--muted); }
-.share { display:flex; gap:8px; margin-top:12px; } .share input { font-size:.85rem; }
-.status { margin-top:12px; font-size:.9rem; word-break:break-word; } .status.err { color:var(--bad); } .status.ok { color:var(--ok); }
-.tabs { display:flex; gap:4px; margin-top:12px; border-bottom:1px solid var(--line); }
-.tabs button { background:none; border:0; border-bottom:3px solid transparent; color:var(--muted); border-radius:0; padding:8px 12px; }
-.tabs button.active { color:var(--brand); border-bottom-color:var(--brand); }
-ul.links { list-style:none; padding:0; margin:0; } ul.links li { padding:10px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-a { color:var(--brand); } code { font-size:.85em; word-break:break-all; }
-.qr { width:200px; margin-top:12px; background:#fff; padding:6px; border-radius:12px; } .qr svg { display:block; width:100%; height:auto; }
-.banner { background:var(--soft); border-radius:12px; padding:10px 14px; font-size:.9rem; margin-top:12px; }
-</style>
+<meta name="theme-color" content="#EEECE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0E0D" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161615'/%3E%3Cpath d='M9 23A14 14 0 0 1 23 9' fill='none' stroke='%23EEECE6' stroke-width='2.6'/%3E%3Ccircle cx='9' cy='23' r='2.6' fill='%23161615' stroke='%23EEECE6' stroke-width='2'/%3E%3Ccircle cx='23' cy='9' r='3.8' fill='%23FF5A1F'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/martian-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="paylink.css">
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>⚡ PayLink <small>on Arc</small></h1>
-    <button id="connect" class="ghost">Connect wallet</button>
-  </header>
-  <p class="muted">Create a USDC payment link, share it, and get paid in under a second, straight to your wallet. No sign-up and no platform fee. On Arc, gas is paid in USDC too.</p>
-  <div id="banner"></div>
-  <nav class="tabs" id="tabs"></nav>
-  <main id="main"></main>
-  <p class="muted" style="margin-top:24px">Contract: <span id="contract"></span></p>
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="./" aria-label="PayLink on Arc, home">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect class="tile" width="32" height="32" rx="8"/>
+        <path class="arc" d="M9 23A14 14 0 0 1 23 9" fill="none" stroke-width="2.6"/>
+        <circle class="origin" cx="9" cy="23" r="2.6" stroke-width="2"/>
+        <circle class="dot" cx="23" cy="9" r="3.8"/>
+      </svg>
+      <span class="word">PayLink</span>
+      <span class="on-arc">on Arc</span>
+    </a>
+    <button id="connect" class="key key-line" type="button">Connect wallet</button>
+  </div>
+</header>
+
+<div class="frame">
+  <!-- The lead column speaks to whoever is at the terminal: the seller, the payer, or the owner reading the ledger. -->
+  <div class="lead">
+    <div class="intro" data-for="create">
+      <p class="kicker">USDC payment links on Arc</p>
+      <h1>Send a link.<br>Get paid in USDC<span class="stop">.</span></h1>
+      <p class="lede">Create a USDC payment link, share it, and get paid in under a second, <strong>straight to your wallet</strong>. No sign-up and no platform fee. On Arc, gas is paid in USDC too.</p>
+      <dl class="specs">
+        <div><dt>Settles</dt><dd>&lt;1<small>s</small></dd></div>
+        <div><dt>Fee</dt><dd>0<small>%</small></dd></div>
+        <div><dt>Gas in</dt><dd>USDC</dd></div>
+        <div><dt>Sign-up</dt><dd>None</dd></div>
+      </dl>
+    </div>
+    <div class="intro" data-for="pay">
+      <!-- What the lead says follows what the terminal shows: a bill, a tip jar, a receipt, a settled link, an unknown link or an unreachable chain. -->
+      <div class="voice">
+        <p class="kicker">You have a bill to pay</p>
+        <h1>Check the bill.<br>Pay in one click<span class="stop">.</span></h1>
+        <p class="lede">Compare the amount and the address with what the seller told you. When you approve, the USDC goes <strong>straight from your wallet to theirs</strong>. PayLink never holds it.</p>
+      </div>
+      <div class="voice" data-voice="open-amount">
+        <p class="kicker">Pay what you like</p>
+        <h1>Choose the amount.<br>Pay in one click<span class="stop">.</span></h1>
+        <p class="lede">This link has no set price, like a tip jar. Type what you want to send and check the address. When you approve, the USDC goes <strong>straight from your wallet to theirs</strong>.</p>
+      </div>
+      <div class="voice" data-voice="paid">
+        <p class="kicker">Payment sent</p>
+        <h1>Paid.<br>Keep the receipt<span class="stop">.</span></h1>
+        <p class="lede">Arc settled it in under a second, so <strong>there is nothing left to wait for</strong>. The receipt links to your transaction on Arc: the seller sees the same record.</p>
+      </div>
+      <div class="voice" data-voice="settled">
+        <p class="kicker">No payment needed</p>
+        <h1>Nothing left<br>to pay here<span class="stop">.</span></h1>
+        <p class="lede">This link has been paid, closed or has expired, so it <strong>no longer takes payments</strong>. If you still owe the seller, ask them for a new link.</p>
+      </div>
+      <div class="voice" data-voice="error">
+        <p class="kicker">Link not found</p>
+        <h1>Check the<br>link number<span class="stop">.</span></h1>
+        <p class="lede">There is no payment link with that number on this contract. Ask the seller to send the full link again, or type <strong>only the number</strong> it ends with.</p>
+      </div>
+      <div class="voice" data-voice="offline">
+        <p class="kicker">Link not loaded</p>
+        <h1>Try again<br>in a moment<span class="stop">.</span></h1>
+        <p class="lede">PayLink could not read this link from Arc just now. That <strong>says nothing about the link itself</strong>: press Open again in a moment. Nothing has left your wallet.</p>
+      </div>
+      <dl class="specs">
+        <div><dt>Settles</dt><dd>&lt;1<small>s</small></dd></div>
+        <div><dt>Fee</dt><dd>0<small>%</small></dd></div>
+        <div><dt>Gas in</dt><dd>USDC</dd></div>
+        <div><dt>Custody</dt><dd>None</dd></div>
+      </dl>
+    </div>
+    <div class="intro" data-for="mine">
+      <p class="kicker">Read live from Arc</p>
+      <h1>Your ledger<span class="stop">.</span></h1>
+      <p class="lede">Every link created from this wallet and what it has brought in, read straight from the contract. Copy a link to send it again, or close it so it can no longer be paid.</p>
+    </div>
+
+    <!-- Travels down beside a long terminal on desktop. -->
+    <div class="lead-aside">
+      <aside class="about" data-for="create" aria-labelledby="how">
+        <h2 class="eyebrow" id="how">How it works</h2>
+        <ol class="steps">
+          <li><span class="step-n">01</span><b>Create</b><p>Set an amount, or leave it open for tips. Add a memo and an optional expiry.</p></li>
+          <li><span class="step-n">02</span><b>Share</b><p>Send the link in any chat, or show the QR code at your counter.</p></li>
+          <li><span class="step-n">03</span><b>Get paid</b><p>Your customer pays from their wallet. USDC goes straight to yours; nothing is held in&nbsp;between.</p></li>
+        </ol>
+      </aside>
+      <aside class="about" data-for="pay" aria-labelledby="how-pay">
+        <h2 class="eyebrow" id="how-pay">When you pay</h2>
+        <ol class="steps">
+          <li><span class="step-n">01</span><b>Check</b><p>The amount, what it is for, and the address. It is grouped in fours so you can compare it.</p></li>
+          <li><span class="step-n">02</span><b>Approve</b><p>One transaction in your wallet. The network fee is paid in USDC too.</p></li>
+          <li><span class="step-n">03</span><b>Keep the receipt</b><p>The terminal prints one, with a link to the transaction on Arc.</p></li>
+        </ol>
+      </aside>
+      <aside class="about" data-for="mine" aria-labelledby="lights">
+        <h2 class="eyebrow" id="lights">Indicator lights</h2>
+        <dl class="legend">
+          <div><dt><span class="lamp open">Open</span></dt><dd>Live. Anyone with the link can pay it.</dd></div>
+          <div><dt><span class="lamp paid">Paid</span></dt><dd>Paid in full. A fixed-amount link closes after its payment.</dd></div>
+          <div><dt><span class="lamp closed">Closed</span></dt><dd>Closed by you, or past its expiry. It can no longer be paid.</dd></div>
+        </dl>
+      </aside>
+      <aside class="about notes" data-for="mine" aria-labelledby="know">
+        <h2 class="eyebrow" id="know">Good to know</h2>
+        <ul class="note-list">
+          <li><b>Links are public.</b> Anyone with a link number can read its amount and memo on Arc, so keep private details out of memos.</li>
+          <li><b>Closing is one transaction.</b> It only stops new payments. USDC you have received is already in your wallet.</li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+
+  <div class="device">
+    <div class="plate"><span><i class="led" aria-hidden="true"></i><span id="plate">Arc</span></span><span class="model">Non-custodial</span></div>
+    <div id="banner"></div>
+    <nav class="tabs" id="tabs" aria-label="PayLink modes"></nav>
+    <main id="main"></main>
+  </div>
 </div>
+
+<footer class="foot">
+  <div class="bar">
+    <div class="foot-item"><span class="foot-label">Contract</span><span id="contract"></span></div>
+    <div class="foot-item"><span class="foot-label">Made in</span>Antananarivo, Madagascar <span class="coords">18°55′S 47°31′E</span></div>
+    <div class="foot-item"><span class="foot-label">Self-host</span><a href="deploy.html">Deploy your own contract</a></div>
+  </div>
+</footer>
 <script src="ethers.umd.min.js"></script>
 <script src="qrcode.js"></script>
 <script src="abi.js"></script>

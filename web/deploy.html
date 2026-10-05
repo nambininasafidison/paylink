@@ -5,57 +5,209 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deploy PayLink</title>
 <meta name="description" content="Deploy the PayLink contract to Arc from your own wallet. Your key never leaves your wallet.">
+<meta name="theme-color" content="#EEECE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0E0D" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161615'/%3E%3Cpath d='M9 23A14 14 0 0 1 23 9' fill='none' stroke='%23EEECE6' stroke-width='2.6'/%3E%3Ccircle cx='9' cy='23' r='2.6' fill='%23161615' stroke='%23EEECE6' stroke-width='2'/%3E%3Ccircle cx='23' cy='9' r='3.8' fill='%23FF5A1F'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/martian-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="paylink.css">
 <style>
-:root { --bg:#f5f7fb; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --brand:#2563eb; --brand-ink:#fff; --ok:#059669; --bad:#dc2626; --soft:#eef2ff; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1020; --card:#131a2e; --ink:#e5e7eb; --muted:#9ca3af; --line:#24304d; --brand:#60a5fa; --brand-ink:#0b1020; --ok:#34d399; --bad:#f87171; --soft:#1b2542; } }
-:root[data-theme="dark"] { --bg:#0b1020; --card:#131a2e; --ink:#e5e7eb; --muted:#9ca3af; --line:#24304d; --brand:#60a5fa; --brand-ink:#0b1020; --ok:#34d399; --bad:#f87171; --soft:#1b2542; }
-* { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-.wrap { max-width:600px; margin:0 auto; padding:16px; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-top:16px; }
-h1 { margin:0; font-size:1.4rem; } h2 { margin:0 0 8px; font-size:1.1rem; }
-button { font:inherit; cursor:pointer; border-radius:10px; padding:11px 16px; font-weight:600; border:1px solid var(--brand); background:var(--brand); color:var(--brand-ink); }
-button:disabled { opacity:.5; cursor:default; }
-.muted { color:var(--muted); font-size:.9rem; }
-.status { margin-top:12px; font-size:.95rem; word-break:break-word; } .err { color:var(--bad); } .ok { color:var(--ok); }
-code, pre { font-size:.85rem; word-break:break-all; } pre { background:var(--soft); padding:12px; border-radius:10px; white-space:pre-wrap; }
-ol { padding-left:20px; } a { color:var(--brand); }
-dl { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:12px 0 0; } dt { color:var(--muted); } dd { margin:0; word-break:break-all; }
+/* Deploy page: a three-step procedure on the same terminal face. Step lights follow the page state via :has(). */
+.procedure { padding: 4px 0 6px; }
+.proc { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0 12px; padding: 22px 18px 24px 14px; position: relative; }
+.proc + .proc { border-top: 1px solid var(--rule); }
+.proc-body { min-width: 0; }
+.proc-n {
+  width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px; position: relative;
+  font: 600 11px/1 var(--mono); letter-spacing: .04em; color: var(--muted);
+  background: var(--sunk); box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
+}
+.proc h2 { font-size: 22px; padding-top: 5px; }
+.proc-text { margin-top: 6px; color: var(--ink-2); font-size: 15px; }
+.proc-meta { margin-top: 6px; color: var(--muted); font-size: 14px; }
+.proc-meta code { font-size: 11px; color: var(--ink-2); }
+.proc .key-primary { margin-top: 18px; }
+.proc .facts { margin-top: 14px; }
+.proc .facts > div { grid-template-columns: 84px minmax(0, 1fr); }
+.proc .facts dd { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; word-spacing: 0; }
+.proc .facts dd code { font-size: inherit; }
+/* Hex stays whole: the transaction hash is cut with an ellipsis (the full hash is in the link), and the compiler
+   string sits under its label in a tighter cut so its commit hash never splits on a phone. */
+#txLink { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+@media (max-width: 599px) {
+  .proc .facts > div:has(#compiler) { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  #compiler { font-size: 10.5px; letter-spacing: -.02em; }
+}
+.proc p + p { margin-top: 12px; }
+.proc .muted { color: var(--muted); font-size: 14px; }
+/* The config printout runs the full width of the step, so only a long address ever wraps. */
+/* Long values wrap at their spaces first, so an address moves to its own line instead of splitting. */
+#cfg {
+  word-spacing: 0; letter-spacing: -.03em; margin: 14px -4px 0 -56px; padding: 14px 10px; border-radius: 10px;
+  white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere;
+  background: var(--screen); color: var(--screen-ink); font: 400 10px/1.7 var(--mono);
+  box-shadow: inset 0 0 0 1px var(--screen-rule), inset 0 2px 10px rgba(0,0,0,.55), 0 0 0 4px var(--bezel), 0 0 0 5px var(--bezel-edge);
+}
+.proc-pending h2 { color: var(--muted); }
+.proc-pending .proc-n { box-shadow: inset 0 0 0 1px var(--rule-2); background: transparent; }
+
+/* Lights: current step glows signal orange, finished steps go green, later steps stay dark.
+   "Connected" counts only when the connection is usable: with an error and Deploy still locked (an empty wallet),
+   step 01 stays the current step and #connect stays a key ("Check balance again"), since pressing it is the way on. */
+#step-connect .proc-n, .procedure:has(#info:not([hidden])):not(:has(#deploy:disabled ~ #status.err)) #step-deploy .proc-n { color: var(--on-signal); background: var(--signal); box-shadow: 0 0 0 1px var(--signal-edge), 0 0 12px rgba(255,90,31,calc(var(--glow) * .6)); }
+.procedure:has(#info:not([hidden])):not(:has(#deploy:disabled ~ #status.err)) #step-connect .proc-n,
+.procedure:has(#status.ok) #step-deploy .proc-n,
+#done .proc-n { color: #0B2615; background: var(--led-ok); box-shadow: 0 0 0 1px #17924A, 0 0 12px rgba(34,200,102,calc(var(--glow) * .6)); }
+.procedure:has(#done:not([hidden])) .proc-pending { display: none; }
+/* The plate light: amber until the contract exists, green once it does. */
+.procedure .plate .led { background: var(--led-wait); box-shadow: 0 0 6px rgba(255,176,0,var(--glow)); }
+.procedure:has(#done:not([hidden])) .plate .led { background: var(--led-ok); box-shadow: 0 0 6px rgba(34,200,102,var(--glow)); }
+
+/* Keys reflect state: waiting for step 01, working, then gone once deployed.
+   Once connected, the connect key turns into a status light rather than another button. */
+.procedure:has(#info:not([hidden])):not(:has(#deploy:disabled ~ #status.err)) #connect {
+  width: auto; min-height: 44px; margin: 10px 0 0; padding: 0; justify-content: flex-start; gap: 10px; cursor: default;
+  background: transparent; color: var(--ok); border: 0; box-shadow: none; transform: none;
+  font: 400 12px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+}
+.procedure:has(#info:not([hidden])):not(:has(#deploy:disabled ~ #status.err)) #connect::after { display: none; }
+.procedure:has(#info:not([hidden])):not(:has(#deploy:disabled ~ #status.err)) #connect::before { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--led-ok); box-shadow: 0 0 8px rgba(34,200,102,var(--glow)); }
+.procedure:has(#info:not([hidden])):not(:has(#deploy:disabled ~ #status.err)) #info { margin-top: 2px; }
+/* Connected but unusable (no USDC for gas): the key stays a key, and its arrow turns into a reload mark,
+   since pressing it again after topping up is the way on. */
+.procedure:has(#info:not([hidden])):has(#deploy:disabled ~ #status.err) #connect::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 26 26'%3E%3Cpath d='M23 4v6h-6M20.49 15a9 9 0 1 1-2.12-9.36L23 10' fill='none' stroke='%23000' stroke-width='2.3'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 26 26'%3E%3Cpath d='M23 4v6h-6M20.49 15a9 9 0 1 1-2.12-9.36L23 10' fill='none' stroke='%23000' stroke-width='2.3'/%3E%3C/svg%3E");
+}
+.procedure:has(#info:not([hidden])):has(#deploy:disabled ~ #status.err) #connect:hover::after { transform: rotate(45deg); }
+/* The reason Deploy is locked sits right under that key, so on a phone it is never below the fold,
+   and the empty balance it refers to is flagged in the same red. Static text, shown only in that state. */
+.gas-hint { display: none; position: relative; margin: 10px 0 0; padding-left: 20px; font: 400 12px/1.6 var(--mono); word-spacing: 0; color: var(--err); }
+.gas-hint::before { content: ""; position: absolute; left: 2px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--led-err); box-shadow: 0 0 8px rgba(255,59,46,var(--glow)); }
+.procedure:has(#info:not([hidden])):has(#deploy:disabled ~ #status.err) .gas-hint { display: block; }
+.procedure:has(#info:not([hidden])):has(#deploy:disabled ~ #status.err) #bal { color: var(--err); font-weight: 600; }
+#deploy:disabled { background: transparent; color: var(--ink-2); border: 1.5px dashed var(--rule-2); box-shadow: none; transform: none; animation: none; background-image: none; cursor: not-allowed; margin-bottom: 0; }
+#deploy:disabled::after { opacity: .5; }
+.deploy-wait { margin-top: 8px; font-size: 13px; color: var(--muted); }
+/* Once step 01 has run, "Unlocks after step 01." is gone: either Deploy is live, or the red status says what still locks it. */
+.procedure:has(#info:not([hidden])) .deploy-wait { display: none; }
+#step-deploy:has(#status[class="status "]) #deploy:disabled { background-color: var(--signal); color: var(--on-signal); border: 1px solid var(--signal-edge); cursor: progress;
+  background-image: repeating-linear-gradient(-45deg, rgba(20,8,3,.12) 0 8px, transparent 8px 16px); background-size: 200% 100%; animation: feed 1.2s linear infinite; }
+#step-deploy:has(#status.ok) #deploy { display: none; }
+@media (max-width: 359px) { .specs dt { letter-spacing: .02em; } .specs > div { padding-right: 4px; } .specs > div + div { padding-left: 6px; } #compiler { font-size: 9px; letter-spacing: -.04em; } .proc { grid-template-columns: 36px minmax(0, 1fr); padding: 20px 14px 20px 10px; } .proc-n { width: 32px; height: 32px; } #cfg { margin-left: -48px; font-size: 9.5px; } }
+@media (min-width: 600px) { #cfg { font-size: 11px; letter-spacing: 0; padding: 14px 16px; margin-right: 0; } }
+@media (min-width: 1000px) {
+  .page-deploy { --device-w: 560px; }
+  .page-deploy .about { padding-top: 56px; }
+}
 </style>
 </head>
-<body>
-<div class="wrap">
-  <h1>⚡ Deploy PayLink to Arc</h1>
-  <p class="muted">This page deploys the PayLink contract from <strong>your own wallet</strong>. Your private key never leaves the wallet. You only approve one transaction, and the gas is paid in USDC (a few cents).</p>
+<body class="page-deploy">
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="./" aria-label="PayLink on Arc, home">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect class="tile" width="32" height="32" rx="8"/>
+        <path class="arc" d="M9 23A14 14 0 0 1 23 9" fill="none" stroke-width="2.6"/>
+        <circle class="origin" cx="9" cy="23" r="2.6" stroke-width="2"/>
+        <circle class="dot" cx="23" cy="9" r="3.8"/>
+      </svg>
+      <span class="word">PayLink</span>
+      <span class="on-arc">on Arc</span>
+    </a>
+    <a class="key key-line" href="./">Open the app</a>
+  </div>
+</header>
 
-  <section class="card">
-    <h2>1. Connect</h2>
-    <button id="connect">Connect wallet</button>
-    <dl id="info" hidden>
-      <dt>Network</dt><dd id="net"></dd>
-      <dt>Account</dt><dd id="acct"></dd>
-      <dt>Balance</dt><dd id="bal"></dd>
+<div class="frame">
+  <div class="lead">
+  <div class="intro">
+    <p class="kicker">Setup · one transaction</p>
+    <h1>Deploy PayLink<br>to Arc<span class="stop">.</span></h1>
+    <p class="lede">This page deploys the PayLink contract from <strong>your own wallet</strong>. Your private key never leaves the wallet. You only approve one transaction, and the gas is paid in USDC (a&nbsp;few&nbsp;cents).</p>
+    <dl class="specs">
+      <div><dt>Approvals</dt><dd>1</dd></div>
+      <div><dt>Gas in</dt><dd>USDC</dd></div>
+      <div><dt>Keys</dt><dd>Yours</dd></div>
+      <div><dt>Custody</dt><dd>None</dd></div>
     </dl>
-  </section>
+  </div>
 
-  <section class="card">
-    <h2>2. Deploy</h2>
-    <p class="muted">Compiler: <code id="compiler"></code> · bytecode <span id="size"></span> bytes</p>
-    <button id="deploy" disabled>Deploy PayLink</button>
-    <div id="status" class="status"></div>
-  </section>
+  <div class="lead-aside">
+    <aside class="about" aria-labelledby="before">
+      <h2 class="eyebrow" id="before">Before you start</h2>
+      <ul class="note-list">
+        <li><b>A wallet on Arc.</b> MetaMask or Rabby. If the wallet does not know the Arc network yet, this page asks it to add it.</li>
+        <li><b>About 1 USDC for gas.</b> The deployment itself costs a few cents. On Arc, gas is paid in USDC, so there is no other token to buy.</li>
+        <li><b>Nothing to install.</b> The contract is already compiled. Your wallet signs one transaction to publish it, and from then on it only routes payments: it never holds funds.</li>
+      </ul>
+    </aside>
+  </div>
+  </div>
 
-  <section class="card" id="done" hidden>
-    <h2>3. Done</h2>
-    <dl>
-      <dt>Contract</dt><dd><a id="addrLink" target="_blank" rel="noopener"></a></dd>
-      <dt>Transaction</dt><dd><a id="txLink" target="_blank" rel="noopener"></a></dd>
-    </dl>
-    <p>This browser now uses the new contract. <a href="./">Open PayLink</a> and create your first link.</p>
-    <p class="muted">To make it permanent for everyone, put this in <code>web/config.js</code>:</p>
-    <pre id="cfg"></pre>
-  </section>
+  <div class="device procedure">
+    <div class="plate"><span><i class="led" aria-hidden="true"></i><span>Contract deployer</span></span><span class="model">Arc · USDC gas</span></div>
+
+    <section class="proc" id="step-connect">
+      <div class="proc-n" aria-hidden="true">01</div>
+      <div class="proc-body">
+        <h2>Connect</h2>
+        <p class="proc-text">Connect the wallet that will pay the deployment gas.</p>
+        <button id="connect" class="key key-primary" type="button">Connect wallet</button>
+        <p class="gas-hint">No USDC for gas. Add about 1 USDC, then check again.</p>
+        <dl id="info" class="facts" hidden>
+          <div><dt>Network</dt><dd id="net"></dd></div>
+          <div><dt>Account</dt><dd id="acct"></dd></div>
+          <div><dt>Balance</dt><dd id="bal"></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="proc" id="step-deploy">
+      <div class="proc-n" aria-hidden="true">02</div>
+      <div class="proc-body">
+        <h2>Deploy</h2>
+        <dl class="facts">
+          <div><dt>Compiler</dt><dd><code id="compiler"></code></dd></div>
+          <div><dt>Bytecode</dt><dd><span id="size"></span> bytes</dd></div>
+        </dl>
+        <button id="deploy" class="key key-primary" type="button" disabled>Deploy PayLink</button>
+        <p class="deploy-wait">Unlocks after step 01.</p>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="proc proc-pending" aria-hidden="true">
+      <div class="proc-n">03</div>
+      <div class="proc-body">
+        <h2>Done</h2>
+        <p class="proc-meta">Your contract address and its config line appear here.</p>
+      </div>
+    </section>
+
+    <section class="proc" id="done" hidden>
+      <div class="proc-n" aria-hidden="true">03</div>
+      <div class="proc-body">
+        <h2>Done</h2>
+        <dl class="facts">
+          <div><dt>Contract</dt><dd><a id="addrLink" target="_blank" rel="noopener"></a></dd></div>
+          <div><dt>Tx hash</dt><dd><a id="txLink" target="_blank" rel="noopener"></a></dd></div>
+        </dl>
+        <p style="margin-top:14px">This browser now uses the new contract. <a href="./">Open PayLink</a> and create your first link.</p>
+        <p class="muted">To make it permanent for everyone, put this in <code>web/config.js</code>:</p>
+        <pre id="cfg"></pre>
+      </div>
+    </section>
+  </div>
 </div>
+
+<footer class="foot">
+  <div class="bar">
+    <div class="foot-item"><span class="foot-label">What gets deployed</span>The PayLink contract: payment links that send USDC straight to their creator. It holds no funds.</div>
+    <div class="foot-item"><span class="foot-label">Made in</span>Antananarivo, Madagascar <span class="coords">18°55′S 47°31′E</span></div>
+    <div class="foot-item"><span class="foot-label">Back</span><a href="./">Open PayLink</a></div>
+  </div>
+</footer>
 <script src="ethers.umd.min.js"></script>
 <script src="abi.js"></script>
 <script src="bytecode.js"></script>
@@ -74,6 +226,12 @@ dl { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:12px 0 0
 
   function say(msg, cls) { $("status").className = "status " + (cls || ""); $("status").textContent = msg; }
   function errMsg(e) { return (e && (e.shortMessage || e.reason || e.message)) || String(e); }
+  // Display only: a balance to two decimals, rounded down so it is never overstated. Below 0.01 USDC the exact
+  // amount is shown, so a nearly empty wallet never reads as 0.00.
+  function usdc(v) {
+    if (v > 0n && v < 10n ** 16n) return ethers.formatUnits(v, 18).replace(/0+$/, "");
+    const [i, d = ""] = ethers.formatUnits(v, 18).split("."); return i + "." + (d + "00").slice(0, 2);
+  }
 
   $("connect").addEventListener("click", async () => {
     try {
@@ -97,11 +255,13 @@ dl { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:12px 0 0
       const bal = await provider.getBalance(addr);
       $("net").textContent = (CFG.network === "mainnet" ? "Arc mainnet" : "Arc testnet") + " (chainId " + CFG.chainId + ")";
       $("acct").textContent = addr;
-      $("bal").textContent = ethers.formatUnits(bal, 18) + " USDC";
+      $("bal").textContent = usdc(bal) + " USDC";
       $("info").hidden = false;
-      $("connect").textContent = "Connected";
+      $("connect").textContent = bal === 0n ? "Check balance again" : "Connected";
       $("deploy").disabled = bal === 0n;
-      if (bal === 0n) say("This account has no USDC on Arc for gas. Add 1 USDC and reconnect.", "err");
+      if (bal === 0n) say("This account has no USDC on Arc for gas. Add 1 USDC, then press Check balance again.", "err");
+      // Display only: once the account has gas, an earlier error (the empty-wallet line) no longer applies.
+      else if ($("status").classList.contains("err")) say("");
       window.ethereum.on && window.ethereum.on("accountsChanged", () => location.reload());
       window.ethereum.on && window.ethereum.on("chainChanged", () => location.reload());
     } catch (e) { say(errMsg(e), "err"); }
