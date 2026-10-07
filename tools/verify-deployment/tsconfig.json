@@ -1,0 +1,13 @@
+{
+  "$comment": "Type-checks the CLI (plain JavaScript with JSDoc, `// @ts-check`) and its tests with Node types. The CLI imports the deploy page's modules (web/v2/deploy/lib); vendor/viem.d.ts there re-exports the pinned viem's declarations, mapped here to the workspace package.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom"],
+    "types": ["node"],
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "paths": { "viem": ["./node_modules/viem/_types/index.d.ts"] }
+  },
+  "include": ["verify-deployment.mjs", "test", "*.config.ts"]
+}

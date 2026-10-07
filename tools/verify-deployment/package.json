@@ -1,0 +1,34 @@
+{
+  "name": "@paylink/verify-deployment",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Re-verifies a PayLinkV2 deployment on-chain through the registry's RPC endpoints and writes protocol/deployments/<chainId>.json, with the deploy page's own verifier (web/v2/deploy/lib). Zero runtime dependencies: plain Node.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "tools/verify-deployment"
+  },
+  "type": "module",
+  "bin": {
+    "verify-deployment": "./verify-deployment.mjs"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "verify": "node verify-deployment.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@paylink/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "viem": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

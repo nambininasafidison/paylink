@@ -15,6 +15,16 @@ v2 packages under `packages/` and `apps/` are added during the build window. The
 
 **Fonts.** The OFL allows bundling, embedding and redistributing the fonts with software, provided that the copyright notice and licence text travel with them and the fonts are not sold on their own. The v2 design package (`packages/design`) self-hosts the same fonts and must ship the same two OFL texts next to the `.woff2` files. Subsetting a font counts as a modification under the OFL. Neither copyright line declares a Reserved Font Name, so the subsets can keep their original family names. Re-check this if the font sources are ever updated.
 
+### 1.1 Distributed with the v2 deploy page (`web/v2/deploy/`)
+
+The page links v1's `web/paylink.css` and fonts above. Its one library is a vendored, unminified bundle built from the pinned packages by `tools/deploy-page/scripts/vendor.ts`; the licence texts ship next to it in `web/v2/deploy/vendor/LICENSES.txt` and the checksums in `web/v2/deploy/vendor/SHA256SUMS`.
+
+| Component | Version | Licence | Where |
+|---|---|---|---|
+| viem (18 utility functions) | 2.57.3 | MIT, © weth, LLC | `web/v2/deploy/vendor/viem.js` |
+| abitype (ABI formatting, pulled in by viem) | 1.2.3 | MIT, © weth, LLC | same bundle |
+| @noble/hashes (keccak-256) | 1.8.0 | MIT, © Paul Miller | same bundle |
+
 ## 2. Compiled into the v2 contract
 
 | Component | Version | Licence | Notes |
@@ -69,7 +79,8 @@ Credit: **This project's indexer (`apps/indexer`) is built with HyperIndex by En
 | @types/node | 22.20.5 | MIT |
 | @vitest/coverage-v8 | 5.0.3 | MIT |
 | Playwright (@playwright/test) | 1.56.1 | Apache-2.0 |
-| axe-core and @axe-core/playwright | exact pin | MPL-2.0 (tests only, unmodified) |
+| axe-core | 4.13.0 | MPL-2.0 (e2e only, injected unmodified into the page under test) |
+| rolldown | 1.2.12 | MIT (bundles the deploy page's vendored viem subset) |
 | wrangler | exact pin | MIT OR Apache-2.0 |
 | size-limit | exact pin | MIT |
 | v1 tooling: solc-js, ganache | 0.8.26, 7.9.2 | MIT, MIT |

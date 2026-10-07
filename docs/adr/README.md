@@ -8,7 +8,7 @@ PayLink records significant engineering decisions as ADRs in the [MADR 4](https:
 - decision outcome, with consequences and confirmation;
 - pros and cons of each option.
 
-Each record starts with YAML front matter for its status, date and decision-makers. ADRs 0011 and 0012 were written with the workspace and toolchain changes they decide, and use an equivalent header list (status, date, deciders, related) with Context, Options, Decision and Consequences sections.
+Each record starts with YAML front matter for its status, date and decision-makers. ADRs 0011 to 0013 were written with the workspace and toolchain changes they decide, and use an equivalent header list (status, date, deciders, related) with Context, Options, Decision and Consequences sections.
 
 An ADR is never edited to reverse a decision. A new ADR supersedes it, and the old one's status becomes `superseded by ADR-NNNN`. Editorial fixes are allowed.
 
@@ -26,6 +26,7 @@ An ADR is never edited to reverse a decision. A new ADR supersedes it, and the o
 | [0010](0010-arc-stays-on-v1.md) | The Arc Microgrants entry stays on frozen v1 | accepted | 2026-10-05 |
 | [0011](0011-workspace-layout.md) | pnpm workspace at the repository root, with the frozen v1 manifest as the root project | accepted | 2026-10-05 |
 | [0012](0012-toolchain-pinning-and-vendoring.md) | Toolchain pinning, sandbox bootstrap and vendored forge-std | accepted | 2026-10-05 |
+| [0013](0013-browser-deploy-page.md) | Browser deploy page on the current Pages root, sharing one verifier with a CLI | accepted | 2026-10-07 |
 
 ## Writing a new ADR
 

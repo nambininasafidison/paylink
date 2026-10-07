@@ -5,7 +5,7 @@ This folder holds one file for the release artifact and one file per chain that 
 | File | Written by | Checked by |
 |---|---|---|
 | `release.json` | `forge script script/Predict.s.sol --sig 'writeRelease()'` | `test/script/Scripts.t.sol::test_ReleaseLockMatchesBuild` (fails until the file matches the build) |
-| `<chainId>.json` | `forge script script/Deploy.s.sol --rpc-url <rpc> --sig 'record()'`, after the broadcast | `record()` re-verifies the live code before writing; `deployments-check.yml` re-checks every file nightly |
+| `<chainId>.json` | `forge script script/Deploy.s.sol --rpc-url <rpc> --sig 'record()'`, after the broadcast; or [`tools/verify-deployment`](../../tools/verify-deployment/README.md) after a deployment from the browser page `web/v2/deploy/` (same bytes, see below) | `record()` and `tools/verify-deployment` re-verify the live code before writing; `deployments-check.yml` re-checks every file nightly |
 
 Spec: PAYLINK-V2-SPEC §3.3.7. Procedure: [docs/runbooks/deploy.md](../../docs/runbooks/deploy.md).
 
@@ -60,11 +60,15 @@ The scripts refuse any build that is not the release build (`NotReleaseBuild`): 
 | `bytecode.runtimeCodeHash`, `bytecode.runtimeCodeSize` | keccak256 and size of the code actually on that chain (differs per chain) |
 | `bytecode.masking`, `bytecode.immutableReferences` | As in `release.json` |
 | `compiler`, `dependencies` | As in `release.json` |
-| `source.commit` | `PAYLINK_GIT_COMMIT`, else `GITHUB_SHA`, else `unknown` |
+| `source.commit` | Forge: `PAYLINK_GIT_COMMIT`, else `GITHUB_SHA`, else `unknown`. The deploy page and `tools/verify-deployment`: the last commit that changed `protocol/src` or `release.json` (`sourceCommit` in `web/v2/deploy/data/release.json`); pass that value as `PAYLINK_GIT_COMMIT` for byte-identical forge output |
 | `eip712Domain` | `{name, version, chainId, verifyingContract}` as verified on chain |
 | `explorers` | `[{name, address, tx}]` links for the chains in the spec's registry (§3.4); empty for chains without a known explorer |
 
 `record()` refuses a broadcast for another chain, a failed receipt, a transaction to another factory, a CREATE2 `contractAddress` other than the prediction, and an unknown transaction type, then verifies the live code (the four checks above) before writing the file.
+
+## Three writers, one format
+
+`Deploy.s.sol record()` (Foundry), the browser deploy page [`web/v2/deploy/`](../../web/v2/deploy/) and [`tools/verify-deployment`](../../tools/verify-deployment/README.md) write this file. The last two share `web/v2/deploy/lib/core.js`, a port of `PayLinkRelease._deploymentJson` and `Json.sol`; `tools/deploy-page/test/core.test.ts` re-renders records written by forge (`tools/deploy-page/test/fixtures/forge-records.json`) byte for byte, and `e2e/specs/record-parity.spec.ts` deploys with forge on anvil and requires the page and the CLI to print the same bytes.
 
 ## Commands
 

@@ -12,18 +12,27 @@ catalogs:
     '@openzeppelin/contracts':
       specifier: 5.3.0
       version: 5.3.0
+    '@playwright/test':
+      specifier: 1.56.1
+      version: 1.56.1
     '@types/node':
       specifier: 22.20.5
       version: 22.20.5
     '@vitest/coverage-v8':
       specifier: 5.0.3
       version: 5.0.3
+    axe-core:
+      specifier: 4.13.0
+      version: 4.13.0
     eslint:
       specifier: 10.12.0
       version: 10.12.0
     fast-check:
       specifier: 4.10.2
       version: 4.10.2
+    rolldown:
+      specifier: 1.2.12
+      version: 1.2.12
     typescript:
       specifier: 6.0.3
       version: 6.0.3
@@ -54,6 +63,30 @@ importers:
       ganache:
         specifier: ^7.9.2
         version: 7.9.2
+
+  e2e:
+    devDependencies:
+      '@paylink/eslint-config':
+        specifier: workspace:*
+        version: link:../packages/eslint-config
+      '@playwright/test':
+        specifier: 'catalog:'
+        version: 1.56.1
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      axe-core:
+        specifier: 'catalog:'
+        version: 4.13.0
+      eslint:
+        specifier: 'catalog:'
+        version: 10.12.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      viem:
+        specifier: 'catalog:'
+        version: 2.57.3(bufferutil@4.0.7)(typescript@6.0.3)(utf-8-validate@6.0.3)
 
   packages/chains:
     dependencies:
@@ -138,6 +171,66 @@ importers:
       '@openzeppelin/contracts':
         specifier: 'catalog:'
         version: 5.3.0
+
+  tools/deploy-page:
+    devDependencies:
+      '@paylink/chains':
+        specifier: workspace:*
+        version: link:../../packages/chains
+      '@paylink/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@paylink/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.3(vitest@5.0.3)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.12.0
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.2.12
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      viem:
+        specifier: 'catalog:'
+        version: 2.57.3(bufferutil@4.0.7)(typescript@6.0.3)(utf-8-validate@6.0.3)
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.2(@types/node@22.20.5)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(vite@8.3.2(@types/node@22.20.5))
+
+  tools/verify-deployment:
+    devDependencies:
+      '@paylink/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      eslint:
+        specifier: 'catalog:'
+        version: 10.12.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      viem:
+        specifier: 'catalog:'
+        version: 2.57.3(bufferutil@4.0.7)(typescript@6.0.3)(utf-8-validate@6.0.3)
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.2(@types/node@22.20.5)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(vite@8.3.2(@types/node@22.20.5))
 
 packages:
 
@@ -273,6 +366,11 @@ packages:
 
   '@oxc-project/types@0.152.0':
     resolution: {integrity: sha512-oM/5rLBm2tPkg0iBgkH/FOeR3PCDpY19GTgAZjMFM8h9WI9VW7cLgzp6nwtarYKmovavIQZ+Fe/RKX/8C8O/Rw==}
+
+  '@playwright/test@1.56.1':
+    resolution: {integrity: sha512-vSMYtL/zOcFpvJCW71Q/OEGQb7KYBPAdKh35WNSkaZA75JlAO8ED8UN6GUNTm3drWomcbcqRPFqQbLae8yBTdg==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@rolldown/binding-android-arm-eabi@1.2.12':
     resolution: {integrity: sha512-dB/a1214qKfHMXCpgqR4OZT+jS4kTyEXbQGJPqzobt5EwH5rX080pxE37alt3RzvR1bf1Yz/yGqRfrYAxuPw0A==}
@@ -554,6 +652,10 @@ packages:
   async@2.6.4:
     resolution: {integrity: sha512-mzo5dfJYwAn29PeiJ0zvwTo04zj8HDJj0Mn8TD7sno7q12prdbnasKJHhkm2c1LgrhlJ0teaea8860oxi51mGA==}
 
+  axe-core@4.13.0:
+    resolution: {integrity: sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==}
+    engines: {node: '>=4'}
+
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
@@ -724,6 +826,11 @@ packages:
     peerDependenciesMeta:
       debug:
         optional: true
+
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -980,6 +1087,16 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  playwright-core@1.56.1:
+    resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.56.1:
+    resolution: {integrity: sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   postcss@8.5.29:
     resolution: {integrity: sha512-49cGhUbXj8Qenv0iTMxA1cFBzxXoctpC9Ujd77t1WcbJIr6nF/eI7g/8MgxrYldFRuAXvja7xQRwavoW7kgrxQ==}
@@ -1349,6 +1466,10 @@ snapshots:
 
   '@oxc-project/types@0.152.0': {}
 
+  '@playwright/test@1.56.1':
+    dependencies:
+      playwright: 1.56.1
+
   '@rolldown/binding-android-arm-eabi@1.2.12':
     optional: true
 
@@ -1418,7 +1539,7 @@ snapshots:
 
   '@types/bn.js@5.1.0':
     dependencies:
-      '@types/node': 22.7.5
+      '@types/node': 22.20.5
 
   '@types/chai@5.2.3':
     dependencies:
@@ -1619,6 +1740,8 @@ snapshots:
     dependencies:
       lodash: 4.17.21
 
+  axe-core@4.13.0: {}
+
   balanced-match@4.0.4: {}
 
   base64-js@1.5.1: {}
@@ -1795,6 +1918,9 @@ snapshots:
   flatted@3.4.4: {}
 
   follow-redirects@1.16.1: {}
+
+  fsevents@2.3.2:
+    optional: true
 
   fsevents@2.3.3:
     optional: true
@@ -2002,6 +2128,14 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.56.1: {}
+
+  playwright@1.56.1:
+    dependencies:
+      playwright-core: 1.56.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   postcss@8.5.29:
     dependencies:

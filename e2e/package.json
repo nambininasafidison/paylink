@@ -1,0 +1,30 @@
+{
+  "name": "@paylink/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright end-to-end tests (PAYLINK-V2-SPEC §4.2): the deploy page against anvil chains with a mock EIP-1193 wallet, and record parity between the page, tools/verify-deployment and Foundry.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "e2e"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 ."
+  },
+  "devDependencies": {
+    "@paylink/eslint-config": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "axe-core": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "viem": "catalog:"
+  }
+}

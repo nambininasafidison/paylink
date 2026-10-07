@@ -374,3 +374,4 @@ The blocking gates, the nightly evidence jobs and the commit conventions are sum
 | [0010](adr/0010-arc-stays-on-v1.md) | Arc stays on v1 |
 | [0011](adr/0011-workspace-layout.md) | pnpm workspace at the root, with the frozen v1 manifest as the root project |
 | [0012](adr/0012-toolchain-pinning-and-vendoring.md) | Toolchain pinning, sandbox bootstrap and vendored forge-std |
+| [0013](adr/0013-browser-deploy-page.md) | Browser deploy page on the current Pages root, sharing one verifier with a CLI |

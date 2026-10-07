@@ -1,0 +1,12 @@
+{
+  "$comment": "Type-checks the tooling and tests of the deploy page (scripts, tests, configs) with Node types. tsconfig.web.json type-checks the page's own JavaScript.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom"],
+    "types": ["node"],
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["scripts", "test", "src", "*.config.ts"]
+}

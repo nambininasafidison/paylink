@@ -1,0 +1,17 @@
+{
+  "$comment": "Type-checks the deploy page's plain JavaScript (web/v2/deploy, `// @ts-check` + JSDoc) under the workspace's strict options, in the browser's module model (no build step: the files are served as written). vendor/viem.d.ts re-exports the pinned viem's own declarations, mapped here to the workspace package; vendor/viem.js itself is generated and not checked.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "customConditions": [],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": [],
+    "paths": { "viem": ["./node_modules/viem/_types/index.d.ts"] }
+  },
+  "include": ["../../web/v2/deploy/**/*.js", "../../web/v2/deploy/**/*.d.ts"],
+  "exclude": ["../../web/v2/deploy/vendor/viem.js"]
+}

@@ -13,6 +13,7 @@ packages:
   - protocol
   - packages/*
   - apps/*
+  - tools/*
   - e2e
 
 # ------------------------------------------------------------------ versions
@@ -44,6 +45,9 @@ catalog:
   '@eslint/js': 10.0.1
   fast-check: 4.10.2 # §4.1 property tests (URL codec, amounts at 6/18 decimals, error decoder)
   '@types/node': 22.20.5 # Node 22 line (.nvmrc 22.22.0); tests and scripts only, never src/
+  # Deploy page (web/v2/deploy, tools/deploy-page), added on 2026-10-07.
+  rolldown: 1.2.12 # bundles the deploy page's vendored viem subset; the same version vite 8.3.2 already resolves
+  axe-core: 4.13.0 # e2e accessibility gate (spec §4.1 "axe 0 violations"); 4.14.0 was two days old at pinning
 
 # ------------------------------------------------------------------ supply chain (spec §4.5, threat #17)
 

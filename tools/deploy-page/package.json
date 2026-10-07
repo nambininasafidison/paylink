@@ -1,0 +1,39 @@
+{
+  "name": "@paylink/deploy-page",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build tooling and tests of the browser deploy page (web/v2/deploy): generates its chain and release data from @paylink/chains and the protocol artifact, vendors its pinned viem subset, and type-checks, lints and tests its plain-JavaScript modules.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "tools/deploy-page"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "generate": "node --conditions=@paylink/source scripts/generate.ts",
+    "generate:check": "node --conditions=@paylink/source scripts/generate.ts --check",
+    "vendor": "node scripts/vendor.ts",
+    "vendor:check": "node scripts/vendor.ts --check",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "lint": "eslint --max-warnings 0 . && cd ../.. && eslint --max-warnings 0 --config tools/deploy-page/eslint.web.config.js web/v2/deploy",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@paylink/chains": "workspace:*",
+    "@paylink/eslint-config": "workspace:*",
+    "@paylink/sdk": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "viem": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

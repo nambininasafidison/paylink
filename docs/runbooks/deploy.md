@@ -95,13 +95,26 @@ No manual RPC or bytecode handling.
 3. The job runs the three steps above with `TESTNET_DEPLOYER_PK` from the `testnet` environment, prints the prediction before broadcasting, verifies the source on Sourcify or Blockscout, and opens a pull request with `protocol/deployments/<chainId>.json`.
 4. Claude checks the logs and the pull request. You merge it.
 
-### Route B: browser (`https://<app>.pages.dev/deploy/`)
+### Route B: browser, `https://paylink-mg.pages.dev/v2/deploy/` (available now)
 
-1. Connect **W-deploy** and choose the chain.
-2. **Check that the displayed `initCodeHash` equals the one in `release.json` at the `contracts-v2.0.0` tag** (and in its release notes). If it differs, stop.
-3. Read the predicted address and the gas cost.
-4. Sign in the wallet.
-5. Copy the JSON the page produces into a new GitHub issue. Claude then runs step 3 (`record()`) in a GitHub Actions job, because the sandbox cannot reach testnets; it re-verifies the live code and opens a pull request with `protocol/deployments/<chainId>.json`.
+The deploy page ([ADR 0013](../adr/0013-browser-deploy-page.md), [tools/deploy-page](../../tools/deploy-page/README.md)) is served by the current Cloudflare Pages configuration (root `web`, no build) as soon as it is on `main`. It runs the same three steps in the browser, with your wallet signing the one transaction.
+
+1. Open `https://paylink-mg.pages.dev/v2/deploy/` (on the phone: in MetaMask's own browser). `?chain=monad`, `?chain=base` or `?chain=arb` preselects a network; any other chain is refused.
+2. **Release identity, before any prompt:** check that the `initCodeHash` on the page equals `release.json` (`0x289dcd64…7ac5` for 2.0.0) and that the CREATE2 address is `0x448eCce9711860502806A3d5B021a4f9Ba715082`. If either differs, stop.
+3. **Wallet:** pick your wallet (EIP-6963 list). **Network:** pick MONAD, BASE or ARB; if the wallet is elsewhere, press *Switch wallet*. A wallet that does not know the chain is asked to add it with the registry's RPC and explorers.
+4. **Review:** the display window shows the method (CREATE2 through `0x4e59b44847b379578588920cA78FbF26c0B4956C` on all three testnets as of 2026-10-07), the contract address, the gas limit (`clamp(estimate × 1.10, floor, ceiling)` from the measured table), the cost and your balance after. On Monad the whole limit is charged: about 3.0M gas × ~102 gwei ≈ **0.31 MON**. Every lamp must be green (amber "Route" only on a chain without the proxy). The key stays locked if the balance does not cover the cost.
+5. **Deploy**, then confirm in the wallet. The wallet must show the same target and gas limit. Do not edit the gas limit in the wallet.
+6. The page waits for the receipt, verifies the contract (code, masked runtime hash, CBOR metadata, EIP-712 immutables, `eip712Domain()`) and the transaction, and prints `protocol/deployments/<chainId>.json`. **Download** it (or **Copy**) and send it to Claude, or paste it in a GitHub issue.
+7. Claude re-verifies independently and commits the record:
+
+   ```bash
+   node tools/verify-deployment/verify-deployment.mjs --chain <chainId> --address <address> --tx <txHash> --compare <the downloaded file>
+   pnpm --filter @paylink/chains run generate && pnpm --filter @paylink/deploy-page run generate
+   ```
+
+   then adds the deployment to [`docs/tools/address-allowlist.json`](../tools/address-allowlist.json) (`"use": "registry"`, the chain id) and runs the gates. The page and the CLI write the same bytes as `Deploy.s.sol record()` (`e2e/specs/record-parity.spec.ts`).
+
+If the page reloads or the phone browser restarts after you signed, open it again on the same network: it offers *Check that transaction* instead of a second deployment. If the CREATE2 address is already occupied (deployed by another route), the page only verifies it; paste the deployment transaction hash to print the record.
 
 ### Route C: your own computer, with a Foundry keystore
 
@@ -121,6 +134,7 @@ Only on your own machine, **never in the Claude Code sandbox**. Import W-deploy 
 
 ## 5. After every deployment
 
+- [ ] `node tools/verify-deployment/verify-deployment.mjs --chain <chainId> --address <address> --tx <txHash> --check` exits 0 (every reachable registry RPC agrees with the committed record).
 - [ ] `deployments-check.yml` is green: the `initCodeHash`, the masked runtime code, the seven EIP-712 immutables and the ERC-5267 domain all match ([ARCHITECTURE §6](../ARCHITECTURE.md#6-deployments-and-code-integrity)).
 - [ ] The source is verified on the explorer: `testnet.monadvision.com` for Monad, `base-sepolia.blockscout.com` or `sepolia.basescan.org` for Base.
 - [ ] `/status/` shows the deployment green.

@@ -1,0 +1,174 @@
+{
+  "schema": "paylink.deploy-page.chains/1",
+  "generator": "tools/deploy-page/scripts/generate.ts",
+  "source": "@paylink/chains (packages/chains)",
+  "chains": [
+    {
+      "chainId": 10143,
+      "caip2": "eip155:10143",
+      "name": "Monad testnet",
+      "label": "MONAD",
+      "tier": "T0",
+      "testnet": true,
+      "nativeCurrency": {
+        "name": "Monad",
+        "symbol": "MON",
+        "decimals": 18
+      },
+      "rpc": [
+        "https://testnet-rpc.monad.xyz",
+        "https://rpc-testnet.monadinfra.com"
+      ],
+      "explorers": [
+        {
+          "name": "MonadVision",
+          "url": "https://testnet.monadvision.com"
+        },
+        {
+          "name": "Monadscan",
+          "url": "https://testnet.monadscan.com"
+        }
+      ],
+      "gasModel": {
+        "chargesGasLimit": true,
+        "txGasCap": "30000000",
+        "reserveBalance": "10000000000000000000"
+      },
+      "deployGas": {
+        "profile": "monad",
+        "hardfork": "MonadTen",
+        "network": "monad",
+        "provisional": true,
+        "evidence": "anvil profile \"monad\" (hardfork MonadTen, network monad): packages/chains/data/gas-measurements.json",
+        "create": {
+          "estimate": "2677645",
+          "gasUsed": "2677645",
+          "floor": "2678000",
+          "ceiling": "4017000"
+        },
+        "create2": {
+          "estimate": "2720773",
+          "gasUsed": "2682095",
+          "floor": "2721000",
+          "ceiling": "4082000"
+        }
+      },
+      "deployment": null,
+      "notes": [
+        "Monad charges the gas limit, not the gas used (C): send clamp(estimate x 1.10, floor, ceiling).",
+        "An EOA must keep a 10 MON reserve balance (C); the relayer never sends value.",
+        "Public RPC eth_getLogs is capped at 100 blocks (L); the per-transaction gas cap is 30M (L).",
+        "Cold SLOAD/SSTORE cost 8,100 gas and cold account access 10,100 (L): gas bounds come from anvil's Monad emulation (MonadTen) and must be re-measured on testnet with AUSD."
+      ]
+    },
+    {
+      "chainId": 84532,
+      "caip2": "eip155:84532",
+      "name": "Base Sepolia",
+      "label": "BASE",
+      "tier": "T0",
+      "testnet": true,
+      "nativeCurrency": {
+        "name": "Sepolia Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpc": [
+        "https://sepolia.base.org"
+      ],
+      "explorers": [
+        {
+          "name": "Basescan",
+          "url": "https://sepolia.basescan.org"
+        },
+        {
+          "name": "Blockscout",
+          "url": "https://base-sepolia.blockscout.com"
+        }
+      ],
+      "gasModel": {
+        "chargesGasLimit": false,
+        "txGasCap": null,
+        "reserveBalance": null
+      },
+      "deployGas": {
+        "profile": "base",
+        "hardfork": "Beryl",
+        "network": "base",
+        "provisional": true,
+        "evidence": "anvil profile \"base\" (hardfork Beryl, network base): packages/chains/data/gas-measurements.json",
+        "create": {
+          "estimate": "2673065",
+          "gasUsed": "2673065",
+          "floor": "2674000",
+          "ceiling": "4011000"
+        },
+        "create2": {
+          "estimate": "2717457",
+          "gasUsed": "2678851",
+          "floor": "2718000",
+          "ceiling": "4077000"
+        }
+      },
+      "deployment": null,
+      "notes": [
+        "Gas is paid in Sepolia ETH from faucets (spec §6.2)."
+      ]
+    },
+    {
+      "chainId": 421614,
+      "caip2": "eip155:421614",
+      "name": "Arbitrum Sepolia",
+      "label": "ARB",
+      "tier": "T1",
+      "testnet": true,
+      "nativeCurrency": {
+        "name": "Sepolia Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpc": [
+        "https://sepolia-rollup.arbitrum.io/rpc"
+      ],
+      "explorers": [
+        {
+          "name": "Arbiscan",
+          "url": "https://sepolia.arbiscan.io"
+        },
+        {
+          "name": "Blockscout",
+          "url": "https://arbitrum-sepolia.blockscout.com"
+        }
+      ],
+      "gasModel": {
+        "chargesGasLimit": false,
+        "txGasCap": null,
+        "reserveBalance": null
+      },
+      "deployGas": {
+        "profile": "ethereum",
+        "hardfork": "Bpo1",
+        "network": "ethereum",
+        "provisional": true,
+        "evidence": "anvil profile \"ethereum\" (hardfork Bpo1, network ethereum): packages/chains/data/gas-measurements.json",
+        "create": {
+          "estimate": "2673065",
+          "gasUsed": "2673065",
+          "floor": "2674000",
+          "ceiling": "4011000"
+        },
+        "create2": {
+          "estimate": "2717457",
+          "gasUsed": "2678851",
+          "floor": "2718000",
+          "ceiling": "4077000"
+        }
+      },
+      "deployment": null,
+      "notes": [
+        "Same PayLinkV2 artifact as Base; added only if Sepolia ETH reaches the deployer by Oct 9 (spec §2.2).",
+        "Arbitrum's eth_estimateGas includes the L1 posting cost in L2 gas units (L): the snapshot ceilings cover execution only, so re-measure before relaying there."
+      ]
+    }
+  ]
+}

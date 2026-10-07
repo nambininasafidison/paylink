@@ -1,0 +1,5 @@
+{
+  "//": "Module scope of the v2 pages under web/v2: their .js files are ES modules. Browsers load them with type=module; Node (tools/verify-deployment imports web/v2/deploy/lib) and TypeScript read this field. Not a package: nothing to install.",
+  "private": true,
+  "type": "module"
+}

@@ -1,0 +1,10 @@
+{
+  "$comment": "Type-checks the Playwright specs and fixtures (Node + DOM types: page functions run in the browser).",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["specs", "fixtures", "*.config.ts"]
+}

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Deploy PayLink v2</title>
+<meta name="description" content="Deploy the PayLinkV2 release contract to Monad testnet, Base Sepolia or Arbitrum Sepolia from your own wallet, verify it on-chain and print its deployment record.">
+<meta name="theme-color" content="#EEECE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0E0D" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161615'/%3E%3Cpath d='M9 23A14 14 0 0 1 23 9' fill='none' stroke='%23EEECE6' stroke-width='2.6'/%3E%3Ccircle cx='9' cy='23' r='2.6' fill='%23161615' stroke='%23EEECE6' stroke-width='2'/%3E%3Ccircle cx='23' cy='9' r='3.8' fill='%23FF5A1F'/%3E%3C/svg%3E">
+<link rel="preload" href="../../fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../fonts/martian-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../../paylink.css">
+<link rel="stylesheet" href="deploy.css">
+<script type="module" src="app.js"></script>
+</head>
+<body class="page-v2deploy" data-phase="boot">
+<a class="skip" href="#terminal">Skip to the deployer</a>
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="./" aria-label="PayLink v2 deployer">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect class="tile" width="32" height="32" rx="8"/>
+        <path class="arc" d="M9 23A14 14 0 0 1 23 9" fill="none" stroke-width="2.6"/>
+        <circle class="origin" cx="9" cy="23" r="2.6" stroke-width="2"/>
+        <circle class="dot" cx="23" cy="9" r="3.8"/>
+      </svg>
+      <span class="word">PayLink</span>
+      <span class="on-arc">v2 · deploy</span>
+    </a>
+    <a class="key key-line ext" href="https://github.com/nambininasafidison/paylink/tree/main/protocol" rel="noopener noreferrer" target="_blank">Source</a>
+  </div>
+</header>
+
+<div class="frame">
+  <div class="lead">
+    <div class="intro">
+      <p class="kicker">Release <span data-bind="release">2.0.0</span> · one transaction per chain</p>
+      <h1>Deploy PayLink&nbsp;v2<span class="stop">.</span></h1>
+      <p class="lede">This page publishes the audited <strong>PayLinkV2</strong> release from <strong>your own wallet</strong>, checks the contract it creates on-chain, and prints the deployment record for the repository. Your key never leaves the wallet.</p>
+      <dl class="specs">
+        <div><dt>Approvals</dt><dd>1</dd></div>
+        <div><dt>Networks</dt><dd data-bind="chain-count">3</dd></div>
+        <div><dt>Owner</dt><dd>None</dd></div>
+        <div><dt>Keys</dt><dd>Yours</dd></div>
+      </dl>
+    </div>
+
+    <div class="lead-aside">
+      <aside class="about" aria-labelledby="ident-title">
+        <h2 class="eyebrow" id="ident-title">Release identity</h2>
+        <p class="ident-note">Compare these with <code>protocol/deployments/release.json</code> before you sign. The page refuses to run if its own copy of the bytecode does not hash to this value.</p>
+        <dl class="ident" id="ident">
+          <div><dt>initCodeHash</dt><dd data-bind="initCodeHash">…</dd></div>
+          <div><dt>CREATE2 address</dt><dd data-bind="create2Address">…</dd></div>
+          <div><dt>Salt</dt><dd><code data-bind="saltPreimage">…</code> <span class="ident-sub" data-bind="salt"></span></dd></div>
+          <div><dt>Compiler</dt><dd data-bind="compiler">…</dd></div>
+          <div><dt>Source</dt><dd data-bind="sourceCommit">…</dd></div>
+        </dl>
+      </aside>
+      <aside class="about notes" aria-labelledby="before">
+        <h2 class="eyebrow" id="before">Before you start</h2>
+        <ul class="note-list">
+          <li><b>Gas on the chain you pick.</b> About 0.31&nbsp;MON on Monad testnet, where the whole gas limit is charged; a fraction of a cent of Sepolia ETH on Base or Arbitrum.</li>
+          <li><b>Same address everywhere.</b> Where the deterministic-deployment proxy exists, the contract lands at its CREATE2 address on every chain. If it already exists there, the page only verifies it.</li>
+          <li><b>One deployment per chain.</b> The contract has no owner and no admin: whoever sends the transaction only pays its gas.</li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+
+  <main class="device procedure" id="terminal" tabindex="-1" aria-labelledby="terminal-title">
+    <div class="plate"><span><i class="led" aria-hidden="true"></i><span id="terminal-title">Contract deployer</span></span><span class="model">PayLinkV2 · <span data-bind="release">2.0.0</span></span></div>
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <section class="proc" id="step-wallet" aria-labelledby="h-wallet">
+      <div class="proc-n" aria-hidden="true">01</div>
+      <div class="proc-body">
+        <h2 id="h-wallet">Wallet</h2>
+        <p class="proc-text" id="wallet-text">Choose the wallet that pays the deployment gas.</p>
+        <div class="wallets" id="wallets" role="group" aria-label="Wallets in this browser"><p class="loading">Looking for wallets</p></div>
+        <dl class="facts" id="wallet-facts" hidden>
+          <div><dt>Wallet</dt><dd id="wallet-name"></dd></div>
+          <div><dt>Account</dt><dd id="wallet-account"></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="proc" id="step-network" aria-labelledby="h-network">
+      <div class="proc-n" aria-hidden="true">02</div>
+      <div class="proc-body">
+        <h2 id="h-network">Network</h2>
+        <div class="bands" id="bands" role="radiogroup" aria-labelledby="h-network"></div>
+        <dl class="facts" id="network-facts" hidden>
+          <div><dt>Network</dt><dd id="net-name"></dd></div>
+          <div><dt>Wallet on</dt><dd id="net-wallet"></dd></div>
+          <div><dt>Balance</dt><dd id="net-balance"></dd></div>
+        </dl>
+        <button class="key key-line key-switch" id="switch" type="button" hidden>Switch wallet</button>
+        <div class="status" id="network-status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="proc" id="step-review" aria-labelledby="h-review">
+      <div class="proc-n" aria-hidden="true">03</div>
+      <div class="proc-body">
+        <h2 id="h-review">Review and deploy</h2>
+        <p class="proc-text" id="review-text">The transaction appears here before your wallet asks for it.</p>
+        <div class="screen review" id="review" hidden>
+          <div class="screen-top"><span id="review-kind">Transaction</span><span id="review-chain"></span></div>
+          <dl class="readings" id="readings"></dl>
+        </div>
+        <ul class="lamps" id="lamps" aria-label="Pre-flight checks" hidden></ul>
+        <button class="key key-primary" id="deploy" type="button" disabled>Deploy PayLinkV2</button>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="proc" id="step-record" aria-labelledby="h-record">
+      <div class="proc-n" aria-hidden="true">04</div>
+      <div class="proc-body">
+        <h2 id="h-record">Verify and record</h2>
+        <p class="proc-text" id="record-text">Once the contract exists, the page checks it on-chain and prints <code>protocol/<wbr>deployments/<wbr>&lt;chainId&gt;.json</code>.</p>
+        <div id="resume" hidden></div>
+        <form class="txhash" id="txhash-form" hidden>
+          <label for="txhash">Deployment transaction hash</label>
+          <div class="txhash-row">
+            <input id="txhash" name="txhash" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0x…" pattern="0x[0-9a-fA-F]{64}" aria-describedby="txhash-hint">
+            <button class="key key-line" type="submit">Check</button>
+          </div>
+          <p class="field-hint" id="txhash-hint">The contract already exists. Paste the transaction that created it to print its record.</p>
+        </form>
+        <ul class="checks" id="checks" aria-label="On-chain verification" hidden></ul>
+        <div class="receipt-wrap" id="slip" hidden></div>
+        <div class="record" id="record" hidden>
+          <div class="record-head">
+            <span class="label" id="record-path">protocol/deployments/…</span>
+            <span class="record-keys">
+              <button class="key key-text" id="copy" type="button">Copy</button>
+              <button class="key key-text" id="download" type="button">Download</button>
+            </span>
+          </div>
+          <pre class="record-json" id="record-json" tabindex="0" aria-label="Deployment record JSON"></pre>
+          <p class="record-next">Send this file to Claude or paste it in a GitHub issue. <code>tools/verify-deployment</code> re-checks the contract on-chain and commits the same bytes.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="bar">
+    <div class="foot-item"><span class="foot-label">What gets deployed</span>PayLinkV2: signed payment links that move digital dollars straight from payer to payee. Immutable, ownerless, fee-less; it never holds funds.</div>
+    <div class="foot-item"><span class="foot-label">Made in</span>Antananarivo, Madagascar <span class="coords">18°55′S 47°31′E</span></div>
+    <div class="foot-item"><span class="foot-label">Record format</span><a class="ext" href="https://github.com/nambininasafidison/paylink/blob/main/protocol/deployments/README.md" rel="noopener noreferrer" target="_blank">deployments/README</a></div>
+  </div>
+</footer>
+<noscript><p class="noscript">This page needs JavaScript to talk to your wallet.</p></noscript>
+</body>
+</html>

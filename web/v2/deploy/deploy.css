@@ -1,0 +1,204 @@
+/* PayLink v2 deployer: the v1 "Precision Terminal" (../../paylink.css: tokens, keys, device, display windows, LEDs,
+   receipt) plus the v2 pieces this page needs, in the same grammar: a four-step procedure, an engraved band selector,
+   a review display window, pre-flight lamps, verification LEDs, a printed slip and the record window.
+   Only tokens from paylink.css; laterite is the only signal colour; display windows stay dark in both themes. */
+
+/* ---------- Page ---------- */
+.skip { position: absolute; left: var(--gutter); top: -60px; z-index: 10; padding: 10px 14px; border-radius: 8px;
+  background: var(--ink); color: var(--bg); font: 600 14px/1 var(--sans); text-decoration: none; }
+.skip:focus { top: 10px; }
+.noscript { max-width: 640px; margin: 0 auto 24px; padding: 0 var(--gutter); color: var(--err); font: 400 13px/1.5 var(--mono); }
+.page-v2deploy .on-arc { border-color: var(--signal-edge); color: var(--signal-ink); }
+#terminal:focus { outline: none; }
+
+/* Release identity: the values a reviewer compares before signing. */
+.ident-note { margin: 8px 0 12px; font-size: 14px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+.ident { margin: 0; border-top: 1.5px solid var(--ink); }
+.ident > div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 12px; padding: 11px 0 10px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.ident dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); word-spacing: 0; }
+.ident dd { margin: 0; min-width: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--ink); word-spacing: 0; overflow-wrap: anywhere; }
+.ident dd code { font-size: inherit; }
+.ident-sub { display: block; color: var(--muted); }
+.about.notes { padding-top: 32px; }
+
+/* Grouped hex: 0x 448e cce9 … 5082, the last group emphasised (addresses). Wraps between groups only. */
+.hex { display: inline-flex; flex-wrap: wrap; column-gap: .5em; row-gap: 0; font-family: var(--mono); letter-spacing: -.01em; word-spacing: 0; }
+.hex-g, .hex-0x { white-space: nowrap; }
+.hex-spoken { -webkit-user-select: none; user-select: none; }
+.hex-0x { color: var(--muted); }
+.hex-end { font-weight: 600; }
+
+/* ---------- The procedure ---------- */
+.procedure { padding: 0 0 6px; }
+.banner { margin: 14px 14px 0; }
+.banner.is-err { border-color: var(--led-err); }
+.proc { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0 12px; padding: 22px 18px 24px 14px; position: relative; }
+.proc + .proc { border-top: 1px solid var(--rule); }
+.proc-body { min-width: 0; }
+.proc-n {
+  width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px;
+  font: 600 11px/1 var(--mono); letter-spacing: .04em; color: var(--muted);
+  background: var(--sunk); box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.proc h2 { font-size: 22px; padding-top: 5px; }
+.proc-text { margin-top: 6px; color: var(--ink-2); font-size: 15px; }
+.proc .facts { margin-top: 12px; }
+.proc .facts > div { grid-template-columns: 84px minmax(0, 1fr); }
+.proc .facts dd { font-size: 14px; overflow-wrap: anywhere; }
+.proc .facts dd .hex { font-size: 12px; line-height: 1.7; }
+.proc .status { margin-top: 14px; }
+
+/* Step lights: the current step glows laterite, finished steps go green, later steps stay dark and quiet. */
+.proc[data-state="current"] .proc-n { color: var(--on-signal); background: var(--signal); box-shadow: 0 0 0 1px var(--signal-edge), 0 0 12px rgba(255,90,31,calc(var(--glow) * .6)); }
+.proc[data-state="done"] .proc-n { color: #0B2615; background: var(--led-ok); box-shadow: 0 0 0 1px #17924A, 0 0 12px rgba(34,200,102,calc(var(--glow) * .6)); }
+.proc[data-state="failed"] .proc-n { color: #2A0603; background: var(--led-err); box-shadow: 0 0 0 1px #A51D12, 0 0 12px rgba(255,59,46,calc(var(--glow) * .6)); }
+.proc[data-state="pending"] h2 { color: var(--muted); }
+.proc[data-state="pending"] .proc-n { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-2); }
+
+/* The plate light: amber until a verified contract exists, green once it does, red on a failed check. */
+.procedure .plate .led { background: var(--led-wait); box-shadow: 0 0 6px rgba(255,176,0,var(--glow)); }
+[data-phase="done"] .procedure .plate .led { background: var(--led-ok); box-shadow: 0 0 6px rgba(34,200,102,var(--glow)); }
+[data-phase="failed"] .procedure .plate .led, [data-phase="fatal"] .procedure .plate .led { background: var(--led-err); box-shadow: 0 0 6px rgba(255,59,46,var(--glow)); }
+
+/* ---------- 01 Wallets ---------- */
+.wallets { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 14px; }
+.wallets .loading { margin: 4px 0 0; }
+.wallet-key { justify-content: flex-start; width: 100%; min-height: 52px; padding: 0 14px; gap: 12px; background: var(--panel); font-size: 16px; }
+.wallet-key img, .wallet-key .wallet-glyph { width: 28px; height: 28px; flex: none; border-radius: 6px; }
+.wallet-key .wallet-glyph { display: grid; place-items: center; background: var(--sunk); color: var(--muted); font: 600 11px/1 var(--mono); }
+.wallet-label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; text-align: left; }
+.wallet-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.wallet-key .wallet-rdns { max-width: 100%; font: 400 10px/1.35 var(--mono); letter-spacing: .04em; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.wallet-key[aria-pressed="true"]::after { margin-left: auto; }
+.wallet-key[aria-pressed="true"] { border-color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok); }
+.wallet-key[aria-pressed="true"]::after { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--led-ok); box-shadow: 0 0 8px rgba(34,200,102,var(--glow)); }
+.wallets-empty { font-size: 14px; color: var(--ink-2); }
+.wallets-empty b { color: var(--ink); }
+
+/* ---------- 02 Band selector: engraved monochrome labels, a laterite marker on the active band only ---------- */
+.bands { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 14px; padding: 4px; background: var(--sunk); border-radius: 11px; box-shadow: inset 0 1px 2px rgba(0,0,0,.08); }
+.band {
+  -webkit-appearance: none; appearance: none; cursor: pointer; position: relative;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px;
+  min-height: 64px; padding: 9px 10px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); text-align: left;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.band:hover { color: var(--ink); }
+.band-label { font: 600 13px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; word-spacing: 0; }
+.band-id { font: 400 9.5px/1 var(--mono); letter-spacing: .06em; word-spacing: 0; }
+.band::before { content: ""; position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; border-radius: 1px; background: transparent; box-shadow: inset 0 0 0 1px currentColor; opacity: .45; }
+.band[aria-checked="true"] { background: var(--raise); color: var(--ink); box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 0 0 1px var(--rule), 0 2px 6px -2px rgba(0,0,0,.18); }
+.band[aria-checked="true"]::before { background: var(--signal); box-shadow: 0 0 8px rgba(255,90,31,var(--glow)); opacity: 1; }
+.band[aria-checked="true"] .band-id { color: var(--signal-ink); }
+.band:focus-visible { outline-offset: 1px; }
+.band:disabled { cursor: not-allowed; opacity: .55; }
+.key-switch { margin-top: 14px; width: 100%; min-height: 48px; }
+
+/* ---------- 03 Review: the transaction in a display window ---------- */
+.review { margin-top: 18px; padding: 12px 16px 14px; }
+.readings { margin: 6px 0 0; }
+.readings > div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; padding: 9px 0 8px; border-bottom: 1px solid var(--screen-rule); align-items: baseline; }
+.readings > div:last-child { border-bottom: 0; padding-bottom: 2px; }
+.readings dt { font: 400 10px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; color: var(--screen-dim); }
+.readings dd { margin: 0; min-width: 0; color: var(--screen-ink); font: 400 12px/1.6 var(--mono); word-spacing: 0; overflow-wrap: anywhere; }
+.readings dd .sub { display: block; color: var(--screen-dim); font-size: 10.5px; line-height: 1.5; }
+.readings dd .ok { color: var(--lcd-ok); }
+.readings dd .warn { color: #FFC24D; }
+.readings dd .bad { color: #FF8A80; }
+.readings .hex-0x { color: var(--screen-dim); }
+.readings .is-address dd .hex { font-size: 15px; line-height: 1.5; }
+/* The figure that matters most, in the instrument numerals of the till. */
+.readings .is-cost dd .figure { display: inline-block; font: 480 30px/1 var(--sans); font-stretch: 78%; letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: var(--screen-ink); }
+.readings .is-cost dd .unit { margin-left: 6px; font: 400 11px/1 var(--mono); letter-spacing: .08em; color: var(--screen-dim); }
+
+/* Pre-flight lamps: what must hold before the key unlocks. */
+.lamps { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; border-top: 1px solid var(--rule); }
+.lamps li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 2px 10px; padding: 9px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.lamps li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; margin-top: 1px; align-self: start; translate: 0 5px;
+  background: transparent; box-shadow: inset 0 0 0 1.5px var(--rule-2); }
+.lamps li[data-lamp="ok"]::before { background: var(--led-ok); box-shadow: 0 0 8px rgba(34,200,102,var(--glow)); }
+.lamps li[data-lamp="wait"]::before { background: var(--led-wait); box-shadow: 0 0 8px rgba(255,176,0,var(--glow)); }
+.lamps li[data-lamp="err"]::before { background: var(--led-err); box-shadow: 0 0 8px rgba(255,59,46,var(--glow)); }
+.lamps li[data-lamp="busy"]::before { background: var(--led-wait); animation: blink 1s steps(2, jump-none) infinite; }
+.lamp-name { font: 600 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; color: var(--ink); }
+.lamp-detail { grid-column: 2; font-size: 13px; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+.lamps li[data-lamp="err"] .lamp-detail { color: var(--err); }
+
+#deploy { margin-top: 20px; }
+#deploy:disabled:not([aria-busy="true"]) { background: transparent; color: var(--ink-2); border: 1.5px dashed var(--rule-2); box-shadow: none; transform: none; animation: none; background-image: none; cursor: not-allowed; }
+#deploy:disabled:not([aria-busy="true"])::after { opacity: .5; }
+[data-phase="done"] #deploy, [data-phase="verified"] #deploy { display: none; }
+
+/* ---------- 04 Verify and record ---------- */
+.checks { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1.5px solid var(--ink); }
+.checks li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 2px 10px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.checks li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; translate: 0 5px; background: var(--led-err); box-shadow: 0 0 8px rgba(255,59,46,var(--glow)); }
+.checks li[data-ok="true"]::before { background: var(--led-ok); box-shadow: 0 0 8px rgba(34,200,102,var(--glow)); }
+.checks li[data-ok="busy"]::before { background: var(--led-wait); animation: blink 1s steps(2, jump-none) infinite; box-shadow: none; }
+.check-name { font-size: 14.5px; font-weight: 600; letter-spacing: -.005em; color: var(--ink); }
+.check-detail { grid-column: 2; font: 400 11px/1.55 var(--mono); word-spacing: 0; color: var(--muted); overflow-wrap: anywhere; }
+.checks li[data-ok="false"] .check-detail { color: var(--err); }
+
+.txhash { margin-top: 16px; }
+.txhash label { display: block; margin-bottom: 8px; font: 400 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.txhash-row { display: flex; gap: 8px; }
+.txhash input { flex: 1; min-width: 0; min-height: 46px; padding: 0 12px; border: 1px solid var(--rule-2); border-radius: 8px; background: var(--well); color: var(--ink);
+  font: 400 12px/1 var(--mono); letter-spacing: 0; box-shadow: inset 0 1px 2px rgba(0,0,0,.07); }
+.txhash input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.txhash .key { min-height: 46px; }
+#resume .key { margin-top: 14px; width: 100%; }
+
+/* The printed slip: paper in both themes, out of the terminal's printer slot (v1 .receipt). */
+#slip { margin-top: 22px; }
+/* Paper keeps paper inks in both themes (as v1's .ticket does), so muted text stays readable on the slip. */
+.slip { --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule); }
+.slip dl > div { grid-template-columns: 76px minmax(0, 1fr); }
+.slip .receipt-amt .num { font-size: min(34px, 9cqw); }
+.slip-links { display: flex; flex-wrap: wrap; gap: 0 14px; }
+.slip-links a { display: inline-flex; align-items: center; min-height: 32px; }
+
+/* The record: a dark display window holding the exact file. */
+.record { margin-top: 22px; }
+.record-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; color: var(--muted); }
+.record-head .label { min-width: 0; overflow-wrap: anywhere; }
+.record-keys { display: inline-flex; margin-right: -10px; }
+.record-keys .key { min-height: 44px; }
+.record-json {
+  margin: 8px 0 0; padding: 14px 14px; max-height: 360px; overflow: auto; border-radius: 10px; white-space: pre; tab-size: 2;
+  background: var(--screen); color: var(--screen-ink); font: 400 10.5px/1.65 var(--mono); letter-spacing: 0; word-spacing: 0;
+  box-shadow: inset 0 0 0 1px var(--screen-rule), inset 0 2px 10px rgba(0,0,0,.55), 0 0 0 4px var(--bezel), 0 0 0 5px var(--bezel-edge);
+}
+.record-json:focus-visible { outline: 2px solid var(--focus); outline-offset: 6px; }
+.record-next { margin-top: 14px; font-size: 14px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+
+/* Phones: readings stack (label over value) so addresses and the cost get the window's full width. */
+@media (max-width: 599px) {
+  .readings > div { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .review .screen-top { flex-wrap: wrap; row-gap: 2px; }
+}
+@media (max-width: 359px) {
+  .proc { grid-template-columns: 36px minmax(0, 1fr); padding: 20px 14px 20px 10px; }
+  .proc-n { width: 32px; height: 32px; }
+  .band { padding: 8px 7px 9px; }
+  .band-label { font-size: 11.5px; letter-spacing: .08em; }
+  .readings > div, .ident > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media (min-width: 600px) {
+  .wallets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lamps { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+  .record-json { font-size: 11px; }
+}
+@media (min-width: 1000px) {
+  .page-v2deploy { --device-w: 600px; }
+  .page-v2deploy .about { padding-top: 48px; }
+  .page-v2deploy .about.notes { padding-top: 36px; }
+}
+@media (forced-colors: active) {
+  .band[aria-checked="true"] { outline: 2px solid CanvasText; outline-offset: -2px; }
+  .proc[data-state="current"] .proc-n { outline: 2px solid Highlight; }
+}
+@media print {
+  .top, .lead, .foot, .wallets, .bands, #switch, #deploy, .record-keys, .txhash { display: none !important; }
+  .record-json { max-height: none; white-space: pre-wrap; }
+}
