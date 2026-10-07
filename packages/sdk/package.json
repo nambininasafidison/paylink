@@ -1,0 +1,54 @@
+{
+  "name": "@paylink/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PayLink v2 client SDK: EIP-712 invoices and cancellations, invoice keys, EIP-3009 payment binding, strict URL codec, amount math, custom-error decoder to i18n keys, receipt verifier and payment router. Byte-for-byte parity with PayLinkV2 through golden vectors.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "packages/sdk"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@paylink/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "node scripts/generate-abi.ts",
+    "generate:check": "node scripts/generate-abi.ts --check",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "measure:gas": "node --conditions=@paylink/source scripts/measure-gas.ts",
+    "fixture:runtime": "scripts/capture-runtime-fixture.sh"
+  },
+  "dependencies": {
+    "@paylink/chains": "workspace:*",
+    "viem": "catalog:"
+  },
+  "devDependencies": {
+    "@paylink/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "fast-check": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

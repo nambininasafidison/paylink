@@ -1,0 +1,11 @@
+{
+  "$comment": "Emits dist/ from src/ only. Web-platform types (crypto.getRandomValues, TextEncoder, TextDecoder) but no Node types; ESLint additionally bans browser-only globals, so src/ runs in the browser, the Worker and Node alike.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom"],
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

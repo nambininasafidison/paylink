@@ -1,0 +1,239 @@
+{
+  "schema": "paylink.gas-measurements/1",
+  "generator": "packages/sdk/scripts/measure-gas.ts",
+  "tool": "anvil 1.8.5",
+  "initCodeHash": "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
+  "tokens": "protocol/test/mocks: Mock3009 (FiatToken-like EIP-3009 + EIP-2612, 6 decimals), MockPermit (OpenZeppelin ERC20Permit, 18 decimals), Wallet1271",
+  "profiles": {
+    "ethereum": {
+      "chainId": 31337,
+      "anvilArgs": [],
+      "hardfork": "Bpo1",
+      "network": "ethereum",
+      "appliesTo": [
+        421614
+      ],
+      "measurements": {
+        "payWithAuthorization_first": {
+          "estimate": 166954,
+          "gasUsed": 142134
+        },
+        "payWithAuthorization_repeat": {
+          "estimate": 132348,
+          "gasUsed": 107528
+        },
+        "payWithAuthorization_erc1271Payee": {
+          "estimate": 171514,
+          "gasUsed": 146694
+        },
+        "pay_first": {
+          "estimate": 111107,
+          "gasUsed": 101392
+        },
+        "pay_repeat": {
+          "estimate": 76489,
+          "gasUsed": 66774
+        },
+        "payWithPermit_first": {
+          "estimate": 159756,
+          "gasUsed": 134940
+        },
+        "payNative_first": {
+          "estimate": 101889,
+          "gasUsed": 96969
+        },
+        "payNative_repeat": {
+          "estimate": 59359,
+          "gasUsed": 54439
+        },
+        "cancel": {
+          "estimate": 57628,
+          "gasUsed": 52647
+        },
+        "cancelBySig": {
+          "estimate": 66517,
+          "gasUsed": 61542
+        },
+        "cancelBySig_erc1271Payee": {
+          "estimate": 71107,
+          "gasUsed": 66132
+        }
+      }
+    },
+    "monad": {
+      "chainId": 10143,
+      "anvilArgs": [
+        "--network",
+        "monad"
+      ],
+      "hardfork": "MonadTen",
+      "network": "monad",
+      "appliesTo": [
+        10143,
+        143
+      ],
+      "measurements": {
+        "payWithAuthorization_first": {
+          "estimate": 223327,
+          "gasUsed": 221207
+        },
+        "payWithAuthorization_repeat": {
+          "estimate": 188921,
+          "gasUsed": 186801
+        },
+        "payWithAuthorization_erc1271Payee": {
+          "estimate": 233833,
+          "gasUsed": 231713
+        },
+        "pay_first": {
+          "estimate": 158792,
+          "gasUsed": 156674
+        },
+        "pay_repeat": {
+          "estimate": 124362,
+          "gasUsed": 122244
+        },
+        "payWithPermit_first": {
+          "estimate": 216098,
+          "gasUsed": 213982
+        },
+        "payNative_first": {
+          "estimate": 124220,
+          "gasUsed": 122100
+        },
+        "payNative_repeat": {
+          "estimate": 81802,
+          "gasUsed": 79682
+        },
+        "cancel": {
+          "estimate": 69485,
+          "gasUsed": 67304
+        },
+        "cancelBySig": {
+          "estimate": 88860,
+          "gasUsed": 86685
+        },
+        "cancelBySig_erc1271Payee": {
+          "estimate": 99379,
+          "gasUsed": 97204
+        }
+      }
+    },
+    "base": {
+      "chainId": 84532,
+      "anvilArgs": [
+        "--network",
+        "base"
+      ],
+      "hardfork": "Beryl",
+      "network": "base",
+      "appliesTo": [
+        84532
+      ],
+      "measurements": {
+        "payWithAuthorization_first": {
+          "estimate": 166954,
+          "gasUsed": 142134
+        },
+        "payWithAuthorization_repeat": {
+          "estimate": 132348,
+          "gasUsed": 107528
+        },
+        "payWithAuthorization_erc1271Payee": {
+          "estimate": 171514,
+          "gasUsed": 146694
+        },
+        "pay_first": {
+          "estimate": 111107,
+          "gasUsed": 101392
+        },
+        "pay_repeat": {
+          "estimate": 76489,
+          "gasUsed": 66774
+        },
+        "payWithPermit_first": {
+          "estimate": 159744,
+          "gasUsed": 134928
+        },
+        "payNative_first": {
+          "estimate": 101889,
+          "gasUsed": 96969
+        },
+        "payNative_repeat": {
+          "estimate": 59359,
+          "gasUsed": 54439
+        },
+        "cancel": {
+          "estimate": 57628,
+          "gasUsed": 52647
+        },
+        "cancelBySig": {
+          "estimate": 66541,
+          "gasUsed": 61566
+        },
+        "cancelBySig_erc1271Payee": {
+          "estimate": 71107,
+          "gasUsed": 66132
+        }
+      }
+    },
+    "london": {
+      "chainId": 31611,
+      "anvilArgs": [
+        "--hardfork",
+        "london"
+      ],
+      "hardfork": "London",
+      "network": "ethereum",
+      "appliesTo": [
+        31611
+      ],
+      "measurements": {
+        "payWithAuthorization_first": {
+          "estimate": 166954,
+          "gasUsed": 142134
+        },
+        "payWithAuthorization_repeat": {
+          "estimate": 132336,
+          "gasUsed": 107516
+        },
+        "payWithAuthorization_erc1271Payee": {
+          "estimate": 171502,
+          "gasUsed": 146682
+        },
+        "pay_first": {
+          "estimate": 111107,
+          "gasUsed": 101392
+        },
+        "pay_repeat": {
+          "estimate": 76489,
+          "gasUsed": 66774
+        },
+        "payWithPermit_first": {
+          "estimate": 159744,
+          "gasUsed": 134928
+        },
+        "payNative_first": {
+          "estimate": 101889,
+          "gasUsed": 96969
+        },
+        "payNative_repeat": {
+          "estimate": 59371,
+          "gasUsed": 54451
+        },
+        "cancel": {
+          "estimate": 57628,
+          "gasUsed": 52647
+        },
+        "cancelBySig": {
+          "estimate": 66541,
+          "gasUsed": 61566
+        },
+        "cancelBySig_erc1271Payee": {
+          "estimate": 71095,
+          "gasUsed": 66120
+        }
+      }
+    }
+  }
+}
