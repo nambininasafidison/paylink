@@ -1,0 +1,47 @@
+{
+  "schema": "paylink.release/1",
+  "contract": "PayLinkV2",
+  "release": "2.0.0",
+  "bytecode": {
+    "initCodeHash": "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
+    "initCodeSize": 12979,
+    "maskedRuntimeHash": "0x59c48f00a8e437c74bf6b0b5ac1363149c8977c9185d1cf23405fa09c18aeb4d",
+    "runtimeCodeSize": 12045,
+    "masking": "keccak256 of the runtime code with every immutableReferences range set to zero and the trailing CBOR metadata removed (its length is the big-endian uint16 in the last two bytes, plus those two bytes)",
+    "immutableReferences": [
+      {"start": 6512, "length": 32},
+      {"start": 6562, "length": 32},
+      {"start": 7828, "length": 32},
+      {"start": 7870, "length": 32},
+      {"start": 7912, "length": 32},
+      {"start": 7993, "length": 32},
+      {"start": 8033, "length": 32}
+    ],
+    "cborMetadata": "0xa2646970667358221220d9aaa3963b074736027d404f2822e567a2a22a1f2da21efc293050c797b3337c64736f6c634300081e0033"
+  },
+  "compiler": {
+    "solc": "0.8.30+commit.73712a01",
+    "evmVersion": "paris",
+    "optimizer": true,
+    "optimizerRuns": 10000,
+    "viaIR": false,
+    "bytecodeHash": "ipfs",
+    "settings": "solc=0.8.30+commit.73712a01;evmVersion=paris;optimizer=true;runs=10000;viaIR=false;bytecodeHash=ipfs;cborMetadata=true",
+    "settingsHash": "0xd1969664ff8abf232594de0f5fca1be12beb0dece45b33a850513c58e2efe035"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.3.0",
+    "forge-std": "v1.17.0"
+  },
+  "create2": {
+    "factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    "salt": "0x7f9515c91438126ed63fa127101d4959370615acac2d6a164f02dd823a778347",
+    "saltPreimage": "paylink.v2.0.0",
+    "address": "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+    "note": "Same address on every chain where the factory is deployed; CREATE fallback addresses differ."
+  },
+  "source": {
+    "repository": "https://github.com/nambininasafidison/paylink",
+    "path": "protocol/src/PayLinkV2.sol"
+  }
+}

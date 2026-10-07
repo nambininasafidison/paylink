@@ -1,0 +1,35 @@
+{
+  "name": "@paylink/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PayLinkV2 Solidity contracts (Foundry 1.8.5, solc 0.8.30, EVM paris). Solidity dependencies are installed by pnpm and remapped in foundry.toml.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "protocol"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "forge build --sizes",
+    "test": "forge test",
+    "test:ci": "FOUNDRY_PROFILE=ci forge test",
+    "fmt": "forge fmt",
+    "fmt:check": "forge fmt --check",
+    "lint": "forge lint",
+    "snapshot": "forge snapshot --match-path 'test/{unit,gas}/*.t.sol'",
+    "snapshot:check": "FORGE_SNAPSHOT_CHECK=true forge snapshot --match-path 'test/{unit,gas}/*.t.sol' --check --tolerance 3",
+    "coverage": "forge coverage --report summary --report lcov --no-match-coverage '(test|script|lib|node_modules)/'",
+    "slither": "slither . --config-file slither.config.json",
+    "symbolic": "halmos --match-contract PayLinkSymbolicTest --solver-timeout-assertion 0",
+    "fuzz:echidna": "echidna . --contract PayLinkProperties --config test/properties/echidna.yaml",
+    "fuzz:medusa": "medusa fuzz --config test/properties/medusa.json",
+    "vendor:check": "../scripts/toolchain/vendor-forge-std.sh --check",
+    "smoke:local": "forge script script/dev/LocalSmoke.s.sol --rpc-url http://127.0.0.1:8545 --broadcast"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "catalog:"
+  }
+}

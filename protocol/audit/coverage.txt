@@ -1,0 +1,46 @@
+forge coverage of protocol/src (PayLinkV2). Gate (spec §4.1): >= 95% lines, >= 90% branches; target 100% lines.
+Date: 2026-10-07 (re-run after the test-quality review fixes)   Tree: main @ 93ed4e3 + uncommitted v2 tree   Foundry 1.8.5, solc 0.8.30
+Command (in protocol/): pnpm run coverage
+  = forge coverage --report summary --report lcov --no-match-coverage '(test|script|lib|node_modules)/'
+
+forge coverage compiles an unoptimized, instrumented build and never writes out/, so the three suites that need the
+optimized release build skip themselves under it (vm.isContext(Coverage)), by design:
+  - test/script/Scripts.t.sol (27 tests, 27 skipped): the deployment scripts refuse any build that is not the release
+    build (NotReleaseBuild).
+  - test/gas/Gas.t.sol (13 tests, reported as 1 skipped setUp): unoptimized figures would overwrite the gas baseline in
+    snapshots/PayLinkV2.json.
+  - test/toolchain/ReleaseGraph.t.sol (2 of its 3 tests skipped; the pure suffix-matcher control runs): the import-graph
+    and Bytes.sol (GHSA-9rcw-c2f9-2j55) checks read out/PayLinkV2.sol/PayLinkV2.json. Before this skip they failed on a
+    clean checkout (no out/) and, with an out/ left by an earlier build, checked that stale artifact instead of the
+    tree. They also refuse, under forge test, any artifact whose init code differs from the PayLinkV2 they were compiled
+    with. forge test, which always rebuilds out/, is their authoritative run.
+None of the three is needed for coverage of src/: every other suite (unit, fuzz, invariant, vectors, toolchain, audit,
+properties) runs.
+
+Clean-checkout check: on a copy of protocol/ without out/ or cache/, the same command exits 0 with the table below
+(293 passed, 30 skipped, as here) and leaves no out/ behind. In the reviewer's
+stale-artifact scenario (forge build, then an unreviewed OpenZeppelin import added to src/), forge coverage now skips
+the two ReleaseGraph tests instead of passing them, and forge test fails test_ReleaseCompilesExactlyTheReviewedSources
+(29 != 26). With the coverage skip removed, the stale-artifact guard alone fails both tests ("is stale or not the
+release build").
+
+Coverage does not see everything a mutant can break: forge coverage does not count checked-arithmetic overflow as a
+branch, it cannot tell which of two failing checks reports first, and it cannot see which direction an equality is
+tested in. Those are pinned by test/fuzz/Amount.t.sol::test_PaymentsCounterNeverWraps, test/unit/Precedence.t.sol and
+the over-credit tests, and the hand-written mutants of src/PayLinkV2.sol (protocol/audit/README.md#mutation-testing)
+are the stronger measure: the one-sided exactness checks M50-M54 kept every line and branch covered and survived the
+whole suite until the over-credit tests existed. Coverage cannot see an ordering of effects either: the deferred-write
+mutants M46-M49 keep every line and branch covered, and only the read-only re-entry tests on each settlement path kill
+them.
+
+Ran 32 test suites in 67.60s (87.76s CPU time): 293 tests passed, 0 failed, 30 skipped (323 total tests)
+
+╭-------------------+-----------------+-------------------+-----------------+-----------------╮
+| File              | % Lines         | % Statements      | % Branches      | % Funcs         |
++=============================================================================================+
+| src/PayLinkV2.sol | 100.00% (98/98) | 100.00% (121/121) | 100.00% (26/26) | 100.00% (22/22) |
+|-------------------+-----------------+-------------------+-----------------+-----------------|
+| Total             | 100.00% (98/98) | 100.00% (121/121) | 100.00% (26/26) | 100.00% (22/22) |
+╰-------------------+-----------------+-------------------+-----------------+-----------------╯
+
+Line-level data: protocol/lcov.info (generated, not committed): 98 line records, all with hits > 0.

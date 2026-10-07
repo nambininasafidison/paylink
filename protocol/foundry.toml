@@ -1,0 +1,99 @@
+# PayLink v2 contracts: Foundry 1.8.5 configuration.
+#
+# Sources: PAYLINK-V2-SPEC §3.2 (layout and settings), §3.3.5 (pinning), §3.3.7
+# (deterministic artifact), §4.1 (gates); docs/adr/0012-toolchain-pinning-and-vendoring.md.
+#
+# This file holds nothing sandbox-specific. In the sandbox, which cannot reach
+# binaries.soliditylang.org, scripts/bootstrap-sandbox.sh exports
+# FOUNDRY_SOLC=<pinned static solc 0.8.30> and FOUNDRY_OFFLINE=true. CI and
+# developer machines resolve the same solc_version through svm.
+
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+cache_path = "cache"
+libs = ["lib", "node_modules"]
+
+# ---- Compiler. These settings define the release artifact and its initCodeHash
+# (§3.3.7). Changing any of them makes a new release.
+solc_version = "0.8.30"
+auto_detect_solc = false
+# Foundry 1.8 defaults to osaka. paris emits no PUSH0, MCOPY, TLOAD/TSTORE or
+# CLZ, so one artifact runs on Monad, Base, Arbitrum, Arc and a London-level
+# Mezo. test/toolchain/EvmTarget.t.sol enforces this on the compiled bytecode.
+evm_version = "paris"
+optimizer = true
+optimizer_runs = 10_000
+via_ir = false
+# Default CBOR metadata (ipfs hash plus solc version), kept explicit because it
+# is part of the deployed bytecode.
+bytecode_hash = "ipfs"
+cbor_metadata = true
+# Compiler warnings fail the build.
+deny = "warnings"
+
+# ---- Dependencies. Explicit remappings only. Auto-detection would scan lib/
+# and node_modules/ and could silently change import resolution.
+auto_detect_remappings = false
+remappings = [
+  "forge-std/=lib/forge-std/src/",
+  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+]
+
+# ---- Tests.
+# Halmos (test/symbolic/, audit/properties.md) needs statically linked test builds.
+dynamic_test_linking = false
+# Restating fs_permissions replaces Foundry's default (read on out/), so that
+# entry is listed again. test/vectors receives the golden vectors (§3.5).
+fs_permissions = [
+  { access = "read", path = "./out" },
+  { access = "read-write", path = "./test/vectors" },
+  # script/: release identity (OpenZeppelin version), broadcast receipts and deployment records (spec §3.3.7).
+  { access = "read", path = "./node_modules/@openzeppelin/contracts/package.json" },
+  { access = "read", path = "./broadcast" },
+  { access = "read-write", path = "./deployments" },
+]
+
+[fuzz]
+# Local default; the ci profile raises it (§4.1: 1k local, 10k in CI).
+runs = 1_000
+
+[invariant]
+# Local default, lighter than CI. Foundry's own default (256 runs x depth 500)
+# would be heavier than the CI profile.
+runs = 64
+depth = 128
+# The handler (test/invariant/Handler.sol) never reverts by design: it calls the
+# contract with low-level calls and checks the outcome against its model. Any
+# revert is therefore a bug in the suite and must fail the campaign.
+fail_on_revert = true
+
+# ---- CI profile: FOUNDRY_PROFILE=ci (inherits everything above).
+[profile.ci]
+verbosity = 3
+
+[profile.ci.fuzz]
+runs = 10_000
+
+[profile.ci.invariant]
+runs = 256
+depth = 128
+
+# ---- Formatter (forge fmt --check is a blocking gate).
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
+multiline_func_header = "attributes_first"
+quote_style = "double"
+number_underscore = "thousands"
+sort_imports = true
+wrap_comments = false
+
+# ---- Linter (forge lint is a blocking gate; also runs on every build).
+[lint]
+severity = ["high", "medium", "low"]
+lint_on_build = true

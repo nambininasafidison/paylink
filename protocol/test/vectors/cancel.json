@@ -1,0 +1,107 @@
+{
+  "schema": "paylink.vectors.cancel/1",
+  "description": "Gasless revocation: EIP-712 Cancel(bytes32 key,uint256 deadline) under the PayLink domain. The deadline is inclusive; the contract reverts SignatureExpired(deadline) once block.timestamp > deadline.",
+  "generator": "protocol/test/vectors/GoldenVectors.t.sol",
+  "encoding": "integers: decimal strings; bytes: 0x-prefixed lowercase hex; addresses: EIP-55; base64url: RFC 4648 section 5, unpadded",
+  "testOnly": "Test-only. Every private key and address is derived from a public label: privateKey = uint256(keccak256(label)) mod (n - 1) + 1, address = last 20 bytes of keccak256(label). Never use them for real funds.",
+  "typeString": "Cancel(bytes32 key,uint256 deadline)",
+  "typeHash": "0x9e17c698745faeba552ac9e0fa17b141be25ab98edd4766f24b1054263080465",
+  "payee": {
+    "label": "paylink.vectors.payee",
+    "privateKey": "0xd4ae9f02c3b5d393b5a99861f480d397310f13992033f02e7375b2d8c320c8be",
+    "address": "0xbad51a947D1E169c132DB338E0F5613e18F8604C"
+  },
+  "invoice": {"payee": "0xbad51a947D1E169c132DB338E0F5613e18F8604C", "token": "0xeB12B393Fa0070152FD7A277C88d0c3cDF219F53", "amount": "25000000", "validAfter": "1791158400", "validUntil": "1791763200", "maxPayments": "1", "salt": "0xa5b7ec357512198936a99745aa54cd4af427a1457b553f6ff3d127fcd617a422", "memoHash": "0x9e4171ef418f2c980507bfa20f7262b37301d7ffd5d6ef27634ca2d85d6b7041"},
+  "vectors": [
+    {
+      "chainId": "31337",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0xc7f2898893d1ef579a4b9f2ebc4db4f4ebe7a22e4272231268ee11e6b2ab1907",
+      "deadline": "0",
+      "structHash": "0x0855997e11035d412949242ba22c1ae62589db59ae6156a21b18ca238276f86e",
+      "digest": "0xde0bfc5d173ec85679b8747a49aaa113144bc130fe29d3dbfe0ba21fe44c4316",
+      "signature": "0xb1a218c5442dff89c0f74e042ce143d5edd8475f06abbe57871656a68c5bb35e03e099ff2725e083737f4b269a0ec90af858ba66498d135336c138a926b444fc1b",
+      "acceptedAtGenerationTime": false
+    },
+    {
+      "chainId": "31337",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0xc7f2898893d1ef579a4b9f2ebc4db4f4ebe7a22e4272231268ee11e6b2ab1907",
+      "deadline": "1791763200",
+      "structHash": "0xc40847dc1acb51b8a7e007a82be3cfd78c7b95c9c0e428301641983d44f5075c",
+      "digest": "0xf5dc3cfed9c2177ba5190990f082f3aee38cd14fc7bc5d6bac9c50e770472d54",
+      "signature": "0xa1add70a7248761a56737b66ebfc247e312c015eebd08eb58ecb316b6b744bf176e3a9c59ca63f2116ac80de3b6e437c29969cf8f23dec29e2eecb63952c93641b",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "31337",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0xc7f2898893d1ef579a4b9f2ebc4db4f4ebe7a22e4272231268ee11e6b2ab1907",
+      "deadline": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "structHash": "0x3451b18dc8a0997c5d88de3432071cbf3c3824674a4aa08489556feb037e31d8",
+      "digest": "0x0d8d39aaebec8ff7cc7db9715555706c7f2156d9afa6d965ecbb5c54d57112b9",
+      "signature": "0xa6ad8a26912cb70971ccc12765e21e73e1d48fa7db88752275fbfb6ac294173143d6789c3d7d8a314e5f9fe7a327b0b835d4d3a9ebc034990ec8dbfbf03c8b821b",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "10143",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0x32c9e6b40b50ceb5d36f7d6a5277ffc48a7a1a3f7d1a2f77c48da158075675e7",
+      "deadline": "1791763200",
+      "structHash": "0xd49db7efb4d34aabb00c069f09037e6e0ebe6aae4dd8804800af510d75d30569",
+      "digest": "0x2ed0ba059f0a0f1822446b2ebb1aea59f319232fcd40e2ccdfef8d7413450f57",
+      "signature": "0x86fa338393944ef6788e61939b2fdb4d2844c93163e82d6af3fc31cea3896217249dc0681c2267534584cb6e45b439bfb6a42b8fdcf8d613601a1e7b52db5a361b",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "143",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0x0f6a8bb02fc7b31efc93a6dc026566159e79f1f25ed193fa652ab55e60b27fc3",
+      "deadline": "1791763200",
+      "structHash": "0xd7f2ccedd03d778bf038d2a493b707a8a34163292936140730c82cb582320772",
+      "digest": "0x4bfd544948fca8649c251eaa89b5c4bef5a8f122e3ddbda38c4cf9e7f768bc0b",
+      "signature": "0xb3e9d5685984955aee62c99d1a39d306c158cbbc6834093d0b2ce3d93860984066d5fa2784b4688c3d1a8c892695e90fc192866987904039dd30efc941f6c7db1c",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "84532",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+      "deadline": "1791763200",
+      "structHash": "0x851dc95656455acf29ae06b25e6bda7b60d94db45a56889c8025bc789914dcb1",
+      "digest": "0x1ad231609f2433538e6029b59d6318ddd2defa884192dbc4a7387fad65821504",
+      "signature": "0xe99fc2d35db53d4e2b39610b9d6da4fdb0d3da8ef88f42dad9b6221f53b53dde4be9e225ffb0250161604f763599e155c33db912494ab2a8549cf199db09bf9e1c",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "421614",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0x7399e80b30ef6334f4de5eb3a673deb6c0c7e4abcc2bdb9714a8bd6ca262b442",
+      "deadline": "1791763200",
+      "structHash": "0xbbf27d2e6caaa9a11361191f7fd871a45f6d822379beb1cf1cd7f1779eb36e20",
+      "digest": "0xe026261762e8ca1c64a46a6b4e2a18913c67ecd2c2b939483f1a9a800867a6ca",
+      "signature": "0xe1db2cea1072f5a7b627f9f082507a68d40edb195123035f1a311b5e551baa264e2b74b9701800716e643858ad87b982049d36dc221a8ef553221fd70eaab29c1c",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "31611",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0xa52a1db70110d32f698b3ab5f28cffb3b21d083cd29db34d7b57f571b8748151",
+      "deadline": "1791763200",
+      "structHash": "0x69e24bde46b95ebb94e44231ee403ca6f8f15737a8e70a94d631dc960ad9509e",
+      "digest": "0x47e13f357ef8ab0e1bdc893bfa6113fb642e750de055e94009a8c7325dd55688",
+      "signature": "0x806e1b48416c8219cf06dd939ce54b5c5e7f101cb18f8c7bdc95f243b48ef658683c9e31161b716d8e6439431955d3bc83dcf5797d3fbb3e40572dbcc17feb471b",
+      "acceptedAtGenerationTime": true
+    },
+    {
+      "chainId": "5042002",
+      "verifyingContract": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+      "key": "0x1f34489c6aece63e9baf9b621488824ec29f4a6d2fe18962cca290e51a2236ff",
+      "deadline": "1791763200",
+      "structHash": "0x0000e598638f3629e1b8ace9c8e684fc5536c9e0d43876640c48f299d4a41bc7",
+      "digest": "0x2c94ac89f625163a82b6d453a0a3fe3210dbc3aed30f49cb1f0122c776d9ce0c",
+      "signature": "0x4ba56468800d87490b62fef0cdebde2e5c5a25ff01e697aec49ea922e4f13a4720628d93566bbab85a68016d295fbf19a9477c4adef1fcf262194cd72a09327f1c",
+      "acceptedAtGenerationTime": true
+    }
+  ]
+}

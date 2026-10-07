@@ -1,0 +1,81 @@
+Slither static analysis of protocol/src (PayLinkV2). Triage: audit/triage.md
+Date: 2026-10-07   Tree: main @ 93ed4e3 + uncommitted v2 tree   Working directory: protocol/
+Re-run on 2026-10-07 after the pre-freeze audit fixes (IPayLinkV2 NatSpec only in src/): identical results.
+Re-run on 2026-10-07 after the re-audit fixes (A-04, CEI tests; no change in src/): identical results.
+Re-run on 2026-10-07 after the test-quality review fixes (tests, mocks and harnesses only; no change in src/): identical
+results (24 contracts, 102 detectors, 0 results; 3 with --show-ignored-findings, exit 255 as below). Sections below are
+that run; Slither 0.11.6 runs `forge clean` first, so rebuild (`forge build`) before tests that read out/ (forge test
+does this itself; ReleaseGraph.t.sol refuses a stale out/).
+Tools: slither-analyzer 0.11.6, crytic-compile 0.4.2, Foundry 1.8.5, solc 0.8.30+commit.73712a01
+Config (slither.config.json): filter_paths=(lib/|node_modules/|test/|script/), exclude_dependencies=true, fail_on=medium
+
+================================================================================
+1. Gate run: slither . --config-file slither.config.json          (exit code 0)
+================================================================================
+'forge clean' running (wd: /home/user/paylink/protocol)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /home/user/paylink/protocol)
+INFO:Slither:. analyzed (24 contracts with 102 detectors), 0 result(s) found
+
+================================================================================
+2. Suppressed findings: slither . --config-file slither.config.json --show-ignored-findings
+   (exit code 255 because fail_on=medium sees S-1; every result is triaged in triage.md)
+================================================================================
+'forge clean' running (wd: /home/user/paylink/protocol)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /home/user/paylink/protocol)
+INFO:Detectors:
+Detector: reentrancy-balance
+Reentrancy in PayLinkV2._receiveAndForward(IERC20,address,bytes32,IPayLinkV2.Authorization) (src/PayLinkV2.sol#242-261):
+	External call allowing reentrancy:
+	- IERC3009(address(token)).receiveWithAuthorization(auth.payer,address(this),auth.amount,auth.validAfter,auth.validBefore,nonce,auth.v,auth.r,auth.s) (src/PayLinkV2.sol#248-251)
+	Balance read before the call:
+	- balanceBefore = token.balanceOf(address(this)) (src/PayLinkV2.sol#247)
+	Possible stale balance used after the call in a condition:
+	- balanceAfter != balanceBefore (src/PayLinkV2.sol#260)
+		- stale variable `balanceBefore`
+	- received != auth.amount (src/PayLinkV2.sol#253)
+		- stale variable `received`
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+INFO:Detectors:
+Detector: timestamp
+PayLinkV2.cancelBySig(IPayLinkV2.Invoice,uint256,bytes) (src/PayLinkV2.sol#137-150) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > deadline (src/PayLinkV2.sol#142)
+PayLinkV2._record(IPayLinkV2.Invoice,bytes,bool,address,uint128,bytes32) (src/PayLinkV2.sol#188-228) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < inv.validAfter (src/PayLinkV2.sol#208)
+	- inv.validUntil != 0 && block.timestamp > inv.validUntil (src/PayLinkV2.sol#209)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Slither:. analyzed (24 contracts with 102 detectors), 3 result(s) found
+
+================================================================================
+3. Summary: slither . --config-file slither.config.json --print human-summary
+================================================================================
+'forge clean' running (wd: /home/user/paylink/protocol)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /home/user/paylink/protocol)
+INFO:Printers:
+Compiled with Foundry
+Total number of contracts in source files: 3
+Number of contracts in dependencies: 21
+Source lines of code (SLOC) in source files: 308
+Source lines of code (SLOC) in dependencies: 1636
+Number of  assembly lines: 0
+Number of optimization issues: 0
+Number of informational issues: 0
+Number of low issues: 0
+Number of medium issues: 0
+Number of high issues: 0
+
+ERCs: ERC165, ERC20, ERC1363
+
++-----------+-------------+------+------------+--------------+--------------------+
+| Name      | # functions | ERCS | ERC20 info | Complex code | Features           |
++-----------+-------------+------+------------+--------------+--------------------+
+| PayLinkV2 | 45          |      |            | Yes          | Receive ETH        |
+|           |             |      |            |              | Ecrecover          |
+|           |             |      |            |              | Tokens interaction |
+| IERC3009  | 4           |      |            | No           |                    |
++-----------+-------------+------+------------+--------------+--------------------+
+INFO:Slither:. analyzed (24 contracts)

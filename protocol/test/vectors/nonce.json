@@ -1,0 +1,79 @@
+{
+  "schema": "paylink.vectors.nonce/1",
+  "description": "EIP-3009 token nonce bound to one payment: nonce = keccak256(abi.encode(PAYMENT_BINDING_TYPEHASH, key, payer, amount, payerRef, payerSalt)). key already commits to chainId and verifyingContract.",
+  "generator": "protocol/test/vectors/GoldenVectors.t.sol",
+  "encoding": "integers: decimal strings; bytes: 0x-prefixed lowercase hex; addresses: EIP-55; base64url: RFC 4648 section 5, unpadded",
+  "testOnly": "Test-only. Every private key and address is derived from a public label: privateKey = uint256(keccak256(label)) mod (n - 1) + 1, address = last 20 bytes of keccak256(label). Never use them for real funds.",
+  "typeString": "PayLinkPayment(bytes32 key,address payer,uint128 amount,bytes32 payerRef,bytes32 payerSalt)",
+  "typeHash": "0x1522042427c11deedb016d62cb8d2ed977e5ba802ccb926d4a8fa50abd9af353",
+  "payer": {
+    "label": "paylink.vectors.payer",
+    "privateKey": "0xc1f416a268fec29d77b001989ec5008912693351396dcec33a32b33fce08ea14",
+    "address": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0"
+  },
+  "vectors": [
+    {
+      "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+      "payer": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0",
+      "amount": "25000000",
+      "payerRef": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "payerSalt": "0x84c408d1c9cad6cc98be7dfaff3b00bfd33d9e72270a6a8ee794d2598ddecf05",
+      "nonce": "0x83ab5b1eea04e2d8db0d13cf1cbc0b4f32936c4a9643006062132c69b6926c6d"
+    },
+    {
+      "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+      "payer": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0",
+      "amount": "1",
+      "payerRef": "0x494e562d323032362d3030343200000000000000000000000000000000000000",
+      "payerSalt": "0x7d7a831a41eed39d72328b44622fb357cd3030c2f37fc27450acf48a86c13300",
+      "nonce": "0x4c58432e7119c12e3ae96a7bd53dfd419fd4862a1a34679c691c1cc7dbdb0219"
+    },
+    {
+      "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+      "payer": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0",
+      "amount": "0",
+      "payerRef": "0xcbb1ef7528be1d573d034b68014ad8e316ef052c888ea292c40fdf1db750b28e",
+      "payerSalt": "0xff62fae99214cad4e2f08ce7927d959e459ae4e90730d35047e11cabd52b15df",
+      "nonce": "0xd3a98e25015b8d605284dda3e19bb34025d01210c959bb7cc3bbd193ab29c38e"
+    },
+    {
+      "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+      "payer": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0",
+      "amount": "340282366920938463463374607431768211455",
+      "payerRef": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "payerSalt": "0x9356765c929bdd174dfe9fa743774929557f6ac220a5e4efa318cf03319d132c",
+      "nonce": "0xe341850395e5ec9983c5a716be27ee5c0b872d11c8006ac0ae85393f8063e3a6"
+    },
+    {
+      "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+      "payer": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0",
+      "amount": "1500000000000000000",
+      "payerRef": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "payerSalt": "0x0145c0c9b93cb0e621d108933a8a2feae4fe2fe8bc28a86082732cd7e570edc2",
+      "nonce": "0x627493d82ee8de82c6d576f910295417d87bba1cbbb9106329243c7b6c30679d"
+    }
+  ],
+  "receiveWithAuthorization": {
+    "tokenName": "USDC",
+    "tokenVersion": "2",
+    "chainId": "84532",
+    "token": "0xeB12B393Fa0070152FD7A277C88d0c3cDF219F53",
+    "tokenDomainSeparator": "0xdba4de000272f9ee3faa827832acb25c12d13771296cad98860b7a80a4a5e28b",
+    "typeString": "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)",
+    "typeHash": "0xd099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8",
+    "key": "0xeea5ceba7bb9943d07deb9b4f9045dee6bcd961ef22790db67e7767b161a25a7",
+    "from": "0xF5e6851837E6c7c9058d35f9A37150A072501DC0",
+    "to": "0x4A2d912cCaD3406Cbd965ADd3BD6aDa87A3232D8",
+    "value": "25000000",
+    "validAfter": "1791158399",
+    "validBefore": "1791162000",
+    "payerRef": "0x494e562d323032362d3030343200000000000000000000000000000000000000",
+    "payerSalt": "0x84c408d1c9cad6cc98be7dfaff3b00bfd33d9e72270a6a8ee794d2598ddecf05",
+    "nonce": "0x8c00a0602f596c5b030bb3e3230703c1f2bafe8e4ae2259d84e359b016e63c51",
+    "digest": "0x521732cd20ef01a30db4e73746d2867285169e2ac56f94af9442128780f0e025",
+    "v": "28",
+    "r": "0x0748353bfc0654d1cd35edeb7ef809e3ee124f37d6accec0dd23de01e1e57bb2",
+    "s": "0x37387705d0f7999eb1f412922f7eb40ebdcd1ccfed0b764216d712c10508b006",
+    "note": "to is the PayLinkV2 deployment (receiveWithAuthorization requires to == msg.sender)"
+  }
+}

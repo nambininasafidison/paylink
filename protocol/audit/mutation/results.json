@@ -1,0 +1,1307 @@
+{
+ "$comment": "Mutation results for src/PayLinkV2.sol on 2026-10-07, re-run after the test-quality review fixes (over-credit and tx.origin tests, the handler's reconfigureOverCredit and seeded origins; M50-M59 added), produced with protocol/audit/mutation/run.py. 'full': forge test without the script and gas suites, local profile, all 63 mutants. 'campaign': FOUNDRY_PROFILE=ci forge test --match-contract InvariantsTest only, for M11, M13 and M50-M59. Foundry reports a failing invariant campaign under one invariant's name in --json output; the console output names the invariants actually broken: M11 invariant_I1_relativeConservation and invariant_ModelAgreesWithContract; M50 invariant_I1_relativeConservation ('settled although the forward leg debited PayLink less') and model agreement; M53 invariant_I6_exactDeltas ('payee delta != amount') and model agreement; M55 invariant_I9_onlyPayeeCancels ('succeeded for a caller other than the payee (tx.origin was the payee)') and model agreement; M57 invariant_I3_totalsMatchPaidEvents ('Paid fields differ'), invariant_I6_exactDeltas ('payer delta != amount') and model agreement.",
+ "full": {
+  "M01": {
+   "desc": "drop Cancelled check in _record",
+   "failed": [
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneCancelRevertsEveryRelayQueuedForTheCard",
+    "CancelTest::test_Cancel_BlocksEveryPaymentPath",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayNativeTest::test_RevertWhen_Cancelled",
+    "PayTest::test_RevertWhen_Cancelled",
+    "PayWithAuthorizationTest::test_RevertWhen_Cancelled",
+    "PayWithPermitTest::test_RevertWhen_Cancelled",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "PrecedenceTest::test_Precedence_CancelledBeforeInvalidSignature"
+   ],
+   "killed": true,
+   "passed": 281,
+   "seconds": 62
+  },
+  "M02": {
+   "desc": "validAfter off-by-one (< -> <=)",
+   "failed": [
+    "A01RetryDoublePayTest::test_Control_OneOffInvoiceIsSafe",
+    "A01RetryDoublePayTest::test_Fix_CancelAuthorizationBeforeFallback",
+    "A01RetryDoublePayTest::test_Fix_ResubmitSameAuthorizationIsIdempotent",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_Delegated7702PayerRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_FlakyPayeeRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneCancelRevertsEveryRelayQueuedForTheCard",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneToggleRevertsEveryQueuedRelay",
+    "A03AttackSurfaceTest::test_Counters_PaymentsSaturateWithoutWrapping",
+    "A03AttackSurfaceTest::test_Counters_TotalSaturatesWithoutCorruptingPackedFields",
+    "A03AttackSurfaceTest::test_Erc1271_ReentryFromIsValidSignatureChangesNothing",
+    "A03AttackSurfaceTest::test_NoReturnValueToken_SettlesAndFalseIsRefused",
+    "A03AttackSurfaceTest::test_PhantomPermit_VictimAllowanceIsNotSpendableByOthers",
+    "A03AttackSurfaceTest::test_PhantomReceiveWithAuthorization_IsCaughtByReceiptCheck",
+    "A03AttackSurfaceTest::test_Replay_3009AuthorizationIsBoundToOneDeployment",
+    "A03AttackSurfaceTest::test_SelfPaymentGuard_IsAddressEqualityOnly",
+    "A04TimeBoundaryBanTest::test_PayerCancelledAuthorization_LeavesNoPaidBeforeTheNonceLog",
+    "A04TimeBoundaryBanTest::test_SameAuthorizationLandedElsewhere_IsRecognisableFromTheSettlingLogs",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_PayerChosenValidBefore",
+    "A05OverCreditExactnessTest::test_Control_StandardBehaviourSettles",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkEndsAboveItsStartingBalance",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Forward",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Pay",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_PayWithPermit",
+    "A06ConcurrentPermitGriefingTest::test_Control_TwoInFlightPermitPaymentsSettle",
+    "A06ConcurrentPermitGriefingTest::test_Grief_FrontRunningBothPermitsRevertsOnePayment",
+    "A06ConcurrentPermitGriefingTest::test_Grief_WhenFirstPaymentIsLarger_FirstPaymentReverts",
+    "AmountFuzzTest::testFuzz_FixedAmountSettlesOnlyExactly",
+    "AmountFuzzTest::testFuzz_OpenAmountAcceptsAnyPositive",
+    "AmountFuzzTest::testFuzz_TotalNeverWraps",
+    "AmountFuzzTest::test_PaymentsCounterNeverWraps",
+    "BindingFuzzTest::testFuzz_I8_MutatedTupleNeverSettles",
+    "CancelTest::test_Cancel_KeepsPaymentHistory",
+    "CancelTest::test_Cancel_SoldOutAndExpiredLinks",
+    "CancelTest::test_RevertWhen_LuredPayeeWouldCancel",
+    "DomainFuzzTest::testFuzz_I7_InvoiceSignatureBoundToChainId",
+    "DomainFuzzTest::testFuzz_I7_InvoiceSignatureBoundToDeployment",
+    "DomainFuzzTest::testFuzz_I7_StateIsPerDomain",
+    "DonationsTest::test_DonationCannotFundAPayment",
+    "DonationsTest::test_EveryPathWorksWithDonationsPresent",
+    "GoldenVectorsTest::test_WriteEip712Vectors",
+    "GoldenVectorsTest::test_WriteNonceVectors",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayNativeTest::test_PayNative_DonatedBalanceIsUntouched",
+    "PayNativeTest::test_PayNative_ForwardsValueToPayee",
+    "PayNativeTest::test_PayNative_OpenAmount",
+    "PayNativeTest::test_PayNative_PayerIsMsgSenderNotTxOrigin",
+    "PayNativeTest::test_PayNative_ReadOnlyReentrySeesPostEffectsState",
+    "PayNativeTest::test_PayNative_To1271Wallet",
+    "PayNativeTest::test_RevertWhen_OpenAmountWithoutValue",
+    "PayNativeTest::test_RevertWhen_PayeePaysWithAnotherTxOrigin",
+    "PayNativeTest::test_RevertWhen_PayeeReentersCancel",
+    "PayNativeTest::test_RevertWhen_PayeeReentersPayNative",
+    "PayNativeTest::test_RevertWhen_PayeeRejectsSilently",
+    "PayNativeTest::test_RevertWhen_PayeeRejectsWithError",
+    "PayNativeTest::test_RevertWhen_PayerIsPayee",
+    "PayNativeTest::test_RevertWhen_SoldOut",
+    "PayNativeTest::test_RevertWhen_ValueDiffers",
+    "PayTest::test_Pay_ContractPayer",
+    "PayTest::test_Pay_ExactAllowanceIsEnough",
+    "PayTest::test_Pay_MovesFundsDirectlyToPayee",
+    "PayTest::test_Pay_OpenAmountUnlimitedSeats",
+    "PayTest::test_Pay_PayerIsMsgSenderNotTxOrigin",
+    "PayTest::test_Pay_WorksWith3009TokenToo",
+    "PayTest::test_RevertWhen_FeeOnTransfer",
+    "PayTest::test_RevertWhen_InsufficientBalance",
+    "PayTest::test_RevertWhen_LuredPayerAllowanceWouldBeSpent",
+    "PayTest::test_RevertWhen_NoAllowance",
+    "PayTest::test_RevertWhen_OpenAmountIsZero",
+    "PayTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayTest::test_RevertWhen_PayeeOverCredited",
+    "PayTest::test_RevertWhen_PayerIsPayee",
+    "PayTest::test_RevertWhen_SoldOut",
+    "PayTest::test_RevertWhen_TokenCreditsNothing",
+    "PayTest::test_RevertWhen_TokenHasNoCode",
+    "PayTest::test_RevertWhen_WrongAmount",
+    "PayTest::test_SelfPaymentIgnoresTxOrigin",
+    "PayWithAuthorizationTest::test_FeeTokenWithoutFeeSettles",
+    "PayWithAuthorizationTest::test_OverCreditTokenSettlesWhenItsLegIsUnused",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_IgnoresTxOrigin",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_OpenAmount",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_PayeeMayRelay",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_PayerCanSelfSubmit",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_RelayerSettlesToPayee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_ToDeployed1271Payee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_WindowBoundariesAreInclusive",
+    "PayWithAuthorizationTest::test_RelayerCannotRedirectAuthorization",
+    "PayWithAuthorizationTest::test_RevertWhen_AmountDiffersFromFixedAmount",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationCancelledByPayer",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationNotYetValid",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationReplayed",
+    "PayWithAuthorizationTest::test_RevertWhen_OpenAmountIsZero",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceDecreasesOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrow",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrowFromZero",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeBalanceDecreasesOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeOverCreditedOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayerBalanceInsufficient",
+    "PayWithAuthorizationTest::test_RevertWhen_PayerIsPayee",
+    "PayWithAuthorizationTest::test_RevertWhen_SoldOut",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenDeliversNothing",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenHasNoCode",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenWouldSpendDonations",
+    "PayWithPermitTest::test_PayWithPermit_FrontRunPermitIsHarmless",
+    "PayWithPermitTest::test_PayWithPermit_InvalidPermitFallsBackToAllowance",
+    "PayWithPermitTest::test_PayWithPermit_On3009TokenWithVersion2Domain",
+    "PayWithPermitTest::test_PayWithPermit_PayerIsMsgSenderNotTxOrigin",
+    "PayWithPermitTest::test_PayWithPermit_PermitRunsAfterEffects",
+    "PayWithPermitTest::test_PayWithPermit_SingleTransaction",
+    "PayWithPermitTest::test_PayWithPermit_TokenWithoutPermitUsesAllowance",
+    "PayWithPermitTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayWithPermitTest::test_RevertWhen_PayeeOverCredited",
+    "PayWithPermitTest::test_RevertWhen_PayerIsPayee",
+    "PayWithPermitTest::test_RevertWhen_PermitExpiredAndNoAllowance",
+    "PayWithPermitTest::test_RevertWhen_PermitForSmallerValue",
+    "PayWithPermitTest::test_RevertWhen_PermitInvalidAndNoAllowance",
+    "PayWithPermitTest::test_RevertWhen_PermitSignedByTxOriginOnly",
+    "PayWithPermitTest::test_RevertWhen_RebasingRoundsDown",
+    "PayWithPermitTest::test_RevertWhen_SoldOut",
+    "PayWithPermitTest::test_RevertWhen_TokenHasNoCode",
+    "PayWithPermitTest::test_RevertWhen_WrongAmount",
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ReentrancyTest::test_SwallowedReentryDoesNotDoubleSpend",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused",
+    "SignaturesTest::test_EcdsaLowSAccepted",
+    "SignaturesTest::test_Erc1271PayeeCanRevokeByRotatingOwner",
+    "SignaturesTest::test_Erc1271PayeeWithOwnerSignature",
+    "SignaturesTest::test_Erc1271PayeeWithPreApprovedHash",
+    "SignaturesTest::test_Erc1271ReturnBombOnlyCostsItsOwnPayers",
+    "SignaturesTest::test_RevertWhen_PayeeIsUndeployedSmartAccount",
+    "SpecExamplesTest::test_Section17_3_ExampleIsPayableWithTheDocumentedSignature",
+    "StorageTest::test_PaymentWritesOneSlot",
+    "StorageTest::test_StateLivesInOnePackedSlot",
+    "ViewsTest::test_StatesOfPreservesOrderAndDuplicates",
+    "WindowFuzzTest::testFuzz_CapIsEnforced",
+    "WindowFuzzTest::testFuzz_WindowEdgesAreInclusive",
+    "WindowFuzzTest::testFuzz_WindowMatchesModel"
+   ],
+   "killed": true,
+   "passed": 152,
+   "seconds": 65
+  },
+  "M03": {
+   "desc": "validUntil off-by-one (> -> >=)",
+   "failed": [
+    "A04TimeBoundaryBanTest::test_Margin_InvoiceAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_InvoiceLastSecond",
+    "GoldenVectorsTest::test_WriteEip712Vectors",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_WindowBoundariesAreInclusive",
+    "WindowFuzzTest::testFuzz_WindowEdgesAreInclusive"
+   ],
+   "killed": true,
+   "passed": 290,
+   "seconds": 65
+  },
+  "M04": {
+   "desc": "SoldOut off-by-one (>= -> >)",
+   "failed": [
+    "A01RetryDoublePayTest::test_Control_OneOffInvoiceIsSafe",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayNativeTest::test_RevertWhen_SoldOut",
+    "PayTest::test_RevertWhen_SoldOut",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_SequentialIndexesAndTotal",
+    "PayWithAuthorizationTest::test_RevertWhen_SoldOut",
+    "PayWithPermitTest::test_RevertWhen_SoldOut",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "WindowFuzzTest::testFuzz_CapIsEnforced"
+   ],
+   "killed": true,
+   "passed": 282,
+   "seconds": 64
+  },
+  "M05": {
+   "desc": "open amount accepts zero",
+   "failed": [
+    "AmountFuzzTest::testFuzz_OpenAmountAcceptsAnyPositive",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayNativeTest::test_RevertWhen_OpenAmountWithoutValue",
+    "PayTest::test_RevertWhen_OpenAmountIsZero",
+    "PayWithAuthorizationTest::test_RevertWhen_OpenAmountIsZero",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 285,
+   "seconds": 63
+  },
+  "M06": {
+   "desc": "drop SelfPayment check",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayNativeTest::test_RevertWhen_PayeePaysWithAnotherTxOrigin",
+    "PayNativeTest::test_RevertWhen_PayerIsPayee",
+    "PayTest::test_RevertWhen_PayerIsPayee",
+    "PayTest::test_SelfPaymentIgnoresTxOrigin",
+    "PayWithAuthorizationTest::test_RevertWhen_PayerIsPayee",
+    "PayWithPermitTest::test_RevertWhen_PayerIsPayee",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 283,
+   "seconds": 64
+  },
+  "M07": {
+   "desc": "total overwritten instead of accumulated",
+   "failed": [
+    "A01RetryDoublePayTest::test_NoDedupe_FreshSaltRetryChargesReceiveCardTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A03AttackSurfaceTest::test_Counters_TotalSaturatesWithoutCorruptingPackedFields",
+    "AmountFuzzTest::testFuzz_TotalIsTheSumOfPayments",
+    "AmountFuzzTest::testFuzz_TotalNeverWraps",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayNativeTest::test_PayNative_OpenAmount",
+    "PayNativeTest::test_PayNative_ReadOnlyReentrySeesPostEffectsState",
+    "PayTest::test_Pay_OpenAmountUnlimitedSeats",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_SequentialIndexesAndTotal",
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState_PayWithAuthorization",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused",
+    "StorageTest::test_StateLivesInOnePackedSlot",
+    "ViewsTest::test_StatesOfPreservesOrderAndDuplicates",
+    "WindowFuzzTest::testFuzz_CapIsEnforced"
+   ],
+   "killed": true,
+   "passed": 279,
+   "seconds": 63
+  },
+  "M08": {
+   "desc": "lastPaidAt only set on first payment",
+   "failed": [
+    "A01RetryDoublePayTest::test_NoDedupe_FreshSaltRetryChargesReceiveCardTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A03AttackSurfaceTest::test_Counters_TotalSaturatesWithoutCorruptingPackedFields",
+    "AmountFuzzTest::testFuzz_TotalIsTheSumOfPayments",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayNativeTest::test_PayNative_ReadOnlyReentrySeesPostEffectsState",
+    "PayTest::test_Pay_OpenAmountUnlimitedSeats",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_SequentialIndexesAndTotal",
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState_PayWithAuthorization",
+    "StorageTest::test_StateLivesInOnePackedSlot"
+   ],
+   "killed": true,
+   "passed": 285,
+   "seconds": 77
+  },
+  "M09": {
+   "desc": "payment binding drops payerRef (view and settlement)",
+   "failed": [
+    "A01RetryDoublePayTest::test_Control_OneOffInvoiceIsSafe",
+    "A01RetryDoublePayTest::test_Fix_CancelAuthorizationBeforeFallback",
+    "A01RetryDoublePayTest::test_Fix_ExpiredAuthorizationNeverLands",
+    "A01RetryDoublePayTest::test_Fix_ResubmitSameAuthorizationIsIdempotent",
+    "A01RetryDoublePayTest::test_NoDedupe_FreshSaltRetryChargesReceiveCardTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_MultiSeatLinkSellsTwoSeats",
+    "A01RetryDoublePayTest::test_NoDedupe_OpenAmountTillChargesTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_Delegated7702PayerRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_FlakyPayeeRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneCancelRevertsEveryRelayQueuedForTheCard",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneToggleRevertsEveryQueuedRelay",
+    "A03AttackSurfaceTest::test_Replay_3009AuthorizationIsBoundToOneDeployment",
+    "A04TimeBoundaryBanTest::test_Margin_InvoiceAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_Margin_PaymentAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_PayerCancelledAuthorization_LeavesNoPaidBeforeTheNonceLog",
+    "A04TimeBoundaryBanTest::test_SameAuthorizationLandedElsewhere_IsRecognisableFromTheSettlingLogs",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_InvoiceLastSecond",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_PayerChosenValidBefore",
+    "A05OverCreditExactnessTest::test_Control_StandardBehaviourSettles",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkEndsAboveItsStartingBalance",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Forward",
+    "AmountFuzzTest::testFuzz_FixedAmountSettlesOnlyExactly",
+    "AmountFuzzTest::testFuzz_OpenAmountAcceptsAnyPositive",
+    "AmountFuzzTest::testFuzz_TotalIsTheSumOfPayments",
+    "AmountFuzzTest::test_PaymentsCounterNeverWraps",
+    "BindingFuzzTest::testFuzz_I8_MutatedTupleNeverSettles",
+    "BindingFuzzTest::testFuzz_I8_NonceIsInjective",
+    "GoldenVectorsTest::test_WriteNonceVectors",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayWithAuthorizationTest::test_FeeTokenWithoutFeeSettles",
+    "PayWithAuthorizationTest::test_OverCreditTokenSettlesWhenItsLegIsUnused",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_IgnoresTxOrigin",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_OpenAmount",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_PayeeMayRelay",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_PayerCanSelfSubmit",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_RelayerSettlesToPayee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_SequentialIndexesAndTotal",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_ToDeployed1271Payee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_WindowBoundariesAreInclusive",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_ZeroValidUntilNeverExpires",
+    "PayWithAuthorizationTest::test_RelayerCannotRedirectAuthorization",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationCancelledByPayer",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationReplayed",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceDecreasesOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrow",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrowFromZero",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeBalanceDecreasesOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeOverCreditedOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayerBalanceInsufficient",
+    "PayWithAuthorizationTest::test_RevertWhen_SoldOut",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenDeliversNothing",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenWouldSpendDonations",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState_PayWithAuthorization",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ViewsTest::test_PaymentNonceMatchesSpecFormula"
+   ],
+   "killed": true,
+   "passed": 232,
+   "seconds": 87
+  },
+  "M10": {
+   "desc": "drop ReceivedMismatch (receive-delta) check",
+   "failed": [
+    "A03AttackSurfaceTest::test_PhantomReceiveWithAuthorization_IsCaughtByReceiptCheck",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceDecreasesOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenDeliversNothing",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnReceive",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization"
+   ],
+   "killed": true,
+   "passed": 286,
+   "seconds": 84
+  },
+  "M11": {
+   "desc": "drop conservation post-check in 3009 path",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkEndsAboveItsStartingBalance",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrow",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrowFromZero",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenWouldSpendDonations"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 85
+  },
+  "M12": {
+   "desc": "drop payee-delta check in _pullExact",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Pay",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_PayWithPermit",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayTest::test_RevertWhen_FeeOnTransfer",
+    "PayTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayTest::test_RevertWhen_PayeeOverCredited",
+    "PayTest::test_RevertWhen_TokenCreditsNothing",
+    "PayWithPermitTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayWithPermitTest::test_RevertWhen_PayeeOverCredited",
+    "PayWithPermitTest::test_RevertWhen_RebasingRoundsDown",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 281,
+   "seconds": 83
+  },
+  "M13": {
+   "desc": "drop payee-delta check in _pushExact",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Forward",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeBalanceDecreasesOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeOverCreditedOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnForward"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 92
+  },
+  "M14": {
+   "desc": "cancel: drop NotPayee",
+   "failed": [
+    "CancelTest::test_RevertWhen_CancelByPayer",
+    "CancelTest::test_RevertWhen_CancelByStranger",
+    "CancelTest::test_RevertWhen_CancelByStrangerWithPayeeAsTxOrigin",
+    "CancelTest::test_RevertWhen_CancelThroughPayeeOwnedAccount",
+    "CancelTest::test_RevertWhen_LuredPayeeWouldCancel",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PrecedenceTest::test_Precedence_Cancel"
+   ],
+   "killed": true,
+   "passed": 287,
+   "seconds": 98
+  },
+  "M15": {
+   "desc": "cancelBySig deadline off-by-one (> -> >=)",
+   "failed": [
+    "A04TimeBoundaryBanTest::test_Margin_CancelAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_CancelDeadlineNow",
+    "BindingFuzzTest::testFuzz_HighSNeverVerifies",
+    "CancelTest::test_CancelBySig_DeadlineIsInclusive",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "SpecExamplesTest::test_Section17_6_SignedCancellation",
+    "WindowFuzzTest::testFuzz_CancelDeadline"
+   ],
+   "killed": true,
+   "passed": 288,
+   "seconds": 97
+  },
+  "M16": {
+   "desc": "cancelBySig verifies the invoice key instead of the Cancel digest",
+   "failed": [
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_FlakyPayeeCancelBySig",
+    "A03AttackSurfaceTest::test_Eip712_CancelDigestMatchesIndependentEngine",
+    "A04TimeBoundaryBanTest::test_Margin_CancelAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_CancelDeadlineNow",
+    "CancelTest::test_CancelBySig_ContractPayee",
+    "CancelTest::test_CancelBySig_DeadlineIsInclusive",
+    "CancelTest::test_CancelBySig_PreApprovedHashOnContractPayee",
+    "CancelTest::test_CancelBySig_RelayedForPayee",
+    "CancelTest::test_RevertWhen_CancelSigFromOtherDeployment",
+    "CancelTest::test_RevertWhen_CancelSigReplayed",
+    "CancelTest::test_RevertWhen_InvoiceSignatureReusedAsCancel",
+    "DomainFuzzTest::testFuzz_I7_CancelSignatureBoundToDomain",
+    "GoldenVectorsTest::test_WriteCancelVectors",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "SpecExamplesTest::test_Section17_6_SignedCancellation",
+    "WindowFuzzTest::testFuzz_CancelDeadline"
+   ],
+   "killed": true,
+   "passed": 278,
+   "seconds": 99
+  },
+  "M17": {
+   "desc": "_checkShape: drop token == this",
+   "failed": [
+    "PayWithAuthorizationTest::test_RevertWhen_TokenIsPayLink",
+    "PayWithPermitTest::test_RevertWhen_TokenIsPayLink",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "WindowFuzzTest::testFuzz_MalformedShapeAlwaysRejected"
+   ],
+   "killed": true,
+   "passed": 287,
+   "seconds": 93
+  },
+  "M18": {
+   "desc": "_checkShape: validUntil < validAfter -> <=",
+   "failed": [
+    "GoldenVectorsTest::test_WriteEip712Vectors",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_WindowBoundariesAreInclusive",
+    "WindowFuzzTest::testFuzz_WindowEdgesAreInclusive"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 90
+  },
+  "M19": {
+   "desc": "Paid.payer = msg.sender (relayer on 3009 path)",
+   "failed": [
+    "A04TimeBoundaryBanTest::test_SameAuthorizationLandedElsewhere_IsRecognisableFromTheSettlingLogs",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_IgnoresTxOrigin",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_OpenAmount",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_RelayerSettlesToPayee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_SequentialIndexesAndTotal"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 88
+  },
+  "M20": {
+   "desc": "payWithPermit: permit not in try/catch",
+   "failed": [
+    "A06ConcurrentPermitGriefingTest::test_Grief_FrontRunningBothPermitsRevertsOnePayment",
+    "A06ConcurrentPermitGriefingTest::test_Grief_WhenFirstPaymentIsLarger_FirstPaymentReverts",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayWithPermitTest::test_PayWithPermit_FrontRunPermitIsHarmless",
+    "PayWithPermitTest::test_PayWithPermit_InvalidPermitFallsBackToAllowance",
+    "PayWithPermitTest::test_PayWithPermit_TokenWithoutPermitUsesAllowance",
+    "PayWithPermitTest::test_RevertWhen_PermitExpiredAndNoAllowance",
+    "PayWithPermitTest::test_RevertWhen_PermitForSmallerValue",
+    "PayWithPermitTest::test_RevertWhen_PermitInvalidAndNoAllowance",
+    "PayWithPermitTest::test_RevertWhen_PermitSignedByTxOriginOnly",
+    "PayWithPermitTest::test_RevertWhen_RebasingRoundsDown",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 282,
+   "seconds": 94
+  },
+  "M21": {
+   "desc": "payNative: drop uint128 guard",
+   "failed": [
+    "AmountFuzzTest::testFuzz_NativeValueAboveUint128IsRejected",
+    "PayNativeTest::test_RevertWhen_ValueExceedsUint128",
+    "PrecedenceTest::test_Precedence_NativeValueOverflowBeforeShape"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 77
+  },
+  "M22": {
+   "desc": "statesOf bound off-by-one (> -> >=)",
+   "failed": [
+    "ViewsTest::test_StatesOfAcceptsMaxBatch"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 76
+  },
+  "M23": {
+   "desc": "cancel without nonReentrant",
+   "failed": [
+    "PayNativeTest::test_RevertWhen_PayeeReentersCancel",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 78
+  },
+  "M24": {
+   "desc": "cancelBySig without nonReentrant",
+   "failed": [
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 69
+  },
+  "M25": {
+   "desc": "payNative without nonReentrant",
+   "failed": [
+    "PayNativeTest::test_RevertWhen_PayeeReentersCancel",
+    "PayNativeTest::test_RevertWhen_PayeeReentersPayNative",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 290,
+   "seconds": 69
+  },
+  "M26": {
+   "desc": "payWithPermit without nonReentrant",
+   "failed": [
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 70
+  },
+  "M27": {
+   "desc": "check order: InvalidSignature before Cancelled",
+   "failed": [
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "PrecedenceTest::test_Precedence_CancelledBeforeInvalidSignature"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 67
+  },
+  "M28": {
+   "desc": "check order: SelfPayment before WrongAmount",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 68
+  },
+  "M29": {
+   "desc": "_increase: checked subtraction (panics on decrease)",
+   "failed": [
+    "PayTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceDecreasesOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeBalanceDecreasesOnForward",
+    "PayWithPermitTest::test_RevertWhen_PayeeBalanceDecreases"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 66
+  },
+  "M30": {
+   "desc": "check order: WrongPaymentPath moved after SelfPayment",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithAuthorizationTest::test_RevertWhen_InvoiceIsNative",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 288,
+   "seconds": 64
+  },
+  "M31": {
+   "desc": "cancelBySig emits msg.sender as payee",
+   "failed": [
+    "CancelTest::test_CancelBySig_RelayedForPayee",
+    "GoldenVectorsTest::test_WriteCancelVectors",
+    "SpecExamplesTest::test_Section17_6_SignedCancellation"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 65
+  },
+  "M32": {
+   "desc": "payNative uses transfer (2300 stipend) instead of sendValue",
+   "failed": [
+    "PayNativeTest::test_PayNative_ReadOnlyReentrySeesPostEffectsState",
+    "PayNativeTest::test_RevertWhen_PayeeReentersCancel",
+    "PayNativeTest::test_RevertWhen_PayeeReentersPayNative",
+    "PayNativeTest::test_RevertWhen_PayeeRejectsSilently"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 64
+  },
+  "M33": {
+   "desc": "validUntil == 0 treated as expired",
+   "failed": [
+    "A01RetryDoublePayTest::test_Control_OneOffInvoiceIsSafe",
+    "A01RetryDoublePayTest::test_Fix_CancelAuthorizationBeforeFallback",
+    "A01RetryDoublePayTest::test_Fix_ExpiredAuthorizationNeverLands",
+    "A01RetryDoublePayTest::test_Fix_ResubmitSameAuthorizationIsIdempotent",
+    "A01RetryDoublePayTest::test_NoDedupe_FreshSaltRetryChargesReceiveCardTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_MultiSeatLinkSellsTwoSeats",
+    "A01RetryDoublePayTest::test_NoDedupe_OpenAmountTillChargesTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_FlakyPayeeRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneCancelRevertsEveryRelayQueuedForTheCard",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneToggleRevertsEveryQueuedRelay",
+    "A04TimeBoundaryBanTest::test_Margin_PaymentAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_PayerCancelledAuthorization_LeavesNoPaidBeforeTheNonceLog",
+    "A04TimeBoundaryBanTest::test_SameAuthorizationLandedElsewhere_IsRecognisableFromTheSettlingLogs",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_PayerChosenValidBefore",
+    "GoldenVectorsTest::test_WriteEip712Vectors",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_ZeroValidUntilNeverExpires",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "WindowFuzzTest::testFuzz_WindowMatchesModel"
+   ],
+   "killed": true,
+   "passed": 271,
+   "seconds": 64
+  },
+  "M34": {
+   "desc": "receive() accepts native",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "SurfaceTest::test_RevertWhen_NativeTransferViaTransfer",
+    "SurfaceTest::test_RevertWhen_PlainNativeTransfer"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 65
+  },
+  "M35": {
+   "desc": "cancelBySig: drop already-cancelled check",
+   "failed": [
+    "CancelTest::test_RevertWhen_CancelBySigAfterCancel",
+    "CancelTest::test_RevertWhen_CancelSigReplayed",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PrecedenceTest::test_Precedence_CancelBySig"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 66
+  },
+  "M36": {
+   "desc": "payWithPermit: permit for max value",
+   "failed": [
+    "A01RetryDoublePayTest::test_Fix_CancelAuthorizationBeforeFallback",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_PayWithPermit",
+    "A06ConcurrentPermitGriefingTest::test_Control_TwoInFlightPermitPaymentsSettle",
+    "DonationsTest::test_EveryPathWorksWithDonationsPresent",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithPermitTest::test_PayWithPermit_On3009TokenWithVersion2Domain",
+    "PayWithPermitTest::test_PayWithPermit_PayerIsMsgSenderNotTxOrigin",
+    "PayWithPermitTest::test_PayWithPermit_PermitRunsAfterEffects",
+    "PayWithPermitTest::test_PayWithPermit_SingleTransaction",
+    "PayWithPermitTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayWithPermitTest::test_RevertWhen_PayeeOverCredited",
+    "PayWithPermitTest::test_RevertWhen_SoldOut",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 279,
+   "seconds": 67
+  },
+  "M37": {
+   "desc": "statesOf returns first key's state for all",
+   "failed": [
+    "ViewsTest::test_StatesOfPreservesOrderAndDuplicates"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 65
+  },
+  "M38": {
+   "desc": "cancel: drop _checkShape",
+   "failed": [
+    "CancelTest::test_RevertWhen_CancelMalformedInvoice",
+    "PrecedenceTest::test_Precedence_Cancel",
+    "WindowFuzzTest::testFuzz_MalformedShapeAlwaysRejected"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 65
+  },
+  "M39": {
+   "desc": "Paid.amount = inv.amount (wrong for open invoices)",
+   "failed": [
+    "A04TimeBoundaryBanTest::test_SameAuthorizationLandedElsewhere_IsRecognisableFromTheSettlingLogs",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_OpenAmount"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 63
+  },
+  "M40": {
+   "desc": "payNative uint128 guard off-by-one (> -> >=)",
+   "failed": [
+    "AmountFuzzTest::testFuzz_FixedAmountSettlesOnlyExactly",
+    "AmountFuzzTest::testFuzz_OpenAmountAcceptsAnyPositive",
+    "AmountFuzzTest::testFuzz_TotalNeverWraps"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 66
+  },
+  "M41": {
+   "desc": "payWithAuthorization without nonReentrant",
+   "failed": [
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 64
+  },
+  "M42": {
+   "desc": "settlement nonce in _receiveAndForward ignores payerSalt (view unchanged)",
+   "failed": [
+    "A01RetryDoublePayTest::test_Control_OneOffInvoiceIsSafe",
+    "A01RetryDoublePayTest::test_Fix_CancelAuthorizationBeforeFallback",
+    "A01RetryDoublePayTest::test_Fix_ExpiredAuthorizationNeverLands",
+    "A01RetryDoublePayTest::test_Fix_ResubmitSameAuthorizationIsIdempotent",
+    "A01RetryDoublePayTest::test_NoDedupe_FreshSaltRetryChargesReceiveCardTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_MultiSeatLinkSellsTwoSeats",
+    "A01RetryDoublePayTest::test_NoDedupe_OpenAmountTillChargesTwice",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_Delegated7702PayerRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_FlakyPayeeRevertsOnInclusion",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneCancelRevertsEveryRelayQueuedForTheCard",
+    "A02RelayerGriefingTest::test_SimulationDoesNotBind_OneToggleRevertsEveryQueuedRelay",
+    "A03AttackSurfaceTest::test_Replay_3009AuthorizationIsBoundToOneDeployment",
+    "A04TimeBoundaryBanTest::test_Margin_InvoiceAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_Margin_PaymentAdmittedAtTheEdgeSettlesAfterMarginLatency",
+    "A04TimeBoundaryBanTest::test_PayerCancelledAuthorization_LeavesNoPaidBeforeTheNonceLog",
+    "A04TimeBoundaryBanTest::test_SameAuthorizationLandedElsewhere_IsRecognisableFromTheSettlingLogs",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_InvoiceLastSecond",
+    "A04TimeBoundaryBanTest::test_SimulationDoesNotBind_PayerChosenValidBefore",
+    "A05OverCreditExactnessTest::test_Control_StandardBehaviourSettles",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkEndsAboveItsStartingBalance",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Forward",
+    "AmountFuzzTest::testFuzz_FixedAmountSettlesOnlyExactly",
+    "AmountFuzzTest::testFuzz_OpenAmountAcceptsAnyPositive",
+    "AmountFuzzTest::testFuzz_TotalIsTheSumOfPayments",
+    "AmountFuzzTest::test_PaymentsCounterNeverWraps",
+    "BindingFuzzTest::testFuzz_I8_MutatedTupleNeverSettles",
+    "GoldenVectorsTest::test_WriteNonceVectors",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayWithAuthorizationTest::test_FeeTokenWithoutFeeSettles",
+    "PayWithAuthorizationTest::test_OverCreditTokenSettlesWhenItsLegIsUnused",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_IgnoresTxOrigin",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_OpenAmount",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_PayeeMayRelay",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_PayerCanSelfSubmit",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_RelayerSettlesToPayee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_SequentialIndexesAndTotal",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_ToDeployed1271Payee",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_WindowBoundariesAreInclusive",
+    "PayWithAuthorizationTest::test_PayWithAuthorization_ZeroValidUntilNeverExpires",
+    "PayWithAuthorizationTest::test_RelayerCannotRedirectAuthorization",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationCancelledByPayer",
+    "PayWithAuthorizationTest::test_RevertWhen_AuthorizationReplayed",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceDecreasesOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrow",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrowFromZero",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeBalanceDecreasesOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeOverCreditedOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_PayerBalanceInsufficient",
+    "PayWithAuthorizationTest::test_RevertWhen_SoldOut",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenDeliversNothing",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnForward",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenTakesFeeOnReceive",
+    "PayWithAuthorizationTest::test_RevertWhen_TokenWouldSpendDonations",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState_PayWithAuthorization",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPayWithAuthorization"
+   ],
+   "killed": true,
+   "passed": 234,
+   "seconds": 65
+  },
+  "M43": {
+   "desc": "statesOf: no batch cap at all",
+   "failed": [
+    "ViewsTest::test_RevertWhen_StatesOfBatchTooLarge"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 66
+  },
+  "M44": {
+   "desc": "payments counter increment unchecked (wraps at 2^32 on unlimited links)",
+   "failed": [
+    "A03AttackSurfaceTest::test_Counters_PaymentsSaturateWithoutWrapping",
+    "AmountFuzzTest::test_PaymentsCounterNeverWraps"
+   ],
+   "killed": true,
+   "passed": 293,
+   "seconds": 64
+  },
+  "M45": {
+   "desc": "total accumulation unchecked",
+   "failed": [
+    "A03AttackSurfaceTest::test_Counters_TotalSaturatesWithoutCorruptingPackedFields",
+    "AmountFuzzTest::testFuzz_TotalNeverWraps"
+   ],
+   "killed": true,
+   "passed": 293,
+   "seconds": 65
+  },
+  "M46": {
+   "desc": "payNative: link-state write deferred past sendValue (the payee's receive reads stale state)",
+   "failed": [
+    "PayNativeTest::test_PayNative_ReadOnlyReentrySeesPostEffectsState"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 65
+  },
+  "M47": {
+   "desc": "payWithAuthorization: link-state write deferred past the token calls",
+   "failed": [
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState_PayWithAuthorization"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 66
+  },
+  "M48": {
+   "desc": "pay: link-state write deferred past transferFrom",
+   "failed": [
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 66
+  },
+  "M49": {
+   "desc": "payWithPermit: link-state write deferred past permit and transferFrom",
+   "failed": [
+    "PayWithPermitTest::test_PayWithPermit_PermitRunsAfterEffects"
+   ],
+   "killed": true,
+   "passed": 294,
+   "seconds": 67
+  },
+  "M50": {
+   "desc": "conservation post-check one-sided (!= -> <): PayLink's balance may grow across a call",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkEndsAboveItsStartingBalance",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrow",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrowFromZero"
+   ],
+   "killed": true,
+   "passed": 290,
+   "seconds": 64
+  },
+  "M51": {
+   "desc": "receive check one-sided (!= -> <): PayLink may receive more than authorized",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized"
+   ],
+   "killed": true,
+   "passed": 292,
+   "seconds": 65
+  },
+  "M52": {
+   "desc": "_pullExact one-sided (!= -> <): payee over-credit accepted on pay and payWithPermit",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Pay",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_PayWithPermit",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayTest::test_RevertWhen_PayeeOverCredited",
+    "PayWithPermitTest::test_RevertWhen_PayeeOverCredited"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 61
+  },
+  "M53": {
+   "desc": "_pushExact one-sided (!= -> <): payee over-credit accepted on the EIP-3009 forward leg",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Forward",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayWithAuthorizationTest::test_RevertWhen_PayeeOverCreditedOnForward"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 62
+  },
+  "M54": {
+   "desc": "receive check and conservation post-check both one-sided: an over-delivering token settles and PayLink keeps the surplus",
+   "failed": [
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkEndsAboveItsStartingBalance",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_RefusalsAreObserved",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrow",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkBalanceWouldGrowFromZero",
+    "PayWithAuthorizationTest::test_RevertWhen_PayLinkReceivesMoreThanAuthorized"
+   ],
+   "killed": true,
+   "passed": 288,
+   "seconds": 64
+  },
+  "M55": {
+   "desc": "cancel also authorizes tx.origin == payee (a lured payee's links can be cancelled)",
+   "failed": [
+    "CancelTest::test_RevertWhen_CancelByStrangerWithPayeeAsTxOrigin",
+    "CancelTest::test_RevertWhen_CancelThroughPayeeOwnedAccount",
+    "CancelTest::test_RevertWhen_LuredPayeeWouldCancel",
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 291,
+   "seconds": 65
+  },
+  "M56": {
+   "desc": "cancelBySig: tx.origin == payee stands in for the payee's signature",
+   "failed": [
+    "CancelTest::test_RevertWhen_CancelBySigWithPayeeAsTxOriginButForeignSignature",
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 293,
+   "seconds": 66
+  },
+  "M57": {
+   "desc": "pay: the payer is tx.origin (a lured payer's standing allowance can be spent)",
+   "failed": [
+    "A03AttackSurfaceTest::test_NoReturnValueToken_SettlesAndFalseIsRefused",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_Pay",
+    "AmountFuzzTest::testFuzz_FixedAmountSettlesOnlyExactly",
+    "AmountFuzzTest::testFuzz_OpenAmountAcceptsAnyPositive",
+    "AmountFuzzTest::testFuzz_TotalIsTheSumOfPayments",
+    "AmountFuzzTest::test_PaymentsCounterNeverWraps",
+    "CancelTest::test_Cancel_KeepsPaymentHistory",
+    "CancelTest::test_Cancel_SoldOutAndExpiredLinks",
+    "CancelTest::test_RevertWhen_LuredPayeeWouldCancel",
+    "DonationsTest::test_EveryPathWorksWithDonationsPresent",
+    "GoldenVectorsTest::test_WriteEip712Vectors",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayTest::test_Pay_ContractPayer",
+    "PayTest::test_Pay_ExactAllowanceIsEnough",
+    "PayTest::test_Pay_MovesFundsDirectlyToPayee",
+    "PayTest::test_Pay_OpenAmountUnlimitedSeats",
+    "PayTest::test_Pay_PayerIsMsgSenderNotTxOrigin",
+    "PayTest::test_Pay_WorksWith3009TokenToo",
+    "PayTest::test_RevertWhen_FeeOnTransfer",
+    "PayTest::test_RevertWhen_InsufficientBalance",
+    "PayTest::test_RevertWhen_LuredPayerAllowanceWouldBeSpent",
+    "PayTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayTest::test_RevertWhen_PayeeOverCredited",
+    "PayTest::test_RevertWhen_PayerIsPayee",
+    "PayTest::test_RevertWhen_SoldOut",
+    "PayTest::test_RevertWhen_TokenCreditsNothing",
+    "PayTest::test_SelfPaymentIgnoresTxOrigin",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "ReentrancyTest::test_ReadOnlyReentrySeesPostEffectsState",
+    "ReentrancyTest::test_RevertWhen_TokenHookReentersDuringPay",
+    "ReentrancyTest::test_SwallowedReentryDoesNotDoubleSpend",
+    "SpecExamplesTest::test_Section17_3_ExampleIsPayableWithTheDocumentedSignature",
+    "StorageTest::test_PaymentWritesOneSlot",
+    "StorageTest::test_StateLivesInOnePackedSlot",
+    "ViewsTest::test_StatesOfPreservesOrderAndDuplicates"
+   ],
+   "killed": true,
+   "passed": 258,
+   "seconds": 52
+  },
+  "M58": {
+   "desc": "payWithPermit: the payer and permit owner are tx.origin",
+   "failed": [
+    "A01RetryDoublePayTest::test_Fix_CancelAuthorizationBeforeFallback",
+    "A01RetryDoublePayTest::test_NoDedupe_PermitFallbackChargesReceiveCardTwice",
+    "A05OverCreditExactnessTest::test_RevertWhen_PayeeOverCredited_PayWithPermit",
+    "A06ConcurrentPermitGriefingTest::test_Control_TwoInFlightPermitPaymentsSettle",
+    "A06ConcurrentPermitGriefingTest::test_Grief_FrontRunningBothPermitsRevertsOnePayment",
+    "A06ConcurrentPermitGriefingTest::test_Grief_WhenFirstPaymentIsLarger_FirstPaymentReverts",
+    "AmountFuzzTest::test_PaymentsCounterNeverWraps",
+    "DonationsTest::test_EveryPathWorksWithDonationsPresent",
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayLinkPropertiesHarnessTest::test_EveryPaymentPathSettles",
+    "PayWithPermitTest::test_PayWithPermit_FrontRunPermitIsHarmless",
+    "PayWithPermitTest::test_PayWithPermit_InvalidPermitFallsBackToAllowance",
+    "PayWithPermitTest::test_PayWithPermit_On3009TokenWithVersion2Domain",
+    "PayWithPermitTest::test_PayWithPermit_PayerIsMsgSenderNotTxOrigin",
+    "PayWithPermitTest::test_PayWithPermit_PermitRunsAfterEffects",
+    "PayWithPermitTest::test_PayWithPermit_SingleTransaction",
+    "PayWithPermitTest::test_PayWithPermit_TokenWithoutPermitUsesAllowance",
+    "PayWithPermitTest::test_RevertWhen_PayeeBalanceDecreases",
+    "PayWithPermitTest::test_RevertWhen_PayeeOverCredited",
+    "PayWithPermitTest::test_RevertWhen_PayerIsPayee",
+    "PayWithPermitTest::test_RevertWhen_PermitSignedByTxOriginOnly",
+    "PayWithPermitTest::test_RevertWhen_RebasingRoundsDown",
+    "PayWithPermitTest::test_RevertWhen_SoldOut",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "ReentrancyTest::test_TokenHookReentryDuringPermitIsRefused"
+   ],
+   "killed": true,
+   "passed": 269,
+   "seconds": 58
+  },
+  "M59": {
+   "desc": "payNative: the payer recorded (Paid, SelfPayment) is tx.origin",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PayNativeTest::test_PayNative_ForwardsValueToPayee",
+    "PayNativeTest::test_PayNative_PayerIsMsgSenderNotTxOrigin",
+    "PayNativeTest::test_RevertWhen_PayeePaysWithAnotherTxOrigin",
+    "PayNativeTest::test_RevertWhen_PayerIsPayee",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative"
+   ],
+   "killed": true,
+   "passed": 288,
+   "seconds": 57
+  },
+  "P1": {
+   "desc": "check order: InvalidSignature moved after Expired",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 67
+  },
+  "P2": {
+   "desc": "check order: SoldOut before NotYetValid/Expired",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 65
+  },
+  "P3": {
+   "desc": "check order: Cancelled before WrongPaymentPath",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation",
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 67
+  },
+  "P4": {
+   "desc": "check order: WrongPaymentPath before InvalidInvoice",
+   "failed": [
+    "PrecedenceFuzzTest::testFuzz_FirstFailingCheckIsReported",
+    "PrecedenceTest::test_Precedence_AllPairs_Pay",
+    "PrecedenceTest::test_Precedence_AllPairs_PayNative",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithAuthorization",
+    "PrecedenceTest::test_Precedence_AllPairs_PayWithPermit",
+    "WindowFuzzTest::testFuzz_MalformedShapeAlwaysRejected"
+   ],
+   "killed": true,
+   "passed": 289,
+   "seconds": 65
+  }
+ },
+ "campaign": {
+  "M11": {
+   "desc": "drop conservation post-check in 3009 path",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 139
+  },
+  "M13": {
+   "desc": "drop payee-delta check in _pushExact",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 123
+  },
+  "M50": {
+   "desc": "conservation post-check one-sided (!= -> <): PayLink's balance may grow across a call",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 139
+  },
+  "M51": {
+   "desc": "receive check one-sided (!= -> <): PayLink may receive more than authorized",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 145
+  },
+  "M52": {
+   "desc": "_pullExact one-sided (!= -> <): payee over-credit accepted on pay and payWithPermit",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 127
+  },
+  "M53": {
+   "desc": "_pushExact one-sided (!= -> <): payee over-credit accepted on the EIP-3009 forward leg",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 123
+  },
+  "M54": {
+   "desc": "receive check and conservation post-check both one-sided: an over-delivering token settles and PayLink keeps the surplus",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 139
+  },
+  "M55": {
+   "desc": "cancel also authorizes tx.origin == payee (a lured payee's links can be cancelled)",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 143
+  },
+  "M56": {
+   "desc": "cancelBySig: tx.origin == payee stands in for the payee's signature",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 139
+  },
+  "M57": {
+   "desc": "pay: the payer is tx.origin (a lured payer's standing allowance can be spent)",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 121
+  },
+  "M58": {
+   "desc": "payWithPermit: the payer and permit owner are tx.origin",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 132
+  },
+  "M59": {
+   "desc": "payNative: the payer recorded (Paid, SelfPayment) is tx.origin",
+   "failed": [
+    "InvariantsTest::invariant_I10_pathSeparation"
+   ],
+   "killed": true,
+   "passed": 0,
+   "seconds": 108
+  }
+ }
+}

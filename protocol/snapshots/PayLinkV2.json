@@ -1,0 +1,15 @@
+{
+  "cancel": "53031",
+  "cancelBySig": "61950",
+  "cancelBySig_erc1271Payee": "66528",
+  "deploy": "2707059",
+  "payNative_first": "97449",
+  "payNative_repeat": "54931",
+  "payWithAuthorization_erc1271Payee": "146886",
+  "payWithAuthorization_first": "142326",
+  "payWithAuthorization_repeat": "107732",
+  "payWithPermit_first": "135444",
+  "pay_first": "101896",
+  "pay_repeat": "67266",
+  "statesOf_256": "764461"
+}

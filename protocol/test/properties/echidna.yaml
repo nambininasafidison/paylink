@@ -1,0 +1,23 @@
+# Echidna 2.2.7: invariants I1-I11 on test/properties/PayLinkProperties.sol (PAYLINK-V2-SPEC §4.1).
+# Run from protocol/ (protocol/audit/properties.md):
+#   echidna . --contract PayLinkProperties --config test/properties/echidna.yaml
+# The nightly budget is the timeout below (1 hour); a shorter local run passes --timeout or --test-limit.
+testMode: property
+prefix: "echidna_"
+timeout: 3600
+testLimit: 100000000
+seqLen: 100
+shrinkLimit: 5000
+workers: 2
+# 300 ether for the property contract, split between the three actors for native payments.
+balanceContract: 300000000000000000000
+# Fuzzer-chosen block times keep most invoices inside their windows (hours to days) and push some past them.
+maxTimeDelay: 21600
+maxBlockDelay: 600
+deployer: "0x30000"
+sender: ["0x10000", "0x20000", "0x30000"]
+# The property contract lives under test/, which crytic-compile skips unless asked.
+cryticArgs: ["--foundry-compile-all"]
+corpusDir: "cache/echidna-corpus"
+coverageFormats: ["txt", "lcov"]
+format: "text"
