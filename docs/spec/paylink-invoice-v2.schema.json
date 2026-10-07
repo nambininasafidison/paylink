@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nambininasafidison/paylink/main/docs/spec/paylink-invoice-v2.schema.json",
+  "$comment": "Specification version 2.0.0, wire-format version 2. Normative text: docs/spec/paylink-invoice-v2.md. Changing this schema in a way that accepts or rejects different wire data requires a new specification version (section 16).",
+  "title": "PayLink signed invoice, wire-format version 2",
+  "description": "Canonical JSON form of a PayLink v2 signed invoice and its companion objects (payment authorisation, signed cancellation, relayer request bodies, receipt reference). Normative text: docs/spec/paylink-invoice-v2.md, section 11. A schema validator checks structure, ranges and the memo presence rule only. Consumers MUST also verify EIP-55 checksums of mixed-case addresses, the 280-byte UTF-8 limit of the memo and its hash, the uint128/uint256 upper bounds of decimal strings, the invoice shape rules of section 3.1 that involve verifyingContract or two fields, and, when present, that `key` equals the key recomputed with the registry's verifyingContract.",
+  "$ref": "#/$defs/SignedInvoice",
+  "$defs": {
+    "Address": {
+      "description": "20-byte EVM address, 0x-prefixed. Producers MUST write the EIP-55 checksummed form; consumers MUST verify the checksum of any mixed-case address.",
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{40}$"
+    },
+    "Bytes32": {
+      "description": "32 bytes, 0x-prefixed lowercase hexadecimal.",
+      "type": "string",
+      "pattern": "^0x[0-9a-f]{64}$"
+    },
+    "Signature": {
+      "description": "Payee signature, 0x-prefixed lowercase hexadecimal, 1 to 512 bytes. EOA payees: exactly 65 bytes r || s || v with v in {27, 28} and low s (section 6.2). ERC-1271 payees: opaque bytes (section 6.3).",
+      "type": "string",
+      "pattern": "^0x([0-9a-f]{2}){1,512}$"
+    },
+    "ChainId": {
+      "description": "EIP-155 chain ID within the uint53 range. It MUST have a canonical deployment in the consumer's registry.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "Uint32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "Uint53Seconds": {
+      "description": "Unix time in seconds. The contract type is uint64, but conforming values stay within the uint53 range (section 3.1).",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "Uint128String": {
+      "description": "uint128 as a canonical decimal string (no sign, no leading zeros). Consumers MUST reject values above 340282366920938463463374607431768211455.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,38})$"
+    },
+    "Uint256String": {
+      "description": "uint256 as a canonical decimal string (no sign, no leading zeros). Consumers MUST reject values above 2^256 - 1.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,77})$"
+    },
+    "Invoice": {
+      "description": "The eight-field EIP-712 Invoice struct (section 3.1). The schema enforces payee != 0x0 and memoHash != keccak256(\"\"). Shape rules that a schema cannot express: payee and token differ from verifyingContract, and validUntil == 0 or validUntil >= validAfter.",
+      "type": "object",
+      "properties": {
+        "payee": {
+          "$ref": "#/$defs/Address",
+          "description": "Receives the funds and signs the invoice: an EOA or a deployed ERC-1271 account. MUST NOT be the zero address.",
+          "not": {
+            "const": "0x0000000000000000000000000000000000000000"
+          }
+        },
+        "token": {
+          "$ref": "#/$defs/Address",
+          "description": "ERC-20 token, or 0x0000000000000000000000000000000000000000 for the native coin. MUST be in the registry allowlist for the chain."
+        },
+        "amount": {
+          "$ref": "#/$defs/Uint128String",
+          "description": "Token base units. \"0\" means an open amount."
+        },
+        "validAfter": {
+          "$ref": "#/$defs/Uint53Seconds"
+        },
+        "validUntil": {
+          "$ref": "#/$defs/Uint53Seconds",
+          "description": "Inclusive. 0 means no expiry."
+        },
+        "maxPayments": {
+          "$ref": "#/$defs/Uint32",
+          "description": "1 = one-off, N = N payments, 0 = unlimited."
+        },
+        "salt": {
+          "$ref": "#/$defs/Bytes32",
+          "description": "32 bytes from a CSPRNG, fresh for every invoice."
+        },
+        "memoHash": {
+          "$ref": "#/$defs/Bytes32",
+          "description": "keccak256 of the memo's exact UTF-8 bytes, or 32 zero bytes when there is no memo. An empty memo is encoded as 32 zero bytes, never as keccak256(\"\").",
+          "not": {
+            "const": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+          }
+        }
+      },
+      "required": [
+        "payee",
+        "token",
+        "amount",
+        "validAfter",
+        "validUntil",
+        "maxPayments",
+        "salt",
+        "memoHash"
+      ],
+      "additionalProperties": false
+    },
+    "Memo": {
+      "description": "Free text from the payee, at most 280 bytes of UTF-8 (the schema can only bound code points). Untrusted: strip bidirectional and control characters before display.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280
+    },
+    "SignedInvoice": {
+      "description": "A signed invoice (section 11). `memo` is present if and only if invoice.memoHash is not 32 zero bytes (enforced below), and it MUST hash to memoHash (checked by the consumer).",
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "chainId": {
+          "$ref": "#/$defs/ChainId"
+        },
+        "invoice": {
+          "$ref": "#/$defs/Invoice"
+        },
+        "payeeSig": {
+          "$ref": "#/$defs/Signature"
+        },
+        "memo": {
+          "$ref": "#/$defs/Memo"
+        },
+        "key": {
+          "$ref": "#/$defs/Bytes32",
+          "description": "OPTIONAL and redundant: the EIP-712 digest of the invoice under the deployment's domain. If present, consumers MUST recompute it and reject the object on a mismatch."
+        }
+      },
+      "required": [
+        "version",
+        "chainId",
+        "invoice",
+        "payeeSig"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "invoice": {
+            "properties": {
+              "memoHash": {
+                "const": "0x0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            },
+            "required": [
+              "memoHash"
+            ]
+          }
+        },
+        "required": [
+          "invoice"
+        ]
+      },
+      "then": {
+        "properties": {
+          "memo": false
+        }
+      },
+      "else": {
+        "required": [
+          "memo"
+        ]
+      }
+    },
+    "PaymentAuthorization": {
+      "description": "The payer's EIP-3009 receiveWithAuthorization signature for payWithAuthorization (section 8). The token nonce is not carried: it is recomputed as paymentNonce(key, payer, amount, payerRef, payerSalt).",
+      "type": "object",
+      "properties": {
+        "payer": {
+          "$ref": "#/$defs/Address"
+        },
+        "amount": {
+          "$ref": "#/$defs/Uint128String"
+        },
+        "payerRef": {
+          "$ref": "#/$defs/Bytes32",
+          "description": "Public and not unique. Must not contain personal data."
+        },
+        "validAfter": {
+          "$ref": "#/$defs/Uint256String"
+        },
+        "validBefore": {
+          "$ref": "#/$defs/Uint256String"
+        },
+        "payerSalt": {
+          "$ref": "#/$defs/Bytes32",
+          "description": "Fresh random bytes for every attempt."
+        },
+        "v": {
+          "enum": [
+            27,
+            28
+          ]
+        },
+        "r": {
+          "$ref": "#/$defs/Bytes32"
+        },
+        "s": {
+          "$ref": "#/$defs/Bytes32"
+        }
+      },
+      "required": [
+        "payer",
+        "amount",
+        "payerRef",
+        "validAfter",
+        "validBefore",
+        "payerSalt",
+        "v",
+        "r",
+        "s"
+      ],
+      "additionalProperties": false
+    },
+    "CancelAuthorization": {
+      "description": "A payee-signed EIP-712 Cancel(bytes32 key,uint256 deadline) for cancelBySig (section 9.2). It is also the request body of a relayer's POST /v1/{chainId}/cancel (section 11.2); the relayer MUST reject it if chainId differs from the chain in the path.",
+      "type": "object",
+      "properties": {
+        "chainId": {
+          "$ref": "#/$defs/ChainId"
+        },
+        "invoice": {
+          "$ref": "#/$defs/Invoice"
+        },
+        "deadline": {
+          "$ref": "#/$defs/Uint256String"
+        },
+        "payeeSig": {
+          "$ref": "#/$defs/Signature"
+        }
+      },
+      "required": [
+        "chainId",
+        "invoice",
+        "deadline",
+        "payeeSig"
+      ],
+      "additionalProperties": false
+    },
+    "RelayPayRequest": {
+      "description": "Request body of a relayer's POST /v1/{chainId}/pay (section 11.2). The relayer MUST reject the request if chainId differs from the chain in the path, then apply section 13.3: decode, check the shape, verify payeeSig with the registry's verifyingContract, recompute the binding nonce of section 8.2 and simulate before sending payWithAuthorization. The memo is never sent to a relayer.",
+      "type": "object",
+      "properties": {
+        "chainId": {
+          "$ref": "#/$defs/ChainId"
+        },
+        "invoice": {
+          "$ref": "#/$defs/Invoice"
+        },
+        "payeeSig": {
+          "$ref": "#/$defs/Signature"
+        },
+        "authorization": {
+          "$ref": "#/$defs/PaymentAuthorization"
+        }
+      },
+      "required": [
+        "chainId",
+        "invoice",
+        "payeeSig",
+        "authorization"
+      ],
+      "additionalProperties": false
+    },
+    "ReceiptReference": {
+      "description": "Identifies one Paid event (sections 10.6 and 12). Verify it on RPC; never trust an indexer for it.",
+      "type": "object",
+      "properties": {
+        "chainId": {
+          "$ref": "#/$defs/ChainId"
+        },
+        "txHash": {
+          "$ref": "#/$defs/Bytes32",
+          "description": "Transaction hash, lowercase."
+        },
+        "logIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Block-level log index of the Paid event."
+        }
+      },
+      "required": [
+        "chainId",
+        "txHash",
+        "logIndex"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "version": 2,
+      "chainId": 10143,
+      "invoice": {
+        "payee": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "token": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+        "amount": "25000000",
+        "validAfter": 1791158400,
+        "validUntil": 1791763200,
+        "maxPayments": 1,
+        "salt": "0xf5b34bf6f093a9e7f2275058fccc4b4c517ce2b35455c8f6908d9cff07c148d5",
+        "memoHash": "0x9e4171ef418f2c980507bfa20f7262b37301d7ffd5d6ef27634ca2d85d6b7041"
+      },
+      "payeeSig": "0x9b15ca287effb6724dbbdc508dc3f8418c1c51e38c7df32be3da03a1487de3615537f23f136bfa824748e8a730f38c4ad407223d8f6fd1e9b9ac4309cd6dd1b41b",
+      "memo": "Logo design, invoice #12",
+      "key": "0x7c3bfd66020e278626ebe781b4d26210c763273be3b3c2be4f90bb1631df15df"
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+# Runbook: deploying PayLink
+
+Step-by-step instructions for the owner: what to do in the wallet, in GitHub and in Cloudflare. The background is in [ARCHITECTURE §6](../ARCHITECTURE.md#6-deployments-and-code-integrity) and [ADR 0002](../adr/0002-one-paris-bytecode-oz-5-3-0.md).
+
+> **Golden rule.** A private key goes only into a wallet, a GitHub **environment** secret or a Cloudflare secret. **Never** into the chat, an issue, a commit or the Claude Code sandbox. Testnet keys are throwaway, and must never hold mainnet funds.
+
+## Contents
+
+1. [Wallets](#1-wallets)
+2. [One-time account and secret setup](#2-one-time-account-and-secret-setup)
+3. [Contract go/no-go and release](#3-contract-gono-go-and-release)
+4. [Deploying v2 to a testnet](#4-deploying-v2-to-a-testnet)
+5. [After every deployment](#5-after-every-deployment)
+6. [Arc v1 on mainnet](#6-arc-v1-on-mainnet)
+7. [Monad mainnet 143 (conditional)](#7-monad-mainnet-143-conditional)
+8. [Mezo testnet (from Oct 13)](#8-mezo-testnet-from-oct-13)
+9. [Web app, relayer and indexer](#9-web-app-relayer-and-indexer)
+10. [Rollback](#10-rollback)
+
+---
+
+## 1. Wallets
+
+| Wallet | Use | Where the key lives |
+|---|---|---|
+| **W-pay**: your browser wallet (for example MetaMask or Rabby) | Payee and payer demos on Base and Arbitrum; Arc v1 on mainnet | The wallet |
+| **W-deploy**: a fresh EOA, testnets only | Deploys v2 | The wallet. For route A, also the GitHub secret `TESTNET_DEPLOYER_PK` in the environment `testnet` |
+| **W-relay**: a fresh EOA, testnets only | Relayer gas | The Cloudflare Worker secret `RELAYER_PK`, set in the dashboard |
+| **Mera passkeys**: merchant on your phone, payer on a second device or browser profile | Monad demo | The platform passkey store (Google Password Manager or iCloud Keychain) |
+
+Create W-deploy and W-relay as new accounts, never as an existing wallet with history. Fund them only from faucets ([faucets runbook](faucets.md)).
+
+## 2. One-time account and secret setup
+
+### 2.1 Cloudflare (free plan, no card)
+
+1. Create the Pages project `<app>`. The recommended name is `paylink-mg`; its availability is unknown until you try. The name fixes the passkey **rpId** `<app>.pages.dev` for good ([ADR 0005](../adr/0005-dedicated-origin-and-rpid.md)). **Decide it before creating any passkey.**
+2. In the project's settings, **disable preview deployments.** Production branch: `main` only.
+3. Create an API token with exactly two permissions: "Cloudflare Pages: Edit" and "Workers Scripts: Edit". No other scopes.
+4. In GitHub → Settings → Secrets and variables → Actions, add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+5. After the first relayer deploy: Workers → `paylink-relayer` → Settings → Variables and Secrets → add the **encrypted** secret `RELAYER_PK` (the W-relay key).
+6. Check at sign-up that Durable Objects are available on the free plan (**L**). If not, the relayer uses its stateless fallback ([ADR 0007](../adr/0007-relayer-durable-object-per-chain.md)).
+
+**If Cloudflare sign-up fails without a card:** use the fallback in [ADR 0005](../adr/0005-dedicated-origin-and-rpid.md): a new free GitHub organisation whose `<org>.github.io` hosts only PayLink. Tell Claude, so the build switches to the meta-CSP variant.
+
+### 2.2 GitHub repository settings
+
+1. Actions: enabled. Default workflow permissions: **read**.
+2. Environments → create `testnet`:
+   - required reviewer: **you**;
+   - deployment branches: `main` only;
+   - secret `TESTNET_DEPLOYER_PK` (route A only).
+3. Branch protection for `main`: required status checks (the blocking gates in [CONTRIBUTING.md](../../CONTRIBUTING.md#5-quality-gates)); no force pushes.
+4. Security → enable **Private vulnerability reporting** ([SECURITY.md](../../SECURITY.md)).
+5. Turn on phishing-resistant two-factor authentication on the GitHub and Cloudflare accounts.
+
+### 2.3 Envio
+
+Sign in at envio.dev and create an API token. Add the GitHub secret `ENVIO_API_TOKEN`. Connect the repository in Envio Cloud (development plan) for `apps/indexer`.
+
+## 3. Contract go/no-go and release
+
+**Oct 7, 12:00 UTC (15:00 EAT).** Go only if all of these hold:
+
+- [ ] Invariants I1–I11 green in CI (`FOUNDRY_PROFILE=ci`).
+- [ ] Slither: no untriaged medium-or-higher finding (`protocol/audit/triage.md`).
+- [ ] Coverage ≥ 95 % of lines and ≥ 90 % of branches on `src/`.
+- [ ] Golden vectors reproduced by the SDK.
+- [ ] The [self-review](../security/self-review.md) "Verify" items checked.
+
+**GO:** tag `contracts-v2.0.0`. The release identity is the machine-readable file `protocol/deployments/release.json` (schema `paylink.release/1`) at that tag: the **`initCodeHash`**, the masked runtime hash, the compiler settings hash and the CREATE2 address. `forge script script/Predict.s.sol --sig 'writeRelease()'` generates it, and `test/script/Scripts.t.sol::test_ReleaseLockMatchesBuild` fails until it matches the build. The tag's release notes repeat the `initCodeHash`. These are the values you compare against before signing any deployment. The record formats are specified in `protocol/deployments/README.md`.
+
+**NO-GO:** ship the reduced contract (`payWithAuthorization`, `pay`, `cancel`, `cancelBySig`). Permit and native payments move to v2.1.
+
+## 4. Deploying v2 to a testnet
+
+**Order:** Monad testnet **10143** → Base Sepolia **84532** → Arbitrum Sepolia **421614** (optional, only if Sepolia ETH reaches W-deploy by Oct 9).
+
+**Hard deploy deadline:** Oct 8, 18:00 UTC. **No redeploys after Oct 8**, except for a security fix ([incident response](../security/incident-response.md)).
+
+**Budget.** On Monad, about 3.0M gas × about 105 gwei ≈ **0.32 MON**; keep **0.5 MON** in W-deploy. The minimum base fee is 100 MON-gwei (**C**), and about 105 gwei was observed (**L**). On Base Sepolia, keep at least 0.02 ETH.
+
+**Every route runs the same three steps** with the scripts in `protocol/script/`:
+
+1. **Predict (read-only).** `forge script script/Predict.s.sol --rpc-url <rpc> --sig 'run(address)' <W-deploy address>` prints the method (CREATE2 through `0x4e59b44847b379578588920cA78FbF26c0B4956C` with the salt `keccak256("paylink.v2.0.0")` when `eth_getCode` shows that deterministic deployer on the chain, CREATE otherwise), the target address, the `initCodeHash`, the masked runtime hash and the settings hash. **Stop if the `initCodeHash` differs from `release.json` at the tag.**
+2. **Deploy.** `forge script script/Deploy.s.sol --rpc-url <rpc> --broadcast …`. The script refuses any build that is not the release build, checks the address it lands on against the prediction, then checks the deployed code and its ERC-5267 domain. On a chain that already has a record, it only verifies the existing contract.
+3. **Record.** `PAYLINK_GIT_COMMIT=$(git rev-parse HEAD) forge script script/Deploy.s.sol --rpc-url <rpc> --sig 'record()'` re-verifies the live code and writes `protocol/deployments/<chainId>.json`.
+
+### Route A: GitHub Actions (preferred)
+
+No manual RPC or bytecode handling.
+
+1. Claude triggers `deploy-testnet.yml` with the chain ID.
+2. In GitHub, open Actions → the run → **Review deployments** → approve `testnet`.
+3. The job runs the three steps above with `TESTNET_DEPLOYER_PK` from the `testnet` environment, prints the prediction before broadcasting, verifies the source on Sourcify or Blockscout, and opens a pull request with `protocol/deployments/<chainId>.json`.
+4. Claude checks the logs and the pull request. You merge it.
+
+### Route B: browser (`https://<app>.pages.dev/deploy/`)
+
+1. Connect **W-deploy** and choose the chain.
+2. **Check that the displayed `initCodeHash` equals the one in `release.json` at the `contracts-v2.0.0` tag** (and in its release notes). If it differs, stop.
+3. Read the predicted address and the gas cost.
+4. Sign in the wallet.
+5. Copy the JSON the page produces into a new GitHub issue. Claude then runs step 3 (`record()`) in a GitHub Actions job, because the sandbox cannot reach testnets; it re-verifies the live code and opens a pull request with `protocol/deployments/<chainId>.json`.
+
+### Route C: your own computer, with a Foundry keystore
+
+Only on your own machine, **never in the Claude Code sandbox**. Import W-deploy once into an encrypted keystore (`cast wallet import w-deploy --interactive`; the key is typed, never pasted into a file or a shell history), then run the three steps with `--account w-deploy --sender <W-deploy address>` on step 2. Send Claude the resulting `protocol/deployments/<chainId>.json` in a pull request.
+
+### Deployment record
+
+`protocol/deployments/<chainId>.json` (schema `paylink.deployment/1`, specified in `protocol/deployments/README.md`) contains:
+
+- the address in EIP-55 and CAIP-10 form, the chain ID and its CAIP-2 identifier;
+- the method (`CREATE2` or `CREATE`), the deployer, the transaction hash and the block; the factory, salt and salt preimage, or `null` for CREATE;
+- the `initCodeHash` and masked runtime hash (equal to `release.json`), plus the hash and size of the runtime code actually on that chain;
+- the compiler settings, the OpenZeppelin and forge-std versions, and the git commit;
+- the ERC-5267 domain as verified on-chain, and explorer links.
+
+`@paylink/chains` is generated from these files and adds `status: "active"`.
+
+## 5. After every deployment
+
+- [ ] `deployments-check.yml` is green: the `initCodeHash`, the masked runtime code, the seven EIP-712 immutables and the ERC-5267 domain all match ([ARCHITECTURE §6](../ARCHITECTURE.md#6-deployments-and-code-integrity)).
+- [ ] The source is verified on the explorer: `testnet.monadvision.com` for Monad, `base-sepolia.blockscout.com` or `sepolia.basescan.org` for Base.
+- [ ] `/status/` shows the deployment green.
+- [ ] Smoke test on the real testnet: create an invoice with W-pay, pay it from a second account, open the receipt, check the ledger. Note both transaction hashes for the submission.
+- [ ] The gas floor and ceiling in `@paylink/chains` are re-measured with cold slots on this chain (Monad charges the gas limit).
+- [ ] The relayer's registry entry is updated, and `/v1/health` reports the chain.
+
+## 6. Arc v1 on mainnet
+
+As soon as **at least 0.1 USDC** is on Arc mainnet in W-pay; plan for 1–2 USDC, which leaves margin for retries and the demo payment (owner's estimate, 2026-10-06). **Go/no-go: Oct 14, 18:00 UTC.** Never submit testnet-only: Arc rejects such entries (**UV**). There is nothing to register before the mainnet deployment; the entry is submitted on DoraHacks before **2026-10-15 03:59 UTC** (**UV**, 2026-10-06).
+
+1. Open `https://nambininasafidison.github.io/paylink/web/deploy.html`, connect **W-pay** on Arc mainnet (chain ID 5042) and deploy. It costs about 0.02 USDC (live estimate 920,964 gas, about 0.018 USDC at a 2e10 wei base fee, **C**). Note the address and the transaction hash.
+2. Send the address and the hash to Claude. Claude then:
+   - commits `web/config.js` (the address only, the single allowed v1 change) and `deployments/arc-mainnet.json`;
+   - tags `arc-microgrants-v1.1`;
+   - verifies the code, events and balances from the sandbox through `rpc.mainnet.arc.io` (reachable, **C**).
+3. In the app, create one link for a small amount and pay it. v1 allows self-payment, so one wallet is enough.
+4. Submit on DoraHacks with the repository, the live URL, the contract address and both transaction hashes. Review is rolling, so submit as soon as step 3 is done.
+
+**If USDC on Arc is hard to get** (all unverified): a contact sends USDC on Arc, or bridges it with Circle CCTP; or ask in the Arc or Circle community channels. v1 has no owner, so a third party can broadcast the deploy without needing your trust. Your own wallet still needs about 0.01 USDC to `create()` a link.
+
+## 7. Monad mainnet 143 (conditional)
+
+Testnet is the intended path: the Metropolis dashboard provides a MON testnet faucet (**UV**, 2026-10-06). Deploy to mainnet only if an organiser says it is required ([forum questions](../submissions/monad-forum.md), Q1), or if about 0.5 MON becomes available:
+
+- Deploy the **same artefact** through route A or B, and send **at most one tiny transaction**.
+- The demo stays on testnet, because mainnet AUSD and USDC are real money.
+- The contract has no owner, so a third party can broadcast the deploy.
+- Registry: AUSD `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`, USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` (**C**). The deployment stays disabled in the UI unless you decide otherwise.
+
+## 8. Mezo testnet (from Oct 13)
+
+1. Claim test BTC at `faucet.test.mezo.org` (captcha) ([faucets runbook](faucets.md)).
+2. Borrow at least 2,000 MUSD (1,800 plus a 200 gas deposit) at ≥ 110 % collateral at `mezo.org/feature/borrow` on testnet.
+3. Optional and informational only: deploy the PUSH0 probe (init code `0x5f5ff3`) to see whether the chain supports Shanghai. The `paris` artefact does not need PUSH0.
+4. Deploy v2 to 31611 through route A or B.
+
+## 9. Web app, relayer and indexer
+
+| Component | How it is deployed | Your part |
+|---|---|---|
+| Web app (editions) | `site.yml` on push to `main`: builds every edition, then `wrangler pages deploy` (action pinned by SHA) | None, once the secrets exist. Check `https://<app>.pages.dev/status/` |
+| Relayer | `relayer.yml`: `wrangler deploy`. The secret is never handled by Actions | Set or rotate `RELAYER_PK` in the Cloudflare dashboard; keep W-relay at about 1–2 MON at most |
+| Indexer | Envio Cloud (development plan), connected to the repository | Redeploy before each judging window (Monad Oct 14–27). A deployment lives at most 30 days and its URL changes on every push (**L**); Claude updates `/config.json` |
+
+## 10. Rollback
+
+- **Web app:** Cloudflare → Pages project → Deployments → the previous production deployment → **Rollback**.
+- **Relayer:** set the chain's budget to 0, or redeploy the previous Worker version.
+- **Contract:** there is no rollback or pause. Mark the deployment `revoked` in the registry and follow [incident response PB-1](../security/incident-response.md#pb-1-contract-vulnerability-sev-1-or-sev-2).
