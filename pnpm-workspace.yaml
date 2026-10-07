@@ -1,0 +1,94 @@
+# PayLink pnpm workspace (pnpm 10.28.0, Node >= 22.18; .nvmrc pins 22.22.0).
+# Decision record: docs/adr/0011-workspace-layout.md
+#
+# The root package.json belongs to the frozen v1 app ("arc-paylink") and must
+# stay byte-identical, so pnpm treats it as the workspace root project. For that
+# reason every workspace-wide setting lives in this file and none in
+# package.json or .npmrc, which npm would also read when running v1.
+#
+# v2 code lives only in the packages listed below. Run recursive commands as
+# `pnpm -r <cmd>`; the root (v1) project is left out unless --include-workspace-root.
+
+packages:
+  - protocol
+  - packages/*
+  - apps/*
+  - e2e
+
+# ------------------------------------------------------------------ versions
+
+# `pnpm add <pkg>` writes exact versions, never ranges.
+savePrefix: ''
+
+# One source of truth for shared versions: write "catalog:" in package.json.
+# Each pin is from PAYLINK-V2-SPEC §3.2/§3.5/§3.6/§4. The whole set was resolved
+# together under the supply-chain settings below on 2026-10-05.
+catalogMode: prefer
+catalog:
+  '@openzeppelin/contracts': 5.3.0 # §3.3.5: not 5.4+ (MCOPY breaks the single paris artifact)
+  viem: 2.57.3
+  typescript: 6.0.3 # typescript-eslint 8.71.1 does not support TS 7
+  vite: 8.3.2
+  vite-plugin-pwa: 2.0.0
+  '@category-labs/mera': 0.2.0 # preview; review the lockfile integrity diff on every bump
+  '@base-org/account': 2.5.13
+  hono: 4.13.13
+  zod: 4.6.5
+  envio: 3.12.1
+  vitest: 5.0.3
+  '@vitest/coverage-v8': 5.0.3
+  typescript-eslint: 8.71.1
+  '@playwright/test': 1.56.1 # matches the preinstalled Chromium 141 (/opt/pw-browsers)
+  # TypeScript package gates (§4.1), added with packages/chains and packages/sdk on 2026-10-07.
+  eslint: 10.12.0 # §4.1 "ESLint 10"; typescript-eslint 8.71.1 peer range ^8.57 || ^9 || ^10
+  '@eslint/js': 10.0.1
+  fast-check: 4.10.2 # §4.1 property tests (URL codec, amounts at 6/18 decimals, error decoder)
+  '@types/node': 22.20.5 # Node 22 line (.nvmrc 22.22.0); tests and scripts only, never src/
+
+# ------------------------------------------------------------------ supply chain (spec §4.5, threat #17)
+
+# Lifecycle scripts are blocked by default in pnpm 10. strictDepBuilds turns any
+# unreviewed build script into an install error, so every new one needs an
+# explicit decision: allow it in onlyBuiltDependencies or ignore it in
+# ignoredBuiltDependencies, with a reason.
+strictDepBuilds: true
+onlyBuiltDependencies: []
+ignoredBuiltDependencies:
+  # v1 (ganache 7.9.2, optional ws accelerators). They ship prebuilt N-API binaries, and ws falls back to pure JS.
+  - bufferutil
+  - utf-8-validate
+  # Planned stack (vite, wrangler). Their postinstall only checks or copies the platform binary that the
+  # optional dependency (@esbuild/<platform>, @cloudflare/workerd-<platform>) already provides.
+  # Verified 2026-10-05 with scripts ignored: esbuild transformSync, `workerd --version` and `wrangler --version` all work.
+  - esbuild
+  - workerd
+
+# Transitive dependencies may not come from git repositories or tarball URLs.
+blockExoticSubdeps: true
+
+# Refuse a version that has weaker publish evidence (provenance or trusted
+# publisher) than an earlier release of the same package. That is the typical
+# signature of an account takeover. The check is limited to versions published in
+# the last 30 days (43200 min), which is the window in which takeovers are
+# live; older versions have had community scrutiny. Without the limit,
+# maintenance backports such as semver@6.3.1 fail. Add an exception only after
+# reviewing the package diff, pinned to the exact version, with the evidence:
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 43200
+trustPolicyExclude: []
+
+# Deferred: minimumReleaseAge (for example 1440 min). The spec deliberately
+# pins releases younger than a day (typescript-eslint 8.71.1 published
+# 2026-10-05T17:08Z, viem 2.57.3 published 2026-10-04T21:40Z). Enable it after
+# the Oct 12 submissions, once the dependency set is stable (docs/adr/0011).
+
+# ------------------------------------------------------------------ audit
+
+auditConfig:
+  ignoreGhsas:
+    # @openzeppelin/contracts 5.3.0: Bytes.lastIndexOf out-of-bounds read (>=5.2.0 <5.4.0, moderate).
+    # utils/Bytes.sol is not in the PayLinkV2 import graph (spec §3.3.5).
+    # protocol/test/toolchain/ReleaseGraph.t.sol::test_BytesSolIsNotCompiledIn asserts on every forge test that
+    # it is absent from the release artifact's metadata source list (out/PayLinkV2.sol/PayLinkV2.json).
+    # Remove this entry if that test ever fails.
+    - GHSA-9rcw-c2f9-2j55

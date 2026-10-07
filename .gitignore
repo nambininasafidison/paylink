@@ -1,2 +1,29 @@
 node_modules/
 build/
+
+# ---- PayLink v2 (docs/adr/0011-workspace-layout.md)
+# Foundry build outputs (protocol/)
+/protocol/out/
+/protocol/cache/
+/protocol/broadcast/*/31337/
+/protocol/broadcast/**/dry-run/
+/protocol/crytic-export/
+/protocol/lcov.info
+# JS tooling
+coverage/
+dist/
+*.tsbuildinfo
+.wrangler/
+test-results/
+playwright-report/
+# Python
+__pycache__/
+.venv/
+# Secrets: never commit keys or RPC tokens (spec §6.3). Templates stay tracked.
+.env
+.env.*
+!.env.example
+.dev.vars
+# OS and editor noise
+.DS_Store
+*.log

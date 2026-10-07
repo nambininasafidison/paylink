@@ -1,0 +1,12 @@
+# Shell scripts must keep LF endings, or bash fails on Windows checkouts.
+*.sh text eol=lf
+scripts/toolchain/pins.env text eol=lf
+
+# Vendored third-party code (docs/adr/0012): excluded from language stats and
+# collapsed in GitHub diffs. Its integrity is enforced by
+# scripts/toolchain/vendor-forge-std.sh --check, not by review.
+protocol/lib/forge-std/** linguist-vendored
+protocol/lib/forge-std.manifest linguist-generated
+
+# Generated lockfiles: collapsed in diffs but still reviewable (supply chain).
+scripts/toolchain/requirements-slither.txt linguist-generated
