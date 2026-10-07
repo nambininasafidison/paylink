@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 import { createRegistry, defineLocalChain, nativeToken, RELEASE, toViemChain } from "@paylink/chains";
 import type { Erc20Token, Registry } from "@paylink/chains";
 import {
+  concat,
   createPublicClient,
   createWalletClient,
   encodeDeployData,
@@ -155,7 +156,13 @@ async function measureProfile(profile: Profile, port: number): Promise<ProfileRe
     if (keccak256(payLinkInit) !== RELEASE.initCodeHash) {
       throw new Error("protocol/out is not the release build of PayLinkV2 (initCodeHash differs from release.json)");
     }
-    const payLink = await deploy(payLinkInit);
+    // The deployment itself, as Deploy.s.sol sends it without the factory (CREATE): estimate, then send with it.
+    const createEstimate = await client.estimateGas({ account: deployer.address, data: payLinkInit });
+    const created = await sendRaw(deployer, { data: payLinkInit }, createEstimate);
+    if (created.contractAddress === null) {
+      throw new Error("PayLinkV2 deployment returned no address");
+    }
+    const payLink = getAddress(created.contractAddress);
     const usdc = await deploy(
       encodeDeployData({ abi: parseAbi(["constructor(string,string,string,uint8)"]), bytecode: artifact("Mock3009.sol/Mock3009.json").bytecode, args: ["USD Coin", "USDC", "2", 6] }),
     );
@@ -267,6 +274,18 @@ async function measureProfile(profile: Profile, port: number): Promise<ProfileRe
     await measure("cancelBySig", relayer, cancelBySigCall(payLink, await signCancel({ signer: account("payee.10"), deployment, invoice: bySig.invoice, deadline: T0 + DAY })));
     const bySig1271 = await link("cancelBySig.1271", smart, usdc, 25_000_000n, 1);
     await measure("cancelBySig_erc1271Payee", relayer, cancelBySigCall(payLink, await signCancel({ signer: smart, deployment, invoice: bySig1271.invoice, deadline: T0 + DAY, client })));
+
+    // Deployments (informational: they set the deploy page's gas limit, not a PayLinkV2 entry point's). CREATE was
+    // sent first, above; CREATE2 goes last, through the deterministic-deployment proxy that anvil predeploys, so the
+    // payment measurements above run against the same addresses as before it was measured.
+    measurements["deploy_create"] = { estimate: Number(createEstimate), gasUsed: Number(created.gasUsed) };
+    if ((await client.getCode({ address: RELEASE.create2.factory })) === undefined) {
+      throw new Error(`no CREATE2 factory at ${RELEASE.create2.factory} on the ${profile.name} profile`);
+    }
+    await measure("deploy_create2", deployer, { to: RELEASE.create2.factory, data: concat([RELEASE.create2.salt, payLinkInit]), value: 0n });
+    if ((await client.getCode({ address: RELEASE.create2.address })) === undefined) {
+      throw new Error(`the CREATE2 deployment did not land at ${RELEASE.create2.address} on the ${profile.name} profile`);
+    }
 
     return { chainId: profile.chainId, anvilArgs: profile.anvilArgs, hardfork: info.hardFork, network: info.network, appliesTo: profile.appliesTo, measurements };
   } finally {

@@ -63,6 +63,19 @@ Clients send `gasLimit = clamp(eth_estimateGas × 1.10, floor, ceiling)` (`gasLi
 
 All tables are **provisional**: re-measure on each testnet with cold slots and the real tokens (AUSD and USDC are proxies with more storage reads than the mocks). On Arbitrum, `eth_estimateGas` also includes the L1 posting cost (L), which the execution-based ceilings do not cover; re-measure before relaying there. The snapshot cancelBySig bounds (62,000 – 93,000) differ from the 67,000 – 101,000 in `protocol/audit/gas.md` §3, which applied the rule to the ERC-1271 measurement for this one function only.
 
+## Deployment gas
+
+`deployGasFor(chainId)` returns the measured gas of the PayLinkV2 deployment on the chain's anvil profile, for both methods of `Deploy.s.sol` (CREATE2 through the proxy, plain CREATE), and the bounds a deployer clamps to: floor = the estimate, ceiling = 1.5 × floor, both rounded up to 1,000 (`DEPLOY_GAS`, generated from the `deploy_create` and `deploy_create2` entries of `data/gas-measurements.json`; informational for the entry-point tables). The deploy page (`web/v2/deploy`) sends `clamp(eth_estimateGas × 1.10, floor, ceiling)` and refuses an estimate above the ceiling, because Monad charges the whole limit.
+
+| Profile (chains) | CREATE2 estimate → bounds | CREATE estimate → bounds |
+|---|---|---|
+| monad (10143, 143) | 2,720,773 → 2,721,000 – 4,082,000 | 2,677,645 → 2,678,000 – 4,017,000 |
+| base (84532) | 2,717,457 → 2,718,000 – 4,077,000 | 2,673,065 → 2,674,000 – 4,011,000 |
+| ethereum (421614) | 2,717,457 → 2,718,000 – 4,077,000 | 2,673,065 → 2,674,000 – 4,011,000 |
+| london (31611) | 2,716,645 → 2,717,000 – 4,076,000 | 2,673,065 → 2,674,000 – 4,011,000 |
+
+On the live testnets (2026-10-07, `eth_estimateGas` from the owner's address through the registry RPCs) the CREATE2 deployment estimated 2,727,004 gas on Monad testnet and 2,723,708 on Base Sepolia and Arbitrum Sepolia: geth-style estimators stop within 1.5 % of the minimum, so they read slightly above anvil's exact search, well inside the bounds.
+
 ## Relay timing (invoice spec §13.3, audit finding A-04)
 
 `chain.relay.minRemainingSeconds` is the minimum remaining validity a relayer requires at admission: every time bound of a relayed call (the payer's EIP-3009 `validBefore`, the invoice's `validUntil`, a cancellation's `deadline`) must still hold in a block stamped `now + minRemainingSeconds`, where `now` is the timestamp of the block it simulated against. A bound that ends one second after that block passes `eth_call` and reverts in any later block, at the relayer's expense, without a transaction from whoever chose it. `checkRelayPayRequest` and `checkRelayCancelRequest` in `@paylink/sdk` apply it.

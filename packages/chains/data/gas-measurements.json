@@ -57,6 +57,14 @@
         "cancelBySig_erc1271Payee": {
           "estimate": 71107,
           "gasUsed": 66132
+        },
+        "deploy_create": {
+          "estimate": 2673065,
+          "gasUsed": 2673065
+        },
+        "deploy_create2": {
+          "estimate": 2717457,
+          "gasUsed": 2678851
         }
       }
     },
@@ -116,6 +124,14 @@
         "cancelBySig_erc1271Payee": {
           "estimate": 99379,
           "gasUsed": 97204
+        },
+        "deploy_create": {
+          "estimate": 2677645,
+          "gasUsed": 2677645
+        },
+        "deploy_create2": {
+          "estimate": 2720773,
+          "gasUsed": 2682095
         }
       }
     },
@@ -174,6 +190,14 @@
         "cancelBySig_erc1271Payee": {
           "estimate": 71107,
           "gasUsed": 66132
+        },
+        "deploy_create": {
+          "estimate": 2673065,
+          "gasUsed": 2673065
+        },
+        "deploy_create2": {
+          "estimate": 2717457,
+          "gasUsed": 2678851
         }
       }
     },
@@ -232,6 +256,14 @@
         "cancelBySig_erc1271Payee": {
           "estimate": 71095,
           "gasUsed": 66120
+        },
+        "deploy_create": {
+          "estimate": 2673065,
+          "gasUsed": 2673065
+        },
+        "deploy_create2": {
+          "estimate": 2716645,
+          "gasUsed": 2678039
         }
       }
     }

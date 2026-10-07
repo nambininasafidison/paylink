@@ -68,6 +68,10 @@ Spec rule: `gasLimit = clamp(eth_estimateGas × 1.10, floor, ceiling)`, with flo
 
 About 2.68M gas. At the spec's Monad estimate of ~105 gwei that is ~0.28 MON, inside the 0.5 MON budget (spec §3.3.6 assumed 3.0M, 0.32 MON).
 
+### Per network, both methods (2026-10-07)
+
+`packages/sdk/scripts/measure-gas.ts` now also measures the deployment on each anvil profile (`deploy_create`, `deploy_create2` in `packages/chains/data/gas-measurements.json`; bounds in `@paylink/chains` `deployGasFor`). Monad's emulation (MonadTen): CREATE2 estimate 2,720,773 (gasUsed 2,682,095), CREATE 2,677,645. Live `eth_estimateGas` the same day, from the owner's address through the registry RPCs: 2,727,004 on Monad testnet, 2,723,708 on Base Sepolia and Arbitrum Sepolia (CREATE2). The deploy page sends `clamp(estimate × 1.10, floor, ceiling)`: about 3.0M gas, so ≈ 0.31 MON at the observed 100 gwei base fee plus 2 gwei tip, all charged on Monad.
+
 ## Reproduce
 
 ```bash

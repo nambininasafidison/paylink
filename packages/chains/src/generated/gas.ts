@@ -11,7 +11,7 @@
 // - Emulated bounds (Monad): the same rule applied to eth_estimateGas on anvil's Monad emulation (MonadTen),
 //   because Monad prices cold state and ecrecover differently and charges the gas limit.
 // Both are provisional until re-measured on each testnet with cold slots and the real tokens.
-import type { GasBounds, PayLinkFunction } from "../types.ts";
+import type { DeployGasBounds, GasBounds, PayLinkFunction } from "../types.ts";
 
 /** Raw per-call gas measurements written by `protocol/test/gas/Gas.t.sol`. */
 export const GAS_SNAPSHOT_MEASUREMENTS = {
@@ -51,6 +51,8 @@ export const GAS_MEASUREMENTS = {
       cancel: { estimate: 57628, gasUsed: 52647 },
       cancelBySig: { estimate: 66541, gasUsed: 61566 },
       cancelBySig_erc1271Payee: { estimate: 71107, gasUsed: 66132 },
+      deploy_create: { estimate: 2673065, gasUsed: 2673065 },
+      deploy_create2: { estimate: 2717457, gasUsed: 2678851 },
       pay_first: { estimate: 111107, gasUsed: 101392 },
       pay_repeat: { estimate: 76489, gasUsed: 66774 },
       payNative_first: { estimate: 101889, gasUsed: 96969 },
@@ -70,6 +72,8 @@ export const GAS_MEASUREMENTS = {
       cancel: { estimate: 57628, gasUsed: 52647 },
       cancelBySig: { estimate: 66517, gasUsed: 61542 },
       cancelBySig_erc1271Payee: { estimate: 71107, gasUsed: 66132 },
+      deploy_create: { estimate: 2673065, gasUsed: 2673065 },
+      deploy_create2: { estimate: 2717457, gasUsed: 2678851 },
       pay_first: { estimate: 111107, gasUsed: 101392 },
       pay_repeat: { estimate: 76489, gasUsed: 66774 },
       payNative_first: { estimate: 101889, gasUsed: 96969 },
@@ -89,6 +93,8 @@ export const GAS_MEASUREMENTS = {
       cancel: { estimate: 57628, gasUsed: 52647 },
       cancelBySig: { estimate: 66541, gasUsed: 61566 },
       cancelBySig_erc1271Payee: { estimate: 71095, gasUsed: 66120 },
+      deploy_create: { estimate: 2673065, gasUsed: 2673065 },
+      deploy_create2: { estimate: 2716645, gasUsed: 2678039 },
       pay_first: { estimate: 111107, gasUsed: 101392 },
       pay_repeat: { estimate: 76489, gasUsed: 66774 },
       payNative_first: { estimate: 101889, gasUsed: 96969 },
@@ -108,6 +114,8 @@ export const GAS_MEASUREMENTS = {
       cancel: { estimate: 69485, gasUsed: 67304 },
       cancelBySig: { estimate: 88860, gasUsed: 86685 },
       cancelBySig_erc1271Payee: { estimate: 99379, gasUsed: 97204 },
+      deploy_create: { estimate: 2677645, gasUsed: 2677645 },
+      deploy_create2: { estimate: 2720773, gasUsed: 2682095 },
       pay_first: { estimate: 158792, gasUsed: 156674 },
       pay_repeat: { estimate: 124362, gasUsed: 122244 },
       payNative_first: { estimate: 124220, gasUsed: 122100 },
@@ -131,3 +139,31 @@ export const EMULATED_GAS_LIMITS = {
     cancelBySig: { floor: 89_000n, ceiling: 134_000n },
   },
 } as const satisfies Readonly<Record<string, Readonly<Record<PayLinkFunction, GasBounds>>>>;
+
+/**
+ * The PayLinkV2 deployment on each measured profile (informational for the entry points; it sets the deploy page's
+ * gas limit): eth_estimateGas and receipt gasUsed through the CREATE2 factory and with a plain CREATE, and the
+ * bounds the page clamps to, floor = estimate and ceiling = 1.5 x floor, both rounded up to 1,000.
+ */
+export const DEPLOY_GAS = {
+  base: {
+    appliesTo: [84532],
+    create: { estimate: 2_673_065n, gasUsed: 2_673_065n, floor: 2_674_000n, ceiling: 4_011_000n },
+    create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
+  },
+  ethereum: {
+    appliesTo: [421614],
+    create: { estimate: 2_673_065n, gasUsed: 2_673_065n, floor: 2_674_000n, ceiling: 4_011_000n },
+    create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
+  },
+  london: {
+    appliesTo: [31611],
+    create: { estimate: 2_673_065n, gasUsed: 2_673_065n, floor: 2_674_000n, ceiling: 4_011_000n },
+    create2: { estimate: 2_716_645n, gasUsed: 2_678_039n, floor: 2_717_000n, ceiling: 4_076_000n },
+  },
+  monad: {
+    appliesTo: [10143, 143],
+    create: { estimate: 2_677_645n, gasUsed: 2_677_645n, floor: 2_678_000n, ceiling: 4_017_000n },
+    create2: { estimate: 2_720_773n, gasUsed: 2_682_095n, floor: 2_721_000n, ceiling: 4_082_000n },
+  },
+} as const satisfies Readonly<Record<string, { readonly appliesTo: readonly number[]; readonly create: DeployGasBounds; readonly create2: DeployGasBounds }>>;

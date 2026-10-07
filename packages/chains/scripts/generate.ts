@@ -191,13 +191,47 @@ export function deriveEmulatedBounds(profile: MeasuredProfile): DerivedGas {
  */
 export function checkCoverage(profileName: string, profile: MeasuredProfile, limits: ReadonlyMap<PayLinkFunction, { floor: bigint; ceiling: bigint }>): void {
   for (const [scenario, m] of Object.entries(profile.measurements)) {
-    const fn = scenario.split("_")[0] as PayLinkFunction;
+    const name = scenario.split("_")[0] ?? scenario;
+    if (INFORMATIONAL.has(name)) {
+      continue;
+    }
+    const fn = name as PayLinkFunction;
     const bounds = limits.get(fn);
     expect(bounds !== undefined, `gas measurements: ${profileName}.${scenario} has no function bounds`);
     const needed = ceilDiv(BigInt(m.estimate) * ESTIMATE_MARGIN.numerator, ESTIMATE_MARGIN.denominator);
     expect(needed <= bounds.ceiling, `gas measurements: ${profileName}.${scenario} needs ${needed} gas with the margin, above the ceiling ${bounds.ceiling}`);
   }
 }
+
+/** The two ways Deploy.s.sol deploys PayLinkV2 (spec §3.3.7), as measured by measure-gas.ts. */
+export const DEPLOY_SCENARIOS = { create: "deploy_create", create2: "deploy_create2" } as const;
+
+export interface DeployGasEntry {
+  readonly estimate: bigint;
+  readonly gasUsed: bigint;
+  readonly floor: bigint;
+  readonly ceiling: bigint;
+}
+
+/**
+ * Gas-limit bounds of the PayLinkV2 deployment on one measured profile, one entry per method, with the rule of the
+ * entry points (spec §3.3.6): floor = the measured eth_estimateGas rounded up to 1,000, ceiling = 1.5 x floor rounded
+ * up to 1,000. The deploy page sends clamp(live estimate x 1.10, floor, ceiling) and refuses an estimate above the
+ * ceiling, since on Monad the whole limit is charged.
+ */
+export function deriveDeployGas(profileName: string, profile: MeasuredProfile): { create: DeployGasEntry; create2: DeployGasEntry } {
+  const entry = (scenario: string): DeployGasEntry => {
+    const m = profile.measurements[scenario];
+    expect(m !== undefined, `gas measurements: ${profileName} has no ${scenario} measurement (re-run measure-gas.ts)`);
+    expect(m.gasUsed <= m.estimate, `gas measurements: ${profileName}.${scenario} used more gas than its estimate`);
+    const floor = roundUp(BigInt(m.estimate));
+    return { estimate: BigInt(m.estimate), gasUsed: BigInt(m.gasUsed), floor, ceiling: roundUp(ceilDiv(floor * CEILING_FACTOR.numerator, CEILING_FACTOR.denominator)) };
+  };
+  return { create: entry(DEPLOY_SCENARIOS.create), create2: entry(DEPLOY_SCENARIOS.create2) };
+}
+
+const renderDeployEntry = (e: DeployGasEntry): string =>
+  `{ estimate: ${gasLiteral(e.estimate)}, gasUsed: ${gasLiteral(e.gasUsed)}, floor: ${gasLiteral(e.floor)}, ceiling: ${gasLiteral(e.ceiling)} }`;
 
 const renderBounds = (limits: ReadonlyMap<PayLinkFunction, { floor: bigint; ceiling: bigint }>, indent: string): string =>
   GAS_FUNCTIONS.map((fn) => {
@@ -214,7 +248,10 @@ export function renderGas(snapshotText: string, measurementsText: string, initCo
   const measured = parseMeasurements(measurementsText, initCodeHash);
   const emulated: string[] = [];
   const profiles: string[] = [];
+  const deploy: string[] = [];
   for (const [name, profile] of Object.entries(measured.profiles).sort(([a], [b]) => a.localeCompare(b))) {
+    const d = deriveDeployGas(name, profile);
+    deploy.push(`  ${name}: {\n    appliesTo: [${profile.appliesTo.join(", ")}],\n    create: ${renderDeployEntry(d.create)},\n    create2: ${renderDeployEntry(d.create2)},\n  },`);
     if (EMULATED_PROFILES.has(name)) {
       const derived = deriveEmulatedBounds(profile);
       checkCoverage(name, profile, derived.limits);
@@ -241,7 +278,7 @@ export function renderGas(snapshotText: string, measurementsText: string, initCo
 // - Emulated bounds (Monad): the same rule applied to eth_estimateGas on anvil's Monad emulation (MonadTen),
 //   because Monad prices cold state and ecrecover differently and charges the gas limit.
 // Both are provisional until re-measured on each testnet with cold slots and the real tokens.
-import type { GasBounds, PayLinkFunction } from "../types.ts";
+import type { DeployGasBounds, GasBounds, PayLinkFunction } from "../types.ts";
 
 /** Raw per-call gas measurements written by \`protocol/test/gas/Gas.t.sol\`. */
 export const GAS_SNAPSHOT_MEASUREMENTS = {
@@ -262,6 +299,15 @@ ${profiles.join("\n")}
 export const EMULATED_GAS_LIMITS = {
 ${emulated.join("\n")}
 } as const satisfies Readonly<Record<string, Readonly<Record<PayLinkFunction, GasBounds>>>>;
+
+/**
+ * The PayLinkV2 deployment on each measured profile (informational for the entry points; it sets the deploy page's
+ * gas limit): eth_estimateGas and receipt gasUsed through the CREATE2 factory and with a plain CREATE, and the
+ * bounds the page clamps to, floor = estimate and ceiling = 1.5 x floor, both rounded up to 1,000.
+ */
+export const DEPLOY_GAS = {
+${deploy.join("\n")}
+} as const satisfies Readonly<Record<string, { readonly appliesTo: readonly number[]; readonly create: DeployGasBounds; readonly create2: DeployGasBounds }>>;
 `;
 }
 

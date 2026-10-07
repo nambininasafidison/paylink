@@ -151,6 +151,33 @@ export interface GasBounds {
   readonly ceiling: bigint;
 }
 
+/**
+ * Gas of the PayLinkV2 deployment by one method (CREATE2 through the factory, or CREATE), measured on an anvil
+ * profile, and the bounds a deployer clamps `eth_estimateGas × 1.10` to (floor = the estimate, ceiling = 1.5 × floor,
+ * both rounded up to 1,000). Monad charges the whole gas limit (spec §3.3.6), so the deploy page refuses a live
+ * estimate above the ceiling instead of sending an inflated limit.
+ */
+export interface DeployGasBounds extends GasBounds {
+  /** eth_estimateGas on the anvil profile. */
+  readonly estimate: bigint;
+  /** gasUsed of the receipt on the anvil profile. */
+  readonly gasUsed: bigint;
+}
+
+/** Deployment gas of PayLinkV2 on one chain, from the anvil profile that emulates it. */
+export interface DeployGasTable {
+  /** Name of the measured profile (`data/gas-measurements.json`). */
+  readonly profile: string;
+  /** anvil hardfork and network of the profile. */
+  readonly hardfork: string;
+  readonly network: string;
+  /** True until re-measured on the chain itself. */
+  readonly provisional: boolean;
+  readonly evidence: string;
+  readonly create: DeployGasBounds;
+  readonly create2: DeployGasBounds;
+}
+
 /** Gas-limit bounds of every entry point on one chain. */
 export interface GasTable {
   /**

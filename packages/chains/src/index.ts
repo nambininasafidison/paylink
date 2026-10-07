@@ -10,10 +10,11 @@ import type { Registry } from "./registry.ts";
 
 export { arbitrumSepolia, arc, baseSepolia, CHAIN_DEFINITIONS, mezoTestnet, monad, monadTestnet } from "./chains/index.ts";
 export { DEFAULT_RELAY_TIMING, deploymentFromRecord, MONAD_GAS_TABLE, nativeToken, SNAPSHOT_GAS_TABLE } from "./define.ts";
+export { deployGasFor } from "./deploy-gas.ts";
 export { explorerAddressUrl, explorerBlockUrl, explorerTxUrl } from "./explorers.ts";
 export { DEPLOYMENT_RECORDS } from "./generated/deployments.ts";
 export type { DeploymentRecord } from "./generated/deployments.ts";
-export { EMULATED_GAS_LIMITS, GAS_MEASUREMENTS, GAS_SNAPSHOT_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
+export { DEPLOY_GAS, EMULATED_GAS_LIMITS, GAS_MEASUREMENTS, GAS_SNAPSHOT_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
 export { RELEASE } from "./generated/release.ts";
 export { V1_CONFIG } from "./generated/v1.ts";
 export { defineLocalChain } from "./local.ts";

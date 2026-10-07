@@ -9,6 +9,7 @@ import {
   createRegistry,
   DEFAULT_RELAY_TIMING,
   defineLocalChain,
+  DEPLOYMENT_RECORDS,
   mezoTestnet,
   monad,
   monadTestnet,
@@ -19,6 +20,7 @@ import {
   SNAPSHOT_GAS_TABLE,
   MONAD_GAS_TABLE,
   EMULATED_GAS_LIMITS,
+  RELEASE,
   GAS_MEASUREMENTS,
   toChecksumAddress,
   UnknownChainError,
@@ -181,10 +183,17 @@ describe("spec §3.4 facts", () => {
     expect(GAS_MEASUREMENTS.london.hardfork).toBe("London");
   });
 
-  it("has no recorded deployment yet, so no chain is payable", () => {
+  it("has a deployment exactly where protocol/deployments records one", () => {
+    // Data-driven, so recording a real deployment (tools/verify-deployment, Deploy.s.sol record()) and regenerating
+    // keeps this suite green; test/generated.test.ts checks that the records were regenerated.
     for (const chain of registry.chains) {
-      expect(chain.deployment).toBeNull();
-      expect(registry.v2Target(chain.chainId)).toBeUndefined();
+      const record = DEPLOYMENT_RECORDS[chain.chainId];
+      if (record === undefined) {
+        expect(chain.deployment).toBeNull();
+        expect(registry.v2Target(chain.chainId)).toBeUndefined();
+      } else {
+        expect(chain.deployment).toMatchObject({ address: record.address, txHash: record.txHash, initCodeHash: RELEASE.initCodeHash });
+      }
     }
   });
 });

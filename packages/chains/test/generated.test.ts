@@ -3,7 +3,7 @@
  * The generated files must equal what the generator renders from the protocol's records today (drift check),
  * and the generator must refuse records that do not describe the audited release.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
@@ -35,7 +35,12 @@ describe("drift", () => {
     expect(RELEASE.maskedRuntimeHash).toBe(release.bytecode.maskedRuntimeHash);
     expect(RELEASE.immutableReferences).toHaveLength(7);
     expect(V1_CONFIG.chainId).toBe(5042);
-    expect(DEPLOYMENT_RECORDS).toEqual({});
+    // One generated record per protocol/deployments/<chainId>.json (none until the first testnet deployment).
+    const recorded = readdirSync(repo(SOURCES.deploymentsDir))
+      .filter((name) => /^[1-9][0-9]*\.json$/.test(name))
+      .map((name) => Number(name.slice(0, -5)))
+      .sort((a, b) => a - b);
+    expect(Object.keys(DEPLOYMENT_RECORDS).map(Number).sort((a, b) => a - b)).toEqual(recorded);
   });
 
   it("renders the measured snapshot deterministically", () => {
