@@ -2,7 +2,7 @@
   "name": "@paylink/e2e",
   "version": "0.0.0",
   "private": true,
-  "description": "Playwright end-to-end tests (PAYLINK-V2-SPEC §4.2): the deploy page against anvil chains with a mock EIP-1193 wallet, and record parity between the page, tools/verify-deployment and Foundry.",
+  "description": "Playwright end-to-end tests (PAYLINK-V2-SPEC §4.2): the web app's production build under its Cloudflare Pages headers and the deploy page, against anvil chains with a mock EIP-1193 wallet, and record parity between the page, tools/verify-deployment and Foundry.",
   "license": "MIT",
   "repository": {
     "type": "git",

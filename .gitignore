@@ -12,6 +12,7 @@ build/
 # JS tooling
 coverage/
 dist/
+dist-e2e/
 *.tsbuildinfo
 .wrangler/
 test-results/

@@ -1,0 +1,42 @@
+{
+  "name": "@paylink/design",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The PayLink \"Precision Terminal\" design system for v2: the v1 tokens copied verbatim, components in cascade layers (reset, tokens, base, components, utilities), print styles and the self-hosted OFL fonts.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "packages/design"
+  },
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.css",
+    "./index.css": "./src/index.css",
+    "./tokens.css": "./src/tokens.css",
+    "./fonts/*": "./fonts/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "fonts"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@paylink/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

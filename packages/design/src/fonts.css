@@ -1,0 +1,7 @@
+/* @paylink/design: self-hosted fonts (SIL Open Font License 1.1, texts in ../fonts/OFL-*.txt).
+   The same three files as v1 (web/fonts), byte for byte (test/fonts.test.ts). Archivo is variable in weight and
+   width; Martian Mono ships 400 and 600. font-display: swap, as in v1; apps preload the two text faces. */
+
+@font-face { font-family: "Archivo"; src: url("../fonts/archivo-var-latin.woff2") format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+@font-face { font-family: "Martian Mono"; src: url("../fonts/martian-mono-400-latin.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Martian Mono"; src: url("../fonts/martian-mono-600-latin.woff2") format("woff2"); font-weight: 600; font-display: swap; }

@@ -1,0 +1,6 @@
+# PayLink: payment and receipt links carry everything in the URL fragment, which crawlers never see.
+User-agent: *
+Disallow: /pay/
+Disallow: /r/
+Disallow: /till/
+Allow: /

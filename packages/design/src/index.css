@@ -1,0 +1,11 @@
+/* @paylink/design: the "Precision Terminal" design system for PayLink v2 (PAYLINK-V2-SPEC §3.6).
+   One cascade-layer order for every page; app styles go into the `components` layer. Import this file once. */
+@layer reset, tokens, base, components, utilities;
+
+@import "./fonts.css";
+@import "./reset.css";
+@import "./tokens.css";
+@import "./base.css";
+@import "./components.css";
+@import "./print.css";
+@import "./utilities.css";

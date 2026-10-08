@@ -53,6 +53,11 @@ catalog:
   wrangler: 4.148.0 # `wrangler deploy --dry-run` config gate; the runbook's deploy command uses this exact version
   miniflare: 5.20261006.0-alpha # the exact version wrangler 4.148.0 depends on: runs the built Worker in workerd in tests
   '@cloudflare/workers-types': 5.20261006.1 # wrangler 4.148.0 peer range ^5.20261006.1; matches its workerd 1.20261006.1
+  # Web app (apps/web, packages/design, packages/i18n, spec §3.6), added on 2026-10-07. vite-plugin-pwa and zod are pinned above.
+  idb: 8.0.3 # IndexedDB wrapper for the device store; 8.0.4 was one day old at pinning
+  qrcode-generator: 2.0.4 # the MIT QR library v1 vendors as web/qrcode.js, now from npm with types
+  happy-dom: 20.14.5 # DOM for the web app's unit tests (dev only)
+  fake-indexeddb: 6.2.5 # IndexedDB for the device-store unit tests (dev only)
 
 # ------------------------------------------------------------------ supply chain (spec §4.5, threat #17)
 

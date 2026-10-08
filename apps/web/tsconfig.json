@@ -1,0 +1,12 @@
+{
+  "$comment": "Everything in the app (browser sources, tests, build scripts, configs) for ESLint's project service and `tsc`. tsconfig.app.json checks src/ alone with browser types only, so the app never leans on Node APIs.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": ["vite/client", "node"],
+    "noEmit": true
+  },
+  "include": ["src", "test", "scripts", "vite.config.ts", "vitest.config.ts"]
+}

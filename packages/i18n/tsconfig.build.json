@@ -1,0 +1,11 @@
+{
+  "$comment": "Emits dist/ from src/ only, with web-platform types (Intl) but no Node types.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom"],
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src", "src/locales/*.json"]
+}

@@ -1,0 +1,25 @@
+/* @paylink/design: print. A page prints one thing: the receipt slip (80 mm roll or A6) or the receive card (A6).
+   The app clones the chosen element into #print-area and calls print(); everything else is hidden. Paper is
+   white, the lamba band keeps its colours, and no animation or mask is applied on paper. */
+@layer components {
+  #print-area { display: none; }
+  @page slip80 { size: 80mm 210mm; margin: 4mm 3mm; }
+  @page a6 { size: A6 portrait; margin: 7mm; }
+  @media print {
+    :root { --slip: #FFFFFF; --bg: #FFFFFF; --panel: #FFFFFF; color-scheme: light; }
+    html, body { background: #FFFFFF !important; }
+    body > :not(#print-area) { display: none !important; }
+    #print-area { display: block; }
+    #print-area[data-size="80mm"] { page: slip80; }
+    #print-area[data-size="a6"] { page: a6; }
+    #print-area .receipt, #print-area .ticket { -webkit-mask: none; mask: none; animation: none; margin: 0; box-shadow: none; }
+    #print-area .receipt-wrap { margin: 0; filter: none; }
+    #print-area .receipt-wrap::before, #print-area .perf::before, #print-area .perf::after { display: none; }
+    #print-area .ticket { border: 1px solid #B9B4AA; }
+    #print-area[data-size="80mm"] .receipt { padding: 2mm 1mm; font-size: 11px; }
+    #print-area[data-size="80mm"] .receipt-amt .num { font-size: 34px; }
+    #print-area .qr { width: 52mm; }
+    #print-area a { text-decoration: none; }
+    #print-area .ext::after { display: none; }
+  }
+}

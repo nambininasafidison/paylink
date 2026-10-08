@@ -1,0 +1,49 @@
+{
+  "name": "@paylink/web",
+  "version": "2.0.0",
+  "private": true,
+  "description": "PayLink v2 web app: a Vite multi-page PWA without framework (create, pay, receipt, ledger, send, till, status), editions all/monad/base, and the production site for Cloudflare Pages that also serves the frozen v1 app under /arc/ and the deploy kit under /deploy/.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "apps/web"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "node --conditions=@paylink/source node_modules/vite/bin/vite.js --configLoader native",
+    "build": "node --conditions=@paylink/source scripts/build.ts",
+    "build:e2e": "node --conditions=@paylink/source scripts/build.ts --e2e",
+    "headers": "node --conditions=@paylink/source scripts/headers.ts",
+    "headers:check": "node --conditions=@paylink/source scripts/headers.ts --check",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@paylink/chains": "workspace:*",
+    "@paylink/design": "workspace:*",
+    "@paylink/i18n": "workspace:*",
+    "@paylink/sdk": "workspace:*",
+    "idb": "catalog:",
+    "qrcode-generator": "catalog:",
+    "viem": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@paylink/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-pwa": "catalog:",
+    "vitest": "catalog:"
+  }
+}

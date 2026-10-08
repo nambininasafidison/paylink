@@ -1,0 +1,37 @@
+/* PayLink v2 web app: the design system plus the few app-level pieces (modal, account panel, filters) in the same
+   grammar. Everything sits in the design system's `components` layer; no colour literal outside the tokens. */
+@import "@paylink/design/index.css";
+
+@layer components {
+  .noscript { max-width: 640px; margin: 24px auto; padding: 0 var(--gutter); color: var(--err); font: 400 13px/1.5 var(--mono); }
+  .banners:empty { display: none; }
+  .banners .banner:last-child { margin-bottom: 0; }
+  .status-code { margin-top: 4px; font: 400 10.5px/1.4 var(--mono); letter-spacing: .04em; color: var(--muted); }
+
+  /* The wallet picker: a terminal on the native dialog. */
+  .modal { width: min(460px, calc(100vw - 2 * var(--gutter))); max-height: calc(100dvh - 32px); padding: 0; border: 0; background: transparent; color: var(--ink); overflow: visible; }
+  .modal::backdrop { background: rgba(14, 14, 13, .55); }
+  .modal-device { max-height: calc(100dvh - 32px); overflow: auto; }
+  .modal .view { padding-top: 16px; }
+  .modal-foot { display: flex; justify-content: flex-end; padding: 0 18px 18px; }
+  .account-panel { display: grid; gap: 8px; padding-bottom: 16px; margin-bottom: 14px; border-bottom: 1px solid var(--rule); }
+  .account-panel .key-row { margin-top: 4px; }
+
+  /* Ledger tools: the filter dial and the export key share a row on wider screens. */
+  .ledger-tools .field { margin-top: 0; flex: 1 1 260px; }
+  .ledger-tools .field > legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ledger-tools .seg { --n: 4; }
+  .ledger-tools .seg label { min-height: 40px; font-size: 13px; padding: 4px 8px; }
+  .receipts-block { margin-top: 10px; }
+  .view-send .row-main .addr { margin-top: 6px; }
+  .view-send .links > li { grid-template-areas: "main main" "foot foot"; }
+
+  /* Till: the window grows on a counter display; the terminal is the full-screen element. */
+  .device:fullscreen { overflow: auto; border-radius: 0; padding: max(12px, env(safe-area-inset-top)) 12px 12px; background: var(--panel); }
+  .device:fullscreen .till { min-height: calc(100dvh - 220px); }
+
+  /* The pay view's verification strip sits between the window and the facts. */
+  .bill .vstrip { margin-top: 18px; }
+  .bill .warn-note { margin-top: 12px; }
+  .view-pay .lookup { margin-top: 4px; margin-bottom: 4px; }
+}

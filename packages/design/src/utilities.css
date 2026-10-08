@@ -1,0 +1,12 @@
+/* @paylink/design: utilities. Last layer: small, single-purpose overrides. */
+@layer utilities {
+  .mono { font-family: var(--mono); }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .nowrap { white-space: nowrap; }
+  .muted { color: var(--muted); }
+  .grow { flex: 1 1 auto; min-width: 0; }
+  .full { width: 100%; }
+  .mt-0 { margin-top: 0 !important; }
+  .center { text-align: center; }
+  .anywhere { overflow-wrap: anywhere; }
+}

@@ -39,11 +39,11 @@ The page links v1's `web/paylink.css` and fonts above. Its one library is a vend
 | viem's runtime dependencies: ox, abitype, @noble/curves, @noble/hashes, @scure/bip32, @scure/bip39, isows, ws | as resolved in `pnpm-lock.yaml` | MIT | SDK, chain registry, web, relayer |
 | @category-labs/mera (preview) | 0.2.0 | MIT OR Apache-2.0 | web, Monad edition (lazy chunk) |
 | @base-org/account | 2.5.13 | Apache-2.0 | web, Base edition (lazy chunk) |
-| qrcode-generator | from npm, exact pin | MIT | web: the same library as v1's `web/qrcode.js` |
-| idb | from npm, exact pin | ISC | web |
-| vite-plugin-pwa (Workbox runtime) | 2.0.0 (depends on workbox `^7.4.1`; the resolved version is in `pnpm-lock.yaml`) | MIT | web |
+| qrcode-generator | 2.0.4 | MIT, © Kazuhiko Arase | web: the same library as v1's `web/qrcode.js` |
+| idb | 8.0.3 | ISC, © Jake Archibald | web: the device store |
+| vite-plugin-pwa (Workbox runtime) | 2.0.0 (Workbox 7.4.1 as resolved in `pnpm-lock.yaml`) | MIT | web: the generated service worker inlines the Workbox runtime |
 | hono | 4.13.13 | MIT | relayer |
-| zod | 4.6.5 | MIT | relayer |
+| zod | 4.6.5 | MIT | web (`zod/mini`, `/config.json` and device-store validation), relayer |
 
 ### 3.1 Distributed in the relayer Worker bundle (`apps/relayer/deploy/`)
 
@@ -58,6 +58,17 @@ Cloudflare deploys the committed, unminified bundle `apps/relayer/deploy/worker.
 | abitype | 1.2.3 | MIT, © weth, LLC |
 | @noble/curves | 1.9.1 | MIT, © Paul Miller |
 | @noble/hashes | 1.8.0 | MIT, © Paul Miller |
+
+### 3.2 Distributed in the web site build (`apps/web/dist`)
+
+The site Cloudflare Pages serves holds the v2 app, the frozen v1 app under `/arc/` (the components of §1, unchanged) and the deploy kit under `/deploy/` and `/v2/deploy/` (§1.1, unchanged). The v2 app's own bundles contain:
+
+| Component | Version | Licence | Where |
+|---|---|---|---|
+| Archivo (variable, Latin subset), Martian Mono (400 and 600, Latin subset) | v1's files, byte for byte | SIL Open Font License 1.1 | `packages/design/fonts/` with `OFL-Archivo.txt` and `OFL-MartianMono.txt`; hashed copies in `assets/` |
+| viem and its runtime dependencies (the functions the app imports) | 2.57.3 | MIT | `assets/*.js` |
+| qrcode-generator, idb, zod (`zod/mini`) | 2.0.4, 8.0.3, 4.6.5 | MIT, ISC, MIT | `assets/*.js` |
+| Workbox runtime | 7.4.1 | MIT | `sw.js` |
 
 ## 4. Indexer: Envio HyperIndex (not open source)
 
@@ -97,6 +108,8 @@ Credit: **This project's indexer (`apps/indexer`) is built with HyperIndex by En
 | rolldown | 1.2.12 | MIT (bundles the deploy page's vendored viem subset) |
 | wrangler | 4.148.0 | MIT OR Apache-2.0 (relayer: deploy-config check and `wrangler dev` tests; the Git integration deploys with the same version) |
 | miniflare, @cloudflare/workers-types | 5.20261006.0-alpha, 5.20261006.1 | MIT; MIT OR Apache-2.0 (relayer tests and Worker type-checking) |
+| happy-dom | 20.14.5 | MIT (the web app's unit-test DOM) |
+| fake-indexeddb | 6.2.5 | Apache-2.0 (the web app's device-store tests) |
 | @hono/node-server | 2.1.3 | MIT (the relayer's Node adapter for local e2e and demos; not in the Worker bundle) |
 | size-limit | exact pin | MIT |
 | v1 tooling: solc-js, ganache | 0.8.26, 7.9.2 | MIT, MIT |

@@ -1,0 +1,96 @@
+/* @paylink/design: tokens.
+   Lines between the BEGIN and END markers are copied verbatim from the v1 "Precision Terminal" stylesheet
+   (web/paylink.css, lines 12-81, frozen at 93ed4e3): the same paper and graphite surfaces, the laterite signal,
+   display windows that stay dark in both themes, the LED colours, the slip tokens and the documented contrast
+   ratios. test/tokens.test.ts fails if a single declaration drifts. v2 additions follow the END marker and never
+   redefine a v1 token. */
+
+@layer tokens {
+/* BEGIN v1 tokens (web/paylink.css) */
+/* ---------- Tokens: light = paper + graphite ---------- */
+:root {
+  color-scheme: light;
+  --bg: #EEECE6;          /* paper */
+  --panel: #FAF9F6;       /* device face */
+  --sunk: #E5E2DA;        /* recessed tracks */
+  --well: #F1EFE9;        /* input wells */
+  --raise: #FFFFFF;       /* raised keys */
+  --ink: #161615;         /* graphite */
+  --ink-2: #3F3D39;
+  --muted: #64615A;       /* 5.9:1 on panel, 5.3:1 in wells */
+  --rule: #DAD6CD;        /* hairlines */
+  --rule-2: #8F8A80;      /* field edges, 3.3:1 */
+  --screen: #171716;      /* display windows stay dark in both themes */
+  --screen-ink: #F2F0EA;
+  --screen-dim: #9A968D;  /* 6.1:1 on the screen */
+  --screen-rule: #2E2D2A;
+  --bezel: #E6E3DB;       /* the frame a display window sits in */
+  --bezel-edge: #D3CFC5;
+  --lcd-ok: #5BE394;      /* green segments on the dark screen, 11:1 */
+  --signal: #FF5A1F;      /* laterite */
+  --signal-edge: #C2410C;
+  --on-signal: #140803;   /* 6.3:1 on signal */
+  --signal-ink: #AD3709;  /* signal as text on paper, 6:1 */
+  --ok: #0F7A3E;          /* 5.3:1 on panel */
+  --err: #BC2A1C;
+  --led-ok: #22C866;
+  --led-wait: #FFB000;
+  --led-err: #FF3B2E;
+  --focus: #AD3709;
+  --slip: #FFFFFF;        /* printed paper: counter card and receipt */
+  --slip-ink: #161615;
+  --slip-muted: #5E5B55;
+  --slip-rule: #B9B4AA;
+  --shadow: 0 1px 0 rgba(22,22,21,.05), 0 30px 60px -36px rgba(40,30,20,.45);
+  --glow: .55;
+  --mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --gutter: 16px;
+}
+
+/* ---------- Tokens: dark = graphite instrument ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0E0E0D; --panel: #181816; --sunk: #0C0C0B; --well: #10100F; --raise: #232321;
+    --ink: #ECE9E2; --ink-2: #C9C5BC; --muted: #9A968D;
+    --rule: #2A2926; --rule-2: #6F6B63;
+    --screen: #080807; --screen-ink: #F2F0EA; --screen-dim: #9A968D; --screen-rule: #24231F;
+    --bezel: #252421; --bezel-edge: #3A3934;
+    --signal: #FF5A1F; --signal-edge: #A8360B; --on-signal: #140803; --signal-ink: #FF7A45;
+    --ok: #4FD98A; --err: #FF6B5E; --focus: #FF7A45;
+    --slip: #F3F1EA; --slip-ink: #161615; --slip-muted: #5E5B55; --slip-rule: #B3AEA3;
+    --shadow: 0 0 0 1px rgba(0,0,0,.5), 0 40px 80px -40px rgba(0,0,0,.9);
+    --glow: .9;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0E0E0D; --panel: #181816; --sunk: #0C0C0B; --well: #10100F; --raise: #232321;
+  --ink: #ECE9E2; --ink-2: #C9C5BC; --muted: #9A968D;
+  --rule: #2A2926; --rule-2: #6F6B63;
+  --screen: #080807; --screen-ink: #F2F0EA; --screen-dim: #9A968D; --screen-rule: #24231F;
+  --bezel: #252421; --bezel-edge: #3A3934;
+  --signal: #FF5A1F; --signal-edge: #A8360B; --on-signal: #140803; --signal-ink: #FF7A45;
+  --ok: #4FD98A; --err: #FF6B5E; --focus: #FF7A45;
+  --slip: #F3F1EA; --slip-ink: #161615; --slip-muted: #5E5B55; --slip-rule: #B3AEA3;
+  --shadow: 0 0 0 1px rgba(0,0,0,.5), 0 40px 80px -40px rgba(0,0,0,.9);
+  --glow: .9;
+}
+/* END v1 tokens */
+
+/* ---------- v2 additions, in the same grammar ---------- */
+:root {
+  --warn: #8A5A00;        /* amber as text on paper ("first payment to this address"), 5.6:1 on panel, 5.2:1 in wells */
+  --screen-warn: #FFC94D; /* amber segments on the dark screen, 11.7:1 */
+  --screen-err: #FF8A80;  /* red segments on the dark screen, 7.9:1 */
+  --t-fast: 120ms;        /* motion: 120-180 ms (PAYLINK-V2-SPEC §3.6), none under prefers-reduced-motion */
+  --t-med: 180ms;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --tap: 44px;            /* minimum target: 44 px keys (WCAG 2.2 AA needs 24 px) */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --warn: #F2B84B; }
+}
+:root[data-theme="dark"] { --warn: #F2B84B; }
+}

@@ -1,0 +1,12 @@
+{
+  "$comment": "The browser app alone: DOM and Vite client types, no Node types.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": ["vite/client"],
+    "noEmit": true
+  },
+  "include": ["src"]
+}

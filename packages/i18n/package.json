@@ -1,0 +1,48 @@
+{
+  "name": "@paylink/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PayLink translations: English, French and Malagasy messages with typed keys and typed named placeholders, plural selection with Intl.PluralRules, exact locale formatting (Intl) and a completeness test that covers every SDK error key.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "packages/i18n"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@paylink/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "node scripts/generate.ts",
+    "generate:check": "node scripts/generate.ts --check",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@paylink/eslint-config": "workspace:*",
+    "@paylink/sdk": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

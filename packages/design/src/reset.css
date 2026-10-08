@@ -1,0 +1,11 @@
+/* @paylink/design: reset (v1 web/paylink.css "Base", first lines). */
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body, h1, h2, h3, p, ol, ul, dl, dd, figure, blockquote { margin: 0; }
+  ol[class], ul[class] { padding: 0; list-style: none; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  img, svg { max-width: 100%; }
+  table { border-collapse: collapse; }
+}

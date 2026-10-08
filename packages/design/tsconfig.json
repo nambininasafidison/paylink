@@ -1,0 +1,10 @@
+{
+  "$comment": "The package ships CSS and fonts only; this checks its Node-side tests and configuration.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["test", "*.config.ts"]
+}

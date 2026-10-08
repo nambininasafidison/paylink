@@ -5,7 +5,7 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | Area | Document | What it answers |
 |---|---|---|
 | **Design** | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flows, trust boundaries, the read model (chain > device > indexer), editions, failure modes |
-| | [Architecture decision records](adr/README.md) | Why each significant choice was made, with the options that were rejected (ADRs 0001–0012) |
+| | [Architecture decision records](adr/README.md) | Why each significant choice was made, with the options that were rejected (ADRs 0001–0014) |
 | **Open standard** | [Invoice format specification v2](spec/paylink-invoice-v2.md) | The normative signed-invoice format: EIP-712 domain and types, key derivation, payment binding, cancellation, URL encodings, receipt verification, test vectors |
 | | [JSON Schema](spec/paylink-invoice-v2.schema.json) | Machine-readable form of the specification's JSON objects (draft 2020-12) |
 | **Security** | [Threat model](security/THREAT_MODEL.md) | Assets, actors, STRIDE per component, mitigations with their evidence, residual risks |
@@ -14,6 +14,7 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | | [Incident response](security/incident-response.md) | Severity levels, kill switches, playbooks, communication and post-mortems |
 | | [SECURITY.md](../SECURITY.md) | How to report a vulnerability; safe harbour |
 | **Operations** | [Deploy runbook](runbooks/deploy.md) | Wallets, secrets, the contract go/no-go, testnet deployments, Arc v1 on mainnet, rollback |
+| | [Cloudflare Pages runbook](runbooks/cloudflare-pages.md) | The one Pages project that serves the v2 app, its editions, v1 under `/arc/` and the deploy kit: exact build settings, checks, rollback, and a prompt for a browser assistant |
 | | [Relayer runbook](runbooks/relayer.md) | Putting the gasless relayer online from the repository, its key and gas, checks, operations, and a prompt for a browser assistant |
 | | [Faucets runbook](runbooks/faucets.md) | Funding the testnet wallets, with a claim log |
 | | [Demo recording runbook](runbooks/demo-recording.md) | Video scripts, honesty rules, setup and retakes |
