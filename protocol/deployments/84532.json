@@ -1,0 +1,77 @@
+{
+  "schema": "paylink.deployment/1",
+  "contract": "PayLinkV2",
+  "release": "2.0.0",
+  "chainId": 84532,
+  "caip2": "eip155:84532",
+  "network": "Base Sepolia",
+  "address": "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+  "caip10": "eip155:84532:0x448eCce9711860502806A3d5B021a4f9Ba715082",
+  "deployment": {
+    "method": "CREATE2",
+    "deployer": "0x0c397c6c8F94EAA6662eE548fA140e6DfEd4aea6",
+    "txHash": "0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed",
+    "blockNumber": 47859253,
+    "factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    "salt": "0x7f9515c91438126ed63fa127101d4959370615acac2d6a164f02dd823a778347",
+    "saltPreimage": "paylink.v2.0.0",
+    "route": "relayed",
+    "submitter": "0xC066ac5D385419B1A8c43A0E146fA439837a8B8c",
+    "authorization": [
+      {"chainId": 84532, "address": "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B", "nonce": 0, "authority": "0x0c397c6c8F94EAA6662eE548fA140e6DfEd4aea6"}
+    ]
+  },
+  "bytecode": {
+    "initCodeHash": "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
+    "maskedRuntimeHash": "0x59c48f00a8e437c74bf6b0b5ac1363149c8977c9185d1cf23405fa09c18aeb4d",
+    "runtimeCodeHash": "0x4835a6a4919a183d0952d502806812158e1443891510a52cf5314d85f72670d8",
+    "runtimeCodeSize": 12045,
+    "masking": "keccak256 of the runtime code with every immutableReferences range set to zero and the trailing CBOR metadata removed (its length is the big-endian uint16 in the last two bytes, plus those two bytes)",
+    "immutableReferences": [
+      {"start": 6512, "length": 32},
+      {"start": 6562, "length": 32},
+      {"start": 7828, "length": 32},
+      {"start": 7870, "length": 32},
+      {"start": 7912, "length": 32},
+      {"start": 7993, "length": 32},
+      {"start": 8033, "length": 32}
+    ]
+  },
+  "compiler": {
+    "solc": "0.8.30+commit.73712a01",
+    "evmVersion": "paris",
+    "optimizer": true,
+    "optimizerRuns": 10000,
+    "viaIR": false,
+    "bytecodeHash": "ipfs",
+    "settings": "solc=0.8.30+commit.73712a01;evmVersion=paris;optimizer=true;runs=10000;viaIR=false;bytecodeHash=ipfs;cborMetadata=true",
+    "settingsHash": "0xd1969664ff8abf232594de0f5fca1be12beb0dece45b33a850513c58e2efe035"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.3.0",
+    "forge-std": "v1.17.0"
+  },
+  "source": {
+    "repository": "https://github.com/nambininasafidison/paylink",
+    "path": "protocol/src/PayLinkV2.sol",
+    "commit": "31c911fb673a6c054da7ea9166bd3995cd09cd7d"
+  },
+  "eip712Domain": {
+    "name": "PayLink",
+    "version": "2",
+    "chainId": 84532,
+    "verifyingContract": "0x448eCce9711860502806A3d5B021a4f9Ba715082"
+  },
+  "explorers": [
+    {
+      "name": "Basescan",
+      "address": "https://sepolia.basescan.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082",
+      "tx": "https://sepolia.basescan.org/tx/0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed"
+    },
+    {
+      "name": "Blockscout",
+      "address": "https://base-sepolia.blockscout.com/address/0x448eCce9711860502806A3d5B021a4f9Ba715082",
+      "tx": "https://base-sepolia.blockscout.com/tx/0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed"
+    }
+  ]
+}

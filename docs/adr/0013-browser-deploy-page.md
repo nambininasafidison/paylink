@@ -82,6 +82,10 @@ A direct record has no `route` key (absence means direct), so for direct deploym
 
 ### Consequences
 
+- Base Sepolia's deployment is recorded in `protocol/deployments/84532.json`:
+  - `deployer` is the user's account, the authority of the transaction's authorization. The transaction names it in its input, and it was delegated to `0x63c0…E32B` at block 47859253.
+  - `submitter` is MetaMask's relayer.
+  - Evidence: historical `eth_getCode` (empty at block 47859252, 12,045 bytes at 47859253). sepolia.base.org refuses both tracers.
 - One corner is weaker than the direct route when no trace is available. Say a second relayed transaction in the same block N also carries the payload, and its inner creation fails but the failure is swallowed. It cannot be told apart from the creating transaction, because both show code absent at N − 1 and present at N. The direct route has no such gap, because the proxy reverts when CREATE2 fails. A trace closes the gap, and the person who submits a record names their own transaction.
 - Readers of the records:
   - a missing `route` means direct;
