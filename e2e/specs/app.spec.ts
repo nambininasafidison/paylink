@@ -446,13 +446,14 @@ test("language switch EN → FR → MG keeps the page and sets lang", async ({ b
 test.describe("production site", () => {
   const ROUTES = ["/", "/pay/", "/r/", "/ledger/", "/send/", "/till/", "/status/", "/does-not-exist/"];
 
-  // Every route, in every language and both themes: axe at desktop, phone and the 320 px reflow width; at 768 px (the
-  // tablet layout, where the footer has three columns) and at the three others, no horizontal scroll, no footer link
-  // drawn over another or over its label, no word broken inside itself and no copy cut by an ellipsis (spec §3.9
-  // "visual tests cover text expansion in FR and MG", §3.10).
-  const WIDTHS = [1280, 768, 390, 320] as const;
+  // Every route, in every language and both themes: axe at desktop, phone and the 320 px reflow width; at those and at
+  // 768 px (the tablet layout, where the footer has three columns) and 360 px (the spec's minimum width, §3.6), no
+  // horizontal scroll, no footer link drawn over another or over its label, no word broken inside itself and no copy
+  // cut by an ellipsis (spec §3.9 "visual tests cover text expansion in FR and MG", §3.10).
+  const WIDTHS = [1280, 768, 390, 360, 320] as const;
+  const AXE_WIDTHS: readonly number[] = [1280, 390, 320];
   for (const scheme of ["light", "dark"] as const) {
-    test(`axe and reflow (${scheme}): every route in EN, FR and MG at 1280, 768, 390 and 320 px`, async ({ browser }) => {
+    test(`axe and reflow (${scheme}): every route in EN, FR and MG at 1280, 768, 390, 360 and 320 px`, async ({ browser }) => {
       test.setTimeout(600_000);
       const visitor = await actor(browser, ACCOUNTS.payee, { scheme });
       const { page } = visitor;
@@ -471,7 +472,7 @@ test.describe("production site", () => {
             expect(await overlappingTargets(page), `${where}: footer links`).toEqual([]);
             expect(await brokenWords(page), `${where}: words broken inside`).toEqual([]);
             expect(await truncatedText(page), `${where}: copy cut`).toEqual([]);
-            if (width !== 768) {
+            if (AXE_WIDTHS.includes(width)) {
               expect(await axe(page), where).toEqual([]);
             }
           }

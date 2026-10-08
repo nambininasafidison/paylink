@@ -67,7 +67,8 @@ Environment variables, type **Text**, for **Production** (and Preview, should pr
 Branch control (Settings → Build → Branch control):
 
 - **Production branch:** `main`, automatic deployments on.
-- **Preview branch:** **None**. A preview at `<branch>.paylink-mg.pages.dev` is a subdomain of the passkey rpId `paylink-mg.pages.dev` and could ask for its passkeys ([ADR 0005](../adr/0005-dedicated-origin-and-rpid.md), threats T-05 and T-49). This code refuses passkey ceremonies anywhere but `paylink-mg.pages.dev` itself, but a preview of a modified branch would not: the setting is the control. The relayer's CORS list also names the production origin.
+- **Preview branch:** **None**. A preview at `<branch>.paylink-mg.pages.dev` is a subdomain of the passkey rpId `paylink-mg.pages.dev` and could ask for its passkeys ([ADR 0005](../adr/0005-dedicated-origin-and-rpid.md), threats T-05 and T-49). This code refuses passkey ceremonies anywhere but `paylink-mg.pages.dev` itself, but a preview of a modified branch would not: the setting is the control. The relayer's CORS list names the production origin only.
+- **Deployment hosts:** every deployment, production ones included, also stays reachable at its own `https://<hash>.paylink-mg.pages.dev`, which can assert the same rpId. Where the plan allows it, put those hosts behind Cloudflare Access (Settings → General → the project's access policy), then check that `https://<hash>.paylink-mg.pages.dev/` asks for an Access login and `https://paylink-mg.pages.dev/` does not. After a security incident, delete the affected deployments ([incident response PB-2](../security/incident-response.md)).
 
 What the build command does (`apps/web/scripts/cloudflare-pages.sh`, about 15 s in the sandbox with an empty store):
 
