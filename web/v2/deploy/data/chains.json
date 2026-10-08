@@ -117,7 +117,14 @@
           "ceiling": "4077000"
         }
       },
-      "deployment": null,
+      "deployment": {
+        "address": "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+        "method": "CREATE2",
+        "txHash": "0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed",
+        "blockNumber": "47859253",
+        "deployer": "0x0c397c6c8F94EAA6662eE548fA140e6DfEd4aea6",
+        "status": "active"
+      },
       "notes": [
         "Gas is paid in Sepolia ETH from faucets (spec §6.2)."
       ]

@@ -27,4 +27,17 @@ export const DEPLOYMENT_RECORDS: Readonly<Partial<Record<number, DeploymentRecor
     runtimeCodeHash: "0x317f0eaea391e57c616af85fe1ef99e99662d587c8834cc7edf51edb82bc738d",
     explorers: [{ name: "MonadVision", origin: "https://testnet.monadvision.com" }, { name: "Monadscan", origin: "https://testnet.monadscan.com" }],
   },
+  84532: {
+    network: "Base Sepolia",
+    address: "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+    release: "2.0.0",
+    method: "CREATE2",
+    deployer: "0x0c397c6c8F94EAA6662eE548fA140e6DfEd4aea6",
+    txHash: "0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed",
+    blockNumber: 47859253n,
+    initCodeHash: "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
+    maskedRuntimeHash: "0x59c48f00a8e437c74bf6b0b5ac1363149c8977c9185d1cf23405fa09c18aeb4d",
+    runtimeCodeHash: "0x4835a6a4919a183d0952d502806812158e1443891510a52cf5314d85f72670d8",
+    explorers: [{ name: "Basescan", origin: "https://sepolia.basescan.org" }, { name: "Blockscout", origin: "https://base-sepolia.blockscout.com" }],
+  },
 };
