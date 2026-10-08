@@ -31,6 +31,19 @@ interface Discovered {
 const LAYER = "eip6963";
 export const LEGACY_ID = "injected";
 
+/**
+ * EIP-6963 `rdns` of the wallets that are Base Account: the Coinbase Wallet extension and the Base app (formerly
+ * Coinbase Wallet) announce `com.coinbase.wallet`. Only their users are told "Pay with Base"; any other wallet with
+ * EIP-5792 atomic batches (MetaMask with an EIP-7702 smart account, for one) hears the neutral "one approval in your
+ * wallet" (ADR 0015, option 2B: no Base Account SDK on this origin).
+ */
+export const BASE_WALLET_RDNS: readonly string[] = ["com.coinbase.wallet"];
+
+/** Whether the connected wallet is the Base app or Coinbase Wallet (by its EIP-6963 rdns). */
+export function isBaseWallet(connector: Connector): boolean {
+  return connector.layer === LAYER && BASE_WALLET_RDNS.includes(connector.id.toLowerCase());
+}
+
 const isProvider = (value: unknown): value is Eip1193Provider =>
   typeof value === "object" && value !== null && typeof (value as { request?: unknown }).request === "function";
 

@@ -14,7 +14,10 @@
  *
  * Base edition (`/base/`), EIP-6963 wallets:
  * - an EOA pays USDC gaslessly: one EIP-3009 signature in the wallet, no transaction;
- * - a smart account (EIP-5792 `atomic: supported`) pays with "Pay with Base": one `wallet_sendCalls([approve, pay])`.
+ * - a smart account (EIP-5792 `atomic: supported`) pays with one `wallet_sendCalls([approve, pay])`, named "Pay with Base"
+ *   only when the wallet is the Base app or Coinbase Wallet (rdns `com.coinbase.wallet`).
+ *
+ * The root edition (`/`): a relayer failure after the signature leaves the payer the own-gas way out (spec §3.5, §3.7).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -71,7 +74,10 @@ interface Person {
   readonly wallet: MockWallet | null;
 }
 
-async function person(browser: Browser, options: { readonly phone?: boolean; readonly scheme?: "light" | "dark"; readonly wallet?: { account: Address; chainId: number; batch?: boolean } } = {}): Promise<Person> {
+async function person(
+  browser: Browser,
+  options: { readonly phone?: boolean; readonly scheme?: "light" | "dark"; readonly wallet?: { account: Address; chainId: number; batch?: boolean; info?: { name: string; rdns: string } } } = {},
+): Promise<Person> {
   const context = await browser.newContext({
     viewport: options.phone === true ? { width: 390, height: 844 } : { width: 1280, height: 900 },
     ...(options.phone === true ? { deviceScaleFactor: 2, isMobile: true, hasTouch: true } : {}),
@@ -98,6 +104,7 @@ async function person(browser: Browser, options: { readonly phone?: boolean; rea
           endpoints: new Map([[MONAD, chains.monad.anvil.url], [BASE, chains.base.anvil.url]]),
           known: [MONAD, BASE],
           ...(options.wallet.batch === true ? { batch: true } : {}),
+          ...(options.wallet.info === undefined ? {} : { info: options.wallet.info }),
         });
   return { context, page, problems, relayed, wallet };
 }
@@ -201,6 +208,7 @@ test("Monad: two PayLink keys, onboarding, a gasless fingerprint payment, the ti
   await expect(display).toContainText("25.50");
   await expect(display).toContainText("Covered by PayLink");
   await expect(payer.page.locator(".route-note")).toHaveText("One signature; the fee is covered.");
+  await expect(payer.page.locator(".assure")).toHaveText("Non-custodial: the dollars go straight from your PayLink key's account to the address above. The network fee is covered.");
   expect(await axe(payer.page)).toEqual([]);
 
   const sellerBefore = await balance(chains.monad, sellerAddress);
@@ -290,7 +298,7 @@ test("Monad: the receive card on Send, and a contact paying it any amount", asyn
   expect(seller.problems).toEqual([]);
 });
 
-test("Base: gasless USDC for an EOA (one signature, no transaction), and Pay with Base for a smart account", async ({ browser }) => {
+test("Base: gasless USDC for an EOA (one signature, no transaction); one batch for a smart account, \"Pay with Base\" only in the Base app", async ({ browser }) => {
   const seller = await person(browser, { wallet: { account: ACCOUNTS.payee, chainId: BASE } });
   await seller.page.goto(`${origin}/base/`);
   await seller.page.locator("#amount").fill("4.20");
@@ -309,6 +317,8 @@ test("Base: gasless USDC for an EOA (one signature, no transaction), and Pay wit
   await key.click(); // connect
   await expect(key).toHaveText("Pay 4.20 USDC");
   await expect(eoa.page.locator(".route-note")).toHaveText("One signature; the fee is covered.");
+  // The assurance under it agrees with the route: the fee is covered (it used to say the wallet pays it).
+  await expect(eoa.page.locator(".assure")).toHaveText("Non-custodial: the dollars go straight from your wallet to the address above. The network fee is covered.");
   await key.click();
   await expect(eoa.page.locator(".receipt-slot .receipt")).toContainText("Approved");
   expect(eoa.wallet?.sent()).toHaveLength(0);
@@ -317,41 +327,53 @@ test("Base: gasless USDC for an EOA (one signature, no transaction), and Pay wit
   expect(await balance(chains.base, ACCOUNTS.payer)).toBe(PAYER_FUNDS - 4_200_000n);
   expect(eoa.relayed.filter((r) => r.method === "POST").map((r) => r.path)).toEqual([`/v1/${String(BASE)}/pay`]);
 
-  // A smart-account payer (EIP-5792 atomic batches): "Pay with Base", one approval for [approve, pay].
-  const second = await (async () => {
+  // Smart-account payers (EIP-5792 atomic batches): one approval for [approve(amount), pay]. "Pay with Base" is said only
+  // to the Base app or Coinbase Wallet (rdns com.coinbase.wallet); any other wallet with batches (MetaMask with an
+  // EIP-7702 smart account, here the test wallet) is told "one approval in your wallet", never a product it may not use.
+  const invoice = async (amount: string): Promise<string> => {
     await seller.page.goto(`${origin}/base/`);
-    await seller.page.locator("#amount").fill("1.50");
+    await seller.page.locator("#amount").fill(amount);
     await seller.page.locator(".view-create > .key-primary").click();
     await seller.page.locator(".signing + .key-row .key-primary").click();
     return await seller.page.locator(".share input").inputValue();
-  })();
-  const smart = await person(browser, { wallet: { account: ACCOUNTS.tokenOwner, chainId: BASE, batch: true } });
+  };
   await chains.base.anvil.rpc("anvil_setBalance", [ACCOUNTS.tokenOwner, "0x8ac7230489e80000"]);
-  const funded = await balance(chains.base, ACCOUNTS.tokenOwner);
-  expect(funded).toBe(0n);
+  expect(await balance(chains.base, ACCOUNTS.tokenOwner)).toBe(0n);
   // Give the smart account some USDC from the payer (a plain transfer on anvil).
   await chains.base.anvil.rpc("eth_sendTransaction", [{ from: ACCOUNTS.payer, to: TOKEN.address, data: `0xa9059cbb${ACCOUNTS.tokenOwner.slice(2).toLowerCase().padStart(64, "0")}${(10_000_000n).toString(16).padStart(64, "0")}` }]);
   await expect.poll(async () => await balance(chains.base, ACCOUNTS.tokenOwner)).toBe(10_000_000n);
-  await smart.page.goto(second);
-  const smartKey = smart.page.locator(".payform .key-primary");
-  await smartKey.click(); // connect
-  await expect(smartKey).toHaveText("Pay with Base");
-  await expect(smart.page.locator(".route-note")).toContainText("One approval in your Base Account");
-  await smartKey.click();
-  await expect(smart.page.locator(".receipt-slot .receipt")).toContainText("Approved");
-  const batch = smart.wallet?.requests.find((r) => r.method === "wallet_sendCalls");
-  const calls = (batch?.params[0] as { atomicRequired: boolean; calls: { to: string; data: Hex }[] } | undefined);
-  expect(calls?.atomicRequired).toBe(true);
-  expect(calls?.calls.map((c) => c.to.toLowerCase())).toEqual([TOKEN.address.toLowerCase(), PAYLINK.toLowerCase()]);
-  const approve = decodeFunctionData({ abi: erc20, data: calls?.calls[0]?.data ?? "0x" });
-  expect(approve.args).toEqual([PAYLINK, 1_500_000n]);
-  expect(decodeFunctionData({ abi: payLinkAbi, data: calls?.calls[1]?.data ?? "0x" }).functionName).toBe("pay");
-  expect(await balance(chains.base, ACCOUNTS.tokenOwner)).toBe(10_000_000n - 1_500_000n);
-  expect(smart.relayed.filter((r) => r.method === "POST")).toHaveLength(0);
+  const cases = [
+    { amount: "1.50", units: 1_500_000n, info: undefined, key: "Pay 1.50 USDC", note: "One approval in your wallet: it approves exactly this amount and pays, together." },
+    { amount: "2.25", units: 2_250_000n, info: { name: "Coinbase Wallet", rdns: "com.coinbase.wallet" }, key: "Pay with Base", note: "One approval in your Base Account: it approves exactly this amount and pays, together." },
+  ] as const;
+  let spent = 0n;
+  for (const c of cases) {
+    const link = await invoice(c.amount);
+    const smart = await person(browser, { wallet: { account: ACCOUNTS.tokenOwner, chainId: BASE, batch: true, ...(c.info === undefined ? {} : { info: c.info }) } });
+    await smart.page.goto(link);
+    const smartKey = smart.page.locator(".payform .key-primary");
+    await smartKey.click(); // connect
+    await expect(smartKey).toHaveText(c.key);
+    await expect(smart.page.locator(".route-note")).toHaveText(c.note);
+    // The payer's wallet pays the fee on this route, and every line says so.
+    await expect(smart.page.locator(".assure")).toHaveText("Non-custodial: the dollars go straight from your wallet to the address above. Your wallet pays the network fee.");
+    await smartKey.click();
+    await expect(smart.page.locator(".receipt-slot .receipt")).toContainText("Approved");
+    const batch = smart.wallet?.requests.find((r) => r.method === "wallet_sendCalls");
+    const calls = (batch?.params[0] as { atomicRequired: boolean; calls: { to: string; data: Hex }[] } | undefined);
+    expect(calls?.atomicRequired).toBe(true);
+    expect(calls?.calls.map((call) => call.to.toLowerCase())).toEqual([TOKEN.address.toLowerCase(), PAYLINK.toLowerCase()]);
+    const approve = decodeFunctionData({ abi: erc20, data: calls?.calls[0]?.data ?? "0x" });
+    expect(approve.args).toEqual([PAYLINK, c.units]);
+    expect(decodeFunctionData({ abi: payLinkAbi, data: calls?.calls[1]?.data ?? "0x" }).functionName).toBe("pay");
+    spent += c.units;
+    expect(await balance(chains.base, ACCOUNTS.tokenOwner)).toBe(10_000_000n - spent);
+    expect(smart.relayed.filter((r) => r.method === "POST")).toHaveLength(0);
+    expect(smart.problems).toEqual([]);
+  }
 
   expect(seller.problems).toEqual([]);
   expect(eoa.problems).toEqual([]);
-  expect(smart.problems).toEqual([]);
 });
 
 test("all: the relayer fails after the signature; the payer sends the same authorisation with their own fee, also after a reload", async ({ browser }) => {

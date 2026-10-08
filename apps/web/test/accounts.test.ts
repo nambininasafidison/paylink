@@ -5,7 +5,7 @@
  * and the session that remembers a wallet by its rdns and restores it without a prompt.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addChainParameters, eip6963Layer, LEGACY_ID, parseProviderInfo, walletError } from "../src/accounts/eip6963.ts";
+import { addChainParameters, eip6963Layer, isBaseWallet, LEGACY_ID, parseProviderInfo, walletError } from "../src/accounts/eip6963.ts";
 import type { Eip1193Provider } from "../src/accounts/eip6963.ts";
 import type { Connector } from "../src/accounts/types.ts";
 import { WalletError } from "../src/accounts/types.ts";
@@ -159,6 +159,19 @@ describe("EIP-6963 announcements", () => {
     });
     const account = await layer.connect(LEGACY_ID, { silent: true });
     expect(account?.address).toBe(payee.address);
+  });
+});
+
+describe("Base Account wallets", () => {
+  it("names only the Base app and Coinbase Wallet (EIP-6963 rdns com.coinbase.wallet) as Base Account", () => {
+    const connector = (id: string, layer = "eip6963"): Connector => ({ id, name: id, icon: null, layer });
+    expect(isBaseWallet(connector("com.coinbase.wallet"))).toBe(true);
+    // A wallet with EIP-5792 batches is not Base Account: MetaMask (an EIP-7702 smart account), Rabby, the legacy
+    // injected provider, or anything claiming the rdns outside the EIP-6963 layer.
+    expect(isBaseWallet(connector("io.metamask"))).toBe(false);
+    expect(isBaseWallet(connector("io.rabby"))).toBe(false);
+    expect(isBaseWallet(connector(LEGACY_ID))).toBe(false);
+    expect(isBaseWallet(connector("com.coinbase.wallet", "passkey"))).toBe(false);
   });
 });
 

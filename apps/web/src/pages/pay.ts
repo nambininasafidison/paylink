@@ -3,14 +3,17 @@
  * `/pay/#2.<chainId>.<inv>.<sig>[.<memo>]`: the payer's view (invoice spec §13.2).
  *
  * The fragment is decoded strictly against the edition's registry (the contract address never comes from the link),
- * then four lamps are lit from the chain: signature, network, genuine contract, still payable. Any red lamp locks the
- * Pay key; an unknown one keeps it waiting. The payee is shown grouped by four with any saved label, or with the amber
+ * then four lamps are lit from the chain: signature, network, contract, payable. Each lamp has a neutral name and a
+ * state word (OK, Check, Stop, Not needed), so neither a screen reader nor a red/green colour-blind reader is told
+ * "Signature valid" next to a failing check. Any red lamp locks the Pay key; an unknown one keeps it waiting; none is
+ * left checking once the link is known to be closed. The payee is shown grouped by four with any saved label, or with the amber
  * "first payment to this address" warning. The memo is the sender's own words, stripped of bidi and control
  * characters and labelled as such. Payer copy says "digital dollars", never "blockchain".
  *
  * Payment: the SDK's PaymentRouter ranks the paths for the token and the payer's account; the first one a ready rail
- * of the edition can execute is used (T0: the payer's wallet, `permit` or `approve-pay`). The outcome is verified as a
- * receipt on the chain before "Approved" lights.
+ * of the edition can execute is used. Who pays the network fee (the assurance line and the lead's step 02) is said
+ * from that route, never from the edition alone; "Pay with Base" is said only to a Base app or Coinbase Wallet. The
+ * outcome is verified as a receipt on the chain before "Approved" lights.
  */
 import type { ChainDefinition, Token } from "@paylink/chains";
 import { formatDateTime, formatSeconds } from "@paylink/i18n";
@@ -27,6 +30,7 @@ import {
 } from "@paylink/sdk";
 import type { DecodedInvoiceLink, PaymentPath, SettlementFunction } from "@paylink/sdk";
 import type { Address } from "viem";
+import { isBaseWallet } from "../accounts/eip6963.ts";
 import type { AccountProvider } from "../accounts/types.ts";
 import type { PageDefinition } from "../app/boot.ts";
 import { networkName, plateText } from "../app/chains.ts";
@@ -70,6 +74,7 @@ export const payPage: PageDefinition = {
   title: "pay.docTitle",
   render(app, ui) {
     const { t } = app.i18n;
+    const passkeys = app.edition.accountLayers.some((layer) => layer.kind === "passkey");
     const specs: [string, string][] = [
       [t("pay.spec.fee"), "0%"],
       [t("pay.spec.custody"), t("common.none")],
@@ -87,7 +92,8 @@ export const payPage: PageDefinition = {
     ui.aside.append(
       steps(t("pay.how"), [
         [t("pay.step1.title"), t("pay.step1.text")],
-        [t("pay.step2.title"), t("pay.step2.text")],
+        // Who pays the fee is said once the route is known (bill → feeCopy); until then only what is certain.
+        [t("pay.step2.title"), passkeys ? t("pay.step2.key") : t("pay.step2.pending")],
         [t("pay.step3.title"), t("pay.step3.text")],
       ]),
     );
@@ -158,15 +164,22 @@ async function payeeIdentity(app: App, payee: Address): Promise<PayeeIdentity> {
   return { label: contact?.label ?? null, paidBefore };
 }
 
-type VLamp = "ok" | "wait" | "err" | "busy";
+/** A lamp's state: green, amber, red, blinking while it is read, or a hollow ring when the check does not apply. */
+type VLamp = "ok" | "wait" | "err" | "busy" | "off";
 
-function stripItem(name: string): { element: HTMLLIElement; set(lampState: VLamp, detail: string): void } {
+/**
+ * One lamp of the verification strip: a neutral name ("Signature"), the state in words ("OK", "Stop"), and the detail.
+ * The state word is text, so the lamp's meaning never rests on its colour.
+ */
+function stripItem(name: string, words: Readonly<Record<VLamp, string>>): { element: HTMLLIElement; set(lampState: VLamp, detail: string, word?: string): void } {
+  const wordEl = h("span", { class: "vstrip-state" }, words.busy);
   const detailEl = h("span", { class: "vstrip-detail" });
-  const element = h("li", { attrs: { "data-lamp": "busy" } }, h("span", { class: "vstrip-name" }, name), detailEl);
+  const element = h("li", { attrs: { "data-lamp": "busy" } }, h("span", { class: "vstrip-name" }, h("span", null, name), wordEl), detailEl);
   return {
     element,
-    set(lampState, detail) {
+    set(lampState, detail, word) {
       element.setAttribute("data-lamp", lampState);
+      wordEl.textContent = word ?? words[lampState];
       detailEl.textContent = detail;
     },
   };
@@ -199,12 +212,13 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     memo === null || memo.trim() === "" ? null : h("p", { class: "screen-memo" }, h("span", { class: "from" }, t("pay.note")), h("q", null, memo)),
   );
 
-  const sig = stripItem(t("verify.signature"));
-  const net = stripItem(t("verify.network"));
-  const genuine = stripItem(t("verify.contract"));
-  const payable = stripItem(t("verify.payable"));
+  const words: Record<VLamp, string> = { ok: t("verify.state.ok"), wait: t("verify.state.wait"), err: t("verify.state.err"), busy: t("verify.state.busy"), off: t("verify.state.off") };
+  const sig = stripItem(t("verify.signature"), words);
+  const net = stripItem(t("verify.network"), words);
+  const genuine = stripItem(t("verify.contract"), words);
+  const payable = stripItem(t("verify.payable"), words);
   for (const item of [sig, net, genuine, payable]) {
-    item.set("busy", t("verify.checking"));
+    item.set("busy", "");
   }
   const strip = h("ul", { class: "vstrip", attrs: { "aria-label": t("verify.label") } }, sig.element, net.element, genuine.element, payable.element);
 
@@ -225,6 +239,25 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const amountInput = h("input", { class: "readout-input", attrs: { id: "pay-amount", inputmode: "decimal", placeholder: app.locale === "en" ? "0.00" : "0,00", autocomplete: "off" } });
   const typedFx = h("p", { class: "readout-hint readout-fx", attrs: { "aria-live": "polite" } });
   const routeNote = h("p", { class: "route-note" });
+  const assure = h("p", { class: "assure" });
+  const stepText = ui.aside.querySelector<HTMLElement>(".steps li:nth-child(2) p");
+  /**
+   * Who pays the network fee, from the route the router picked (`null` until one is): covered on the relayed route,
+   * the payer's own on every other. The assurance line and the lead's step 02 never contradict the route note.
+   */
+  const feeCopy = (path: PaymentPath | null): void => {
+    const covered = path === "relayed-authorization";
+    const own = path !== null && !covered;
+    if (passkeys) {
+      assure.textContent = own ? t("pay.assureKeyOwn") : t("pay.assureKey");
+    } else {
+      assure.textContent = covered ? t("pay.assureCovered") : own ? t("pay.assure") : t("pay.assurePending");
+    }
+    if (stepText !== null) {
+      stepText.textContent = passkeys ? (own ? t("pay.step2.keyOwn") : t("pay.step2.key")) : covered ? t("pay.step2.covered") : own ? t("pay.step2.text") : t("pay.step2.pending");
+    }
+  };
+  feeCopy(null);
   const key = h("button", { class: "key key-primary", attrs: { type: "button", disabled: true } }, t("pay.checking"));
   const signSlot = h("div", { class: "sign-slot" });
   const fundsSlot = h("div", { class: "funds-slot" });
@@ -248,7 +281,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     routeNote,
     fundsSlot,
     fallbackSlot,
-    h("p", { class: "assure" }, passkeys ? t("pay.assureKey") : t("pay.assure")),
+    assure,
   );
   const stateNote = h("p", { class: "state-note", attrs: { hidden: true } });
   const billEl = h("div", { class: "bill" }, screen, strip, facts, firstWarning, payform, stateNote, status, slot, details(app, link));
@@ -321,10 +354,14 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     } catch {
       choice = null;
       routeNote.textContent = "";
+      feeCopy(null);
       return;
     }
-    routeNote.textContent = routeText(app, choice);
-    if (choice.ok && choice.path === "batched-approve-pay" && app.edition.payWithBase) {
+    const baseWallet = app.edition.payWithBase && isBaseWallet(account.connector);
+    routeNote.textContent = routeText(app, choice, baseWallet);
+    feeCopy(choice.ok ? choice.path : null);
+    if (choice.ok && choice.path === "batched-approve-pay" && baseWallet) {
+      // "Pay with Base" names the payer's own wallet: only the Base app or Coinbase Wallet hears it.
       key.textContent = t("pay.payWithBase");
     }
     if (choice.ok) {
@@ -367,22 +404,27 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       return;
     }
     if (app.framed) {
+      net.set("off", t("verify.network.notNeeded"));
       lockKey(t("pay.locked"));
       return;
     }
     const states = [checks.signature.state, checks.contract.state, checks.payable.state];
     if (states.includes("err")) {
-      // Any red lamp locks the key, whatever the others say.
+      // Any red lamp locks the key, whatever the others say; the wallet's network no longer matters (never left
+      // "checking" on a paid, cancelled, expired or refused link).
+      net.set("off", t("verify.network.notNeeded"));
       lockKey(t("pay.locked"));
       return;
     }
     if (states.includes("unknown")) {
+      net.set("wait", t("verify.unknown"));
       key.textContent = t("pay.retryChecks");
       key.disabled = false;
       key.dataset["action"] = "recheck";
       return;
     }
     if (account === null) {
+      feeCopy(null);
       net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
       key.textContent = passkeys ? t("pay.useKey") : t("pay.connect");
       key.disabled = false;
@@ -423,8 +465,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const runChecks = async (): Promise<void> => {
     checks = null;
     void refresh();
-    for (const item of [sig, genuine, payable]) {
-      item.set("busy", t("verify.checking"));
+    for (const item of [sig, net, genuine, payable]) {
+      item.set("busy", "");
     }
     const result = await checkLink(link, client);
     checks = result;
@@ -534,7 +576,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       pill.className = "pill paid";
       pill.textContent = t("pay.pill.paid");
       due.textContent = t("pay.paid");
-      payable.set("ok", t("verify.payable.paidNow"));
+      // Closed by this very payment: a hollow lamp and "Closed", never a green "payable".
+      payable.set("off", t("verify.payable.paidNow"), t("verify.state.closed"));
     } else {
       // Seats and receive cards stay open: re-read the count this payment just moved.
       void readLinkState(client, link.target.deployment.address, link.key)
@@ -608,8 +651,8 @@ function relayerReason(app: App, code: string, retryAfter: number | null): strin
   }
 }
 
-/** The route in plain words: who signs, who pays the network fee. */
-function routeText(app: App, choice: PathChoice): string {
+/** The route in plain words: who signs, who pays the network fee. `baseWallet`: the payer's wallet is the Base app. */
+function routeText(app: App, choice: PathChoice, baseWallet: boolean): string {
   const { t } = app.i18n;
   if (!choice.ok) {
     switch (choice.reason) {
@@ -630,7 +673,7 @@ function routeText(app: App, choice: PathChoice): string {
     case "approve-pay":
       return t("pay.route.approve");
     case "batched-approve-pay":
-      return app.edition.payWithBase ? t("pay.route.base") : t("pay.route.batch");
+      return baseWallet ? t("pay.route.base") : t("pay.route.batch");
     case "native":
       return t("pay.route.native");
     case "relayed-authorization":

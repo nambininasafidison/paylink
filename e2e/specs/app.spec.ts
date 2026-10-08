@@ -157,6 +157,9 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   await payer.page.goto(link);
   await expect(payer.page.locator(".screen .amount")).toContainText("25.50");
   await expect(payer.page.locator(".screen-memo")).toContainText("Logo design, invoice 042");
+  // Neutral names, the state in words: the lamp's meaning never rests on its colour.
+  await expect(payer.page.locator(".vstrip .vstrip-name > span:first-child")).toHaveText(["Signature", "Network", "Contract", "Payable"]);
+  await expect(lamp(payer.page, 0).locator(".vstrip-state")).toHaveText("OK");
   await expect(lamp(payer.page, 0)).toHaveAttribute("data-lamp", "ok");
   await expect(lamp(payer.page, 2)).toHaveAttribute("data-lamp", "ok");
   await expect(lamp(payer.page, 3)).toHaveAttribute("data-lamp", "ok");
@@ -168,7 +171,10 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   await key.click(); // switch network
   await expect(lamp(payer.page, 1)).toHaveAttribute("data-lamp", "ok");
   await expect(key).toContainText("Pay 25.50 AUSD");
-  await expect(payer.page.locator(".route-note")).not.toBeEmpty();
+  await expect(payer.page.locator(".route-note")).toHaveText("One signature, then one transaction with your own network fee.");
+  // The assurance line and the lead's step 02 say what the route says: here the payer's wallet pays the fee.
+  await expect(payer.page.locator(".assure")).toHaveText("Non-custodial: the dollars go straight from your wallet to the address above. Your wallet pays the network fee.");
+  await expect(payer.page.locator(".steps li").nth(1).locator("p")).toHaveText("Your wallet asks you to approve the payment. It pays the small network fee too.");
   await key.click(); // pay
   await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
   await expect(payer.page.locator(".status.ok")).toContainText("settled in");
@@ -188,6 +194,9 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   expect(await chain.balanceOf(ACCOUNTS.payee)).toBe(before.payee + 25_500_000n);
   await expect(payer.page.locator(".warn-note").first()).toBeHidden();
   await expect(lamp(payer.page, 3)).toContainText("Paid by you just now");
+  // Closed by this payment: a hollow lamp that says so, not a green "payable".
+  await expect(lamp(payer.page, 3)).toHaveAttribute("data-lamp", "off");
+  await expect(lamp(payer.page, 3).locator(".vstrip-state")).toHaveText("Closed");
 
   // The receipt link re-verifies on chain.
   await payer.page.locator(".receipt-slot a.key").first().click();
@@ -209,7 +218,12 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   // Paid once: the link now refuses a second payment.
   await payer.page.goto(link);
   await expect(lamp(payer.page, 3)).toHaveAttribute("data-lamp", "err");
+  await expect(lamp(payer.page, 3).locator(".vstrip-state")).toHaveText("Stop");
   await expect(payer.page.locator(".payform .key-primary")).toBeDisabled();
+  // No lamp is left checking on a closed link: the network one says it is not needed.
+  await expect(lamp(payer.page, 1)).toHaveAttribute("data-lamp", "off");
+  await expect(lamp(payer.page, 1)).toContainText("Not checked: this link takes no payment here.");
+  await expect(payer.page.locator(".vstrip > li[data-lamp='busy']")).toHaveCount(0);
 
   // The payee's books: state from statesOf, total from the chain.
   await payee.page.goto(`${server.origin}/ledger/`);
@@ -333,6 +347,8 @@ test("cancel from the ledger: one transaction from the payee, and the link stops
   await expect(lamp(payer.page, 3)).toHaveAttribute("data-lamp", "err");
   await expect(lamp(payer.page, 3)).toContainText("Cancelled");
   await expect(payer.page.locator(".payform .key-primary")).toBeDisabled();
+  await expect(lamp(payer.page, 1)).toHaveAttribute("data-lamp", "off");
+  await expect(payer.page.locator(".vstrip > li[data-lamp='busy']")).toHaveCount(0);
 });
 
 test("an impostor contract at the registry address turns the genuine lamp red and locks Pay", async ({ browser }) => {
@@ -343,6 +359,8 @@ test("an impostor contract at the registry address turns the genuine lamp red an
   await payer.page.goto(link);
   await expect(lamp(payer.page, 2)).toHaveAttribute("data-lamp", "err");
   await expect(lamp(payer.page, 2)).toContainText("not the genuine release");
+  await expect(lamp(payer.page, 2).locator(".vstrip-state")).toHaveText("Stop");
+  await expect(lamp(payer.page, 1)).toHaveAttribute("data-lamp", "off");
   await expect(payer.page.locator(".payform .key-primary")).toBeDisabled();
   await expect(payer.page.locator("#plate")).not.toBeEmpty();
   expect(payer.wallet.sent()).toHaveLength(0);

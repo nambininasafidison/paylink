@@ -705,6 +705,20 @@
     "send.mineConnect",
     "send.mineTill",
     "send.mineHint",
-    "send.payTo"
+    "send.payTo",
+    "verify.state.ok",
+    "verify.state.wait",
+    "verify.state.err",
+    "verify.state.busy",
+    "verify.state.off",
+    "verify.state.closed",
+    "verify.network.notNeeded",
+    "pay.assureCovered",
+    "pay.assureKeyOwn",
+    "pay.assurePending",
+    "pay.step2.covered",
+    "pay.step2.key",
+    "pay.step2.keyOwn",
+    "pay.step2.pending"
   ]
 }

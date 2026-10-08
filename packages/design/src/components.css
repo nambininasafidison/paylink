@@ -513,7 +513,13 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .vstrip li[data-lamp="wait"]::before { background: var(--led-wait); box-shadow: 0 0 8px rgba(255,176,0,var(--glow)); }
 .vstrip li[data-lamp="err"]::before { background: var(--led-err); box-shadow: 0 0 8px rgba(255,59,46,var(--glow)); }
 .vstrip li[data-lamp="busy"]::before { background: var(--led-wait); animation: blink 1s steps(2, jump-none) infinite; }
-.vstrip-name { font: 600 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; color: var(--ink); }
+/* Name and state word on one engraved line ("SIGNATURE ······ OK"): the state is said in words, the lamp repeats it. */
+.vstrip-name { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 12px; font: 600 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; color: var(--ink); }
+.vstrip-state { color: var(--muted); }
+.vstrip li[data-lamp="ok"] .vstrip-state { color: var(--ok); }
+.vstrip li[data-lamp="wait"] .vstrip-state { color: var(--warn); }
+.vstrip li[data-lamp="err"] .vstrip-state { color: var(--err); }
+.vstrip-detail:empty { display: none; }
 .vstrip-detail { grid-column: 2; font-size: 13px; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
 .vstrip li[data-lamp="err"] .vstrip-detail { color: var(--err); }
 .vstrip li[data-lamp="wait"] .vstrip-detail { color: var(--warn); }

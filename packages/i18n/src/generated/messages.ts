@@ -709,7 +709,21 @@ export type MessageKey =
   | "send.mineConnect"
   | "send.mineTill"
   | "send.mineHint"
-  | "send.payTo";
+  | "send.payTo"
+  | "verify.state.ok"
+  | "verify.state.wait"
+  | "verify.state.err"
+  | "verify.state.busy"
+  | "verify.state.off"
+  | "verify.state.closed"
+  | "verify.network.notNeeded"
+  | "pay.assureCovered"
+  | "pay.assureKeyOwn"
+  | "pay.assurePending"
+  | "pay.step2.covered"
+  | "pay.step2.key"
+  | "pay.step2.keyOwn"
+  | "pay.step2.pending";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1417,6 +1431,20 @@ export interface MessageParams {
   readonly "send.mineTill": never;
   readonly "send.mineHint": never;
   readonly "send.payTo": { readonly name: ParamValue };
+  readonly "verify.state.ok": never;
+  readonly "verify.state.wait": never;
+  readonly "verify.state.err": never;
+  readonly "verify.state.busy": never;
+  readonly "verify.state.off": never;
+  readonly "verify.state.closed": never;
+  readonly "verify.network.notNeeded": never;
+  readonly "pay.assureCovered": never;
+  readonly "pay.assureKeyOwn": never;
+  readonly "pay.assurePending": never;
+  readonly "pay.step2.covered": never;
+  readonly "pay.step2.key": never;
+  readonly "pay.step2.keyOwn": never;
+  readonly "pay.step2.pending": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */

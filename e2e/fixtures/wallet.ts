@@ -34,6 +34,8 @@ export interface MockWalletOptions {
    * the EIP-5792 methods with 4200 (unsupported), like most EOA wallets.
    */
   readonly batch?: boolean;
+  /** The EIP-6963 name and rdns the wallet announces (default: "PayLink Test Wallet", dev.paylink.testwallet). */
+  readonly info?: { readonly name: string; readonly rdns: string };
 }
 
 export interface MockWallet {
@@ -146,7 +148,7 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
   };
   await page.exposeFunction("__paylinkTestWallet", answer);
   await page.addInitScript(
-    ({ name }) => {
+    ({ name, rdns }) => {
       const listeners = new Map<string, Set<(arg: unknown) => void>>();
       const bridge = (window as unknown as { __paylinkTestWallet: (m: string, p: unknown[]) => Promise<Answer> }).__paylinkTestWallet;
       const provider = {
@@ -175,7 +177,7 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
         uuid: "6f4c8f7e-4f61-4c6f-9b9e-7061796c696e",
         name,
         icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161615'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23FF5A1F'/%3E%3C/svg%3E",
-        rdns: "dev.paylink.testwallet",
+        rdns,
       });
       const announce = (): void => {
         window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail: Object.freeze({ info, provider }) }));
@@ -183,7 +185,7 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
       window.addEventListener("eip6963:requestProvider", announce);
       announce();
     },
-    { name: "PayLink Test Wallet" },
+    { name: options.info?.name ?? "PayLink Test Wallet", rdns: options.info?.rdns ?? "dev.paylink.testwallet" },
   );
   return {
     requests,
