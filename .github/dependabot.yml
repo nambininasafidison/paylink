@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+# Dependabot version updates (PAYLINK-V2-SPEC §4.1 "Dependabot weekly"; THREAT_MODEL T-17). Security alerts and security
+# updates are repository settings, not this file: Settings > Code security > Dependabot alerts and Dependabot security
+# updates (docs/security/self-review.md G2.17).
+#
+# A pull request from Dependabot is a proposal: it passes the same gates as any other, and pins documented in
+# pnpm-workspace.yaml stay where they are unless their reason no longer holds.
+version: 2
+updates:
+  # The pnpm workspace (pnpm-lock.yaml and the catalog in pnpm-workspace.yaml).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:17"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The frozen v1 app: package.json and package-lock.json stay byte-identical (ADR 0010, ADR 0011). Its tooling
+      # advisories are reported by scripts/toolchain/audit-workspace.py and accepted there.
+      - dependency-name: ethers
+      - dependency-name: solc
+      - dependency-name: ganache
+      # Pins with a documented reason (pnpm-workspace.yaml catalog).
+      - dependency-name: "@openzeppelin/contracts"
+        versions: [">=5.4.0"] # MCOPY breaks the single paris artifact (spec §3.3.5)
+      - dependency-name: typescript
+        update-types: [version-update:semver-major] # typescript-eslint 8 does not support TypeScript 7
+      - dependency-name: "@playwright/test"
+        versions: [">1.56.1"] # matches the preinstalled Chromium 141 of the sandbox
+      - dependency-name: wrangler
+        update-types: [version-update:semver-major]
+
+  # Workflow actions, pinned by commit SHA: Dependabot proposes the new SHA with its version comment.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:17"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
