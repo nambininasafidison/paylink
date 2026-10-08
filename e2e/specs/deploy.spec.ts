@@ -14,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { concat, getCreateAddress, numberToHex } from "viem";
 import type { Address, Hex } from "viem";
 import { main as verifyCli } from "../../tools/verify-deployment/verify-deployment.mjs";
@@ -62,6 +62,19 @@ async function cli(args: string[]): Promise<{ code: number; stdout: string; stde
   return { code, stdout, stderr };
 }
 
+/**
+ * Serves data/chains.json as it was before a chain's deployment was recorded (protocol/deployments/<id>.json), so the
+ * fresh-deployment flow stays covered on that chain's own gas model after the record ships. Only the page's data
+ * changes; the page, the release and the registry RPC routing are the real ones.
+ */
+async function withoutRecord(context: BrowserContext, chainId: number): Promise<void> {
+  const raw = JSON.parse(readFileSync(join(WEB_ROOT, "v2/deploy/data/chains.json"), "utf8")) as { chains: { chainId: number; deployment: unknown }[] };
+  const body = JSON.stringify({ ...raw, chains: raw.chains.map((c) => (c.chainId === chainId ? { ...c, deployment: null } : c)) });
+  await context.route("**/v2/deploy/data/chains.json", async (route) => {
+    await route.fulfill({ status: 200, headers: { "content-type": "application/json", "cache-control": "no-cache" }, body });
+  });
+}
+
 /** WCAG 2.2 AA through axe-core, injected over the DevTools protocol (the page's CSP forbids inline scripts). */
 async function axe(page: Page): Promise<{ id: string; impact: string; nodes: string[] }[]> {
   await page.evaluate(axeSource);
@@ -100,6 +113,7 @@ test("Monad testnet 10143: CREATE2 through the presigned proxy, verified, exact 
   await monad.rpc("anvil_setBalance", [ACCOUNT, numberToHex(5n * 10n ** 18n)]);
   const wallet = await installWallet(page, { account: ACCOUNT, chainId: 10143, endpoints: new Map([[10143, monad.url]]), known: [10143] });
   const registryLog = await routeRegistry(context, new Map([[10143, monad.url]]));
+  await withoutRecord(context, 10143);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: server.origin });
 
   await page.goto(`${server.origin}/v2/deploy/`);
@@ -160,6 +174,26 @@ test("Monad testnet 10143: CREATE2 through the presigned proxy, verified, exact 
   expect(readFileSync(await download.path(), "utf8")).toBe(record);
 
   await page.screenshot({ path: test.info().outputPath("monad-done-1280.png"), fullPage: true });
+  expect(await axe(page)).toEqual([]);
+});
+
+test("Monad testnet 10143 as shipped: the recorded deployment is verified, never deployed again", async ({ page, context }) => {
+  const monad = await chain({ chainId: 10143, factory: "presigned", args: ["--network", "monad", "--block-base-fee-per-gas", "100000000000"] });
+  await monad.rpc("anvil_setBalance", [ACCOUNT, numberToHex(5n * 10n ** 18n)]);
+  // The release at its CREATE2 address, as on Monad testnet (protocol/deployments/10143.json).
+  await monad.rpc("eth_sendTransaction", [{ from: ANVIL_ACCOUNTS.forge, to: PROXY.factory, data: concat([releaseData.release.create2.salt, releaseData.initCode]) }]);
+  await expect.poll(async () => await monad.rpc<string>("eth_getCode", [CREATE2_ADDRESS, "latest"])).not.toBe("0x");
+  const shipped = chainsData.chains.find((c) => c.chainId === 10143) as { deployment: { address: string; status: string } | null } | undefined;
+  expect(shipped?.deployment).toMatchObject({ address: CREATE2_ADDRESS, status: "active" });
+  const wallet = await installWallet(page, { account: ACCOUNT, chainId: 10143, endpoints: new Map([[10143, monad.url]]), known: [10143] });
+  await routeRegistry(context, new Map([[10143, monad.url]]));
+  await page.goto(`${server.origin}/v2/deploy/`);
+  await page.getByRole("button", { name: /PayLink Test Wallet/ }).click();
+  await expect(page.getByRole("radio", { name: /Monad testnet/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("#lamps")).toContainText("Recorded deployment: verify only");
+  await expect(page.locator("#readings")).toContainText("recorded in protocol/deployments");
+  await expect(page.locator("#deploy")).not.toHaveText("Deploy PayLinkV2 to Monad testnet");
+  expect(wallet.sent()).toHaveLength(0);
   expect(await axe(page)).toEqual([]);
 });
 
@@ -294,6 +328,7 @@ test("phone, dark: 390 px without horizontal scrolling, and no axe violations", 
   await monad.rpc("anvil_setBalance", [ACCOUNT, numberToHex(5n * 10n ** 18n)]);
   await installWallet(page, { account: ACCOUNT, chainId: 10143, endpoints: new Map([[10143, monad.url]]), known: [10143] });
   await routeRegistry(context, new Map([[10143, monad.url]]));
+  await withoutRecord(context, 10143);
   await page.goto(`${server.origin}/v2/deploy/`);
   await page.getByRole("button", { name: /PayLink Test Wallet/ }).click();
   await expect(page.locator("#deploy")).toBeEnabled();

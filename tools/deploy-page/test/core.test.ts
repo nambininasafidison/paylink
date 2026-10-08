@@ -103,7 +103,9 @@ describe("chain data", () => {
 });
 
 describe("planDeployment (Deploy.s.sol run())", () => {
-  const monad = chain(10143);
+  // The planning rules on a chain with no record yet (Monad testnet's own record is exercised below and in
+  // "plans the shipped Monad record as a verification").
+  const monad = { ...chain(10143), deployment: null };
   const deployer: Address = "0x0c397c6C8f94eaA6662EE548fA140e6DfEd4aEA6";
   const base = { data, chain: monad, factoryCode: data.factoryRuntime, create2Code: "0x" as Hex, recordedCode: null, deployer, nonce: 7 };
 
@@ -136,6 +138,12 @@ describe("planDeployment (Deploy.s.sol run())", () => {
     expect(planDeployment({ ...base, chain: recorded, recordedCode: "0x6080" })).toEqual({ kind: "verify", method: "CREATE2", address: RELEASE.create2.address, reason: "recorded" });
     refuses(() => planDeployment({ ...base, chain: recorded, recordedCode: "0x" }), "E_RECORDED_MISSING");
     expect(planDeployment({ ...base, chain: recorded, recordedCode: "0x", redeploy: true }).kind).toBe("deploy");
+  });
+
+  it("plans the shipped Monad testnet record (protocol/deployments/10143.json) as a verification", () => {
+    const shipped = chain(10143);
+    expect(shipped.deployment).toMatchObject({ address: RELEASE.create2.address, method: "CREATE2", status: "active" });
+    expect(planDeployment({ ...base, chain: shipped, recordedCode: "0x6080" })).toEqual({ kind: "verify", method: "CREATE2", address: RELEASE.create2.address, reason: "recorded" });
   });
 });
 

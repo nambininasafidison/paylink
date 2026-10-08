@@ -53,7 +53,14 @@
           "ceiling": "4082000"
         }
       },
-      "deployment": null,
+      "deployment": {
+        "address": "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+        "method": "CREATE2",
+        "txHash": "0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c193e4f903cb4d6a",
+        "blockNumber": "69331735",
+        "deployer": "0x0c397c6c8F94EAA6662eE548fA140e6DfEd4aea6",
+        "status": "active"
+      },
       "notes": [
         "Monad charges the gas limit, not the gas used (C): send clamp(estimate x 1.10, floor, ceiling).",
         "An EOA must keep a 10 MON reserve balance (C); the relayer never sends value.",

@@ -66,6 +66,7 @@ Once the v2 packages are published inside the workspace, their own changelogs ar
 
 ### Changed
 
+- **Monad testnet 10143 is live in the registry.** PayLinkV2 2.0.0 at `0x448eCce9711860502806A3d5B021a4f9Ba715082` (CREATE2, block 69331735, [record](protocol/deployments/10143.json), re-verified on-chain with `tools/verify-deployment`) is now generated into `@paylink/chains` and the deploy kit's `data/chains.json`, so the apps can pay on it and the deploy page only verifies it; the relayer bundle is rebuilt with it (Monad leaves `awaiting-deployment`). The deploy-page planning tests and the Monad deploy e2e keep covering a chain without a record, and a new e2e checks that the shipped record is verified, never deployed again.
 - **Relayer deployment and onboarding, as built** (2026-10-08). The relayer is deployed by Cloudflare's Git integration from `apps/relayer/deploy/`, not by a `relayer.yml` workflow with a Cloudflare API token in GitHub; the spec's fallback transfer from a relayer-held AUSD inventory is not built, so the relayer never signs a token transfer. ADR 0007, ARCHITECTURE §3 and §4.8, the deploy, faucets and demo runbooks, the incident-response levers and THREAT_MODEL T-33 and T-38 now say so; T-47 (relayer code substitution or key exposure) and T-48 (cross-origin use) are new, and the relayer's evidence cites its test files.
 - `docs/tools/check-docs.py` also checks `apps/*/README.md`.
 
