@@ -7,7 +7,8 @@
  * announced through EIP-6963; the wallets forward to anvil's unlocked accounts.
  *
  * Covered (PAYLINK-V2-SPEC §4.2, T0): create and sign an invoice, share it, open it as the payer, the four lamps,
- * switch network, pay with permit, the receipt verified on chain, the payee's ledger from statesOf, the armed till,
+ * switch network, pay from the wallet with the relayer down (one EIP-3009 authorisation sent as payWithAuthorization;
+ * an EIP-2612-only token with permit), print the card and the receipt (A6, 80 mm), the receipt verified on chain, the payee's ledger from statesOf, the armed till,
  * refusals (tampered link, self-payment, already paid), the language switch, axe on every route in light and dark,
  * no horizontal scroll on a 390 px phone, no CSP violation, and the frozen v1 app and the deploy kit in their areas.
  */
@@ -17,9 +18,11 @@ import { expect, test } from "@playwright/test";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { decodeFunctionData, parseAbi } from "viem";
 import type { Hex } from "viem";
-import { ACCOUNTS, buildE2eSite, CHAIN_ID, FOREIGN_CHAIN_ID, PAYER_FUNDS, PAYLINK, startAppChain, startForeignChain } from "../fixtures/app.ts";
+import { ACCOUNTS, buildE2eSite, CHAIN_ID, FOREIGN_CHAIN_ID, PAYER_FUNDS, PAYLINK, PERMIT_TOKEN, startAppChain, startForeignChain } from "../fixtures/app.ts";
 import type { AppChain } from "../fixtures/app.ts";
 import type { Anvil } from "../fixtures/anvil.ts";
+import { brokenWords, focusRingContrast, horizontalOverflow, overlappingTargets, selectedMarkContrast, setLocale, truncatedText } from "../fixtures/layout.ts";
+import { printedPageSize } from "../fixtures/print.ts";
 import { servePages } from "../fixtures/pages.ts";
 import type { StaticServer } from "../fixtures/pages.ts";
 import { REPO } from "../fixtures/server.ts";
@@ -30,6 +33,7 @@ const axeSource = readFileSync(join(REPO, "e2e/node_modules/axe-core/axe.min.js"
 const payLinkAbi = parseAbi([
   "function pay((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef)",
   "function payWithPermit((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef, (uint256,uint8,bytes32,bytes32) p)",
+  "function payWithAuthorization((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, (address,uint128,bytes32,uint256,uint256,bytes32,uint8,bytes32,bytes32) auth)",
 ]);
 
 let chain: AppChain;
@@ -85,14 +89,20 @@ async function actor(browser: Browser, account: string, options: { chainId?: num
   return { page, wallet, problems };
 }
 
-/** Signs an invoice on the create terminal and returns its payment link. */
-async function createInvoice(payee: Actor, amount: string, memo: string, query = ""): Promise<string> {
+/** Signs an invoice on the create terminal (in `token`, else the chain's default) and returns its payment link. */
+async function createInvoice(payee: Actor, amount: string, memo: string, query = "", token?: string): Promise<string> {
   const { page } = payee;
   await page.goto(`${server.origin}/${query}`);
+  if (token !== undefined) {
+    await page.locator(".view-create .readout select").selectOption({ label: token });
+  }
   await page.locator("#amount").fill(amount);
   await page.locator("#memo").fill(memo);
   await page.locator(".view-create > .key-primary").click();
   await expect(page.locator(".signing")).toContainText("You are about to sign this invoice");
+  // One signal key on screen while reviewing: the signature ("Review and sign" steps aside).
+  await expect(page.locator(".view-create > .key-primary")).toBeHidden();
+  await expect(page.locator(".view-create .key-primary:visible")).toHaveText(["Sign in wallet"]);
   await page.locator(".signing + .key-row .key-primary").click();
   await expect(page.locator(".ticket")).toBeVisible();
   return await page.locator(".share input").inputValue();
@@ -109,7 +119,7 @@ async function axe(page: Page): Promise<string[]> {
 
 const lamp = (page: Page, index: number) => page.locator(".vstrip > li").nth(index);
 
-test("hero flow: sign an invoice, pay it with permit, verify the receipt, read the ledger", async ({ browser }) => {
+test("hero flow: sign an invoice, pay it from the wallet with one authorisation (relayer down), verify the receipt, read the ledger", async ({ browser }) => {
   const payee = await actor(browser, ACCOUNTS.payee);
   const link = await createInvoice(payee, "25.50", "Logo design, invoice 042");
   expect(link).toMatch(new RegExp(`^${server.origin}/pay/#2\\.${String(CHAIN_ID)}\\.`));
@@ -117,6 +127,28 @@ test("hero flow: sign an invoice, pay it with permit, verify the receipt, read t
   expect(payee.wallet.requests.map((r) => r.method)).toContain("eth_signTypedData_v4");
   expect(payee.wallet.sent()).toHaveLength(0);
   await expect(payee.page.locator(".ticket .qr path")).toHaveCount(1);
+  // The printed link: in full on paper, as a short form with a visible ellipsis on screen (never a silent cut).
+  const fragment = link.split("#")[1] ?? "";
+  await expect(payee.page.locator(".ticket .printed-url-full")).toBeHidden();
+  expect(await payee.page.locator(".ticket .printed-url-full").textContent()).toBe(link.replace(/^https?:\/\//, ""));
+  await expect(payee.page.locator(".ticket .printed-url-short")).toHaveText(new RegExp(`#2\\.${String(CHAIN_ID)}\\.\\S{4}…${fragment.slice(-8).replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")}$`));
+  // Non-text contrast (WCAG 1.4.11) in both themes: the focus ring on the dark amount window, and the mark of the
+  // selected key in the segmented controls, the language and theme dials and the mode tabs.
+  for (const scheme of ["light", "dark"] as const) {
+    await payee.page.emulateMedia({ colorScheme: scheme });
+    expect(await focusRingContrast(payee.page.locator(".readout select")), `token select focus, ${scheme}`).toBeGreaterThanOrEqual(3);
+    for (const selected of [".view-create .seg label:has(input:checked)", ".top .dial button[aria-pressed='true']", ".tabs > [aria-current='page']"]) {
+      for (const one of await payee.page.locator(selected).all()) {
+        expect(await selectedMarkContrast(one), `${selected}, ${scheme}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  }
+  await payee.page.emulateMedia({ colorScheme: "light" });
+  // The receive card prints on an A6 page (105 × 148 mm), not on Chromium's default Letter.
+  const card = await printedPageSize(payee.page, payee.page.getByRole("button", { name: "Print card" }), test.info().outputPath("card-a6.pdf"));
+  expect(card.width).toBeCloseTo(105, 0);
+  expect(card.height).toBeCloseTo(148, 0);
+  expect(card.pages).toBe(1);
   expect(await payee.page.locator(".share-keys a[href^='https://wa.me/?text=']").getAttribute("href")).toContain(encodeURIComponent(link));
 
   // The payer's wallet starts on another network.
@@ -141,12 +173,14 @@ test("hero flow: sign an invoice, pay it with permit, verify the receipt, read t
   await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
   await expect(payer.page.locator(".status.ok")).toContainText("settled in");
 
-  // One transaction: payWithPermit with an explicit gas limit (Monad charges the limit), sent to the release address.
+  // The fee service is down: one EIP-3009 authorisation (the one a relayer would have sent), sent by the payer's
+  // wallet as one payWithAuthorization with an explicit gas limit (Monad charges the limit), to the release address.
+  expect(payer.wallet.requests.filter((r) => r.method === "eth_signTypedData_v4")).toHaveLength(1);
   const sent = payer.wallet.sent();
   expect(sent).toHaveLength(1);
   const tx = sent[0]?.params[0] as { to: string; data: Hex; gas?: string };
   expect(tx.to.toLowerCase()).toBe(PAYLINK.toLowerCase());
-  expect(decodeFunctionData({ abi: payLinkAbi, data: tx.data }).functionName).toBe("payWithPermit");
+  expect(decodeFunctionData({ abi: payLinkAbi, data: tx.data }).functionName).toBe("payWithAuthorization");
   expect(tx.gas).toMatch(/^0x[0-9a-f]+$/);
   // Exactly the amount moved, payer to payee.
   expect(before.payer).toBe(PAYER_FUNDS);
@@ -159,6 +193,18 @@ test("hero flow: sign an invoice, pay it with permit, verify the receipt, read t
   await payer.page.locator(".receipt-slot a.key").first().click();
   await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Payment found");
   await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Matches the invoice");
+  // The slip is light paper in both themes: its focus ring stays dark laterite on it in dark mode too.
+  for (const scheme of ["light", "dark"] as const) {
+    await payer.page.emulateMedia({ colorScheme: scheme });
+    expect(await focusRingContrast(payer.page.locator(".view-receipt .receipt dd a").first()), `receipt link focus, ${scheme}`).toBeGreaterThanOrEqual(3);
+  }
+  await payer.page.emulateMedia({ colorScheme: "light" });
+  // The slip prints on an 80 mm roll and on A6 (the keyword `A6` alone gave Letter in Chromium).
+  const roll = await printedPageSize(payer.page, payer.page.getByRole("button", { name: "Print (80 mm)" }), test.info().outputPath("receipt-80mm.pdf"));
+  expect([roll.width, roll.height].map(Math.round)).toEqual([80, 210]);
+  const a6 = await printedPageSize(payer.page, payer.page.getByRole("button", { name: "Print (A6)" }), test.info().outputPath("receipt-a6.pdf"));
+  expect([a6.width, a6.height].map(Math.round)).toEqual([105, 148]);
+  expect(a6.pages).toBe(1);
 
   // Paid once: the link now refuses a second payment.
   await payer.page.goto(link);
@@ -180,6 +226,31 @@ test("hero flow: sign an invoice, pay it with permit, verify the receipt, read t
 
   expect(payee.problems).toEqual([]);
   expect(payer.problems).toEqual([]);
+});
+
+test("an EIP-2612-only dollar (no authorisation rail can carry it) pays with permit: one signature, one transaction", async ({ browser }) => {
+  const payee = await actor(browser, ACCOUNTS.payee);
+  const link = await createInvoice(payee, "2.5", "Permit only", "", PERMIT_TOKEN.symbol);
+  const payer = await actor(browser, ACCOUNTS.payer);
+  const before = { payer: await chain.permitBalanceOf(ACCOUNTS.payer), payee: await chain.permitBalanceOf(ACCOUNTS.payee) };
+  await payer.page.goto(link);
+  await expect(payer.page.locator(".screen .amount")).toContainText("2.50");
+  const key = payer.page.locator(".payform .key-primary");
+  await key.click(); // connect
+  await expect(key).toHaveText("Pay 2.50 MUSD");
+  await expect(payer.page.locator(".route-note")).toHaveText("One signature, then one transaction from your wallet.");
+  await key.click();
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
+  const sent = payer.wallet.sent();
+  expect(sent).toHaveLength(1);
+  const tx = sent[0]?.params[0] as { to: string; data: Hex; gas?: string };
+  expect(tx.to.toLowerCase()).toBe(PAYLINK.toLowerCase());
+  expect(decodeFunctionData({ abi: payLinkAbi, data: tx.data }).functionName).toBe("payWithPermit");
+  expect(tx.gas).toMatch(/^0x[0-9a-f]+$/);
+  expect(await chain.permitBalanceOf(ACCOUNTS.payer)).toBe(before.payer - 2_500_000_000_000_000_000n);
+  expect(await chain.permitBalanceOf(ACCOUNTS.payee)).toBe(before.payee + 2_500_000_000_000_000_000n);
+  expect(payer.problems).toEqual([]);
+  expect(payee.problems).toEqual([]);
 });
 
 /** Pays a link from the payer's wallet, already on the right network (connecting first if needed). */
@@ -213,9 +284,32 @@ test("the armed till lights only for its invoice, at its amount", async ({ brows
   await till.page.waitForTimeout(3_000);
   await expect(display).toHaveAttribute("data-state", "waiting");
 
+  // Waiting reads from a distance too: a breathing lamp and the state word in letters sized to the window.
+  const verdict = till.page.locator(".till-verdict");
+  const fontSize = async (): Promise<number> => await verdict.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+  await expect(verdict).toHaveText("Waiting for payment");
+  expect(await fontSize()).toBeGreaterThanOrEqual(20);
+
   await pay(payer, link, "Pay 3.00 AUSD");
   await expect(display).toHaveAttribute("data-state", "paid", { timeout: 15_000 });
   await expect(till.page.locator(".till-settled")).not.toBeEmpty();
+  // Paid flips the window: PAID at 48 px or more, and a check glyph (a shape, not only a colour).
+  await expect(verdict).toHaveText("Paid");
+  expect(await fontSize()).toBeGreaterThanOrEqual(48);
+  expect(await till.page.locator(".till-glyph").evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("data:image/svg+xml");
+  // Full screen keeps only the till window and its keys; the window takes the height and the amount grows.
+  const figure = till.page.locator(".till-figure .num");
+  const before = await figure.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+  await till.page.getByRole("button", { name: "Full screen" }).click();
+  await expect.poll(async () => await till.page.evaluate(() => document.fullscreenElement?.id ?? null)).toBe("terminal");
+  await expect(till.page.locator("#terminal > .plate")).toBeHidden();
+  await expect(till.page.locator("#terminal > .tabs")).toBeHidden();
+  await expect(till.page.locator(".view-till .view-head")).toBeHidden();
+  await expect(till.page.getByRole("button", { name: "Stop the till" })).toBeVisible();
+  expect(await display.evaluate((el) => el.getBoundingClientRect().height / window.innerHeight)).toBeGreaterThan(0.6);
+  expect(await figure.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
+  await till.page.screenshot({ path: test.info().outputPath("till-paid-fullscreen.png") });
+  await till.page.evaluate(async () => { await document.exitFullscreen(); });
   expect(till.problems).toEqual([]);
 });
 
@@ -334,23 +428,38 @@ test("language switch EN → FR → MG keeps the page and sets lang", async ({ b
 test.describe("production site", () => {
   const ROUTES = ["/", "/pay/", "/r/", "/ledger/", "/send/", "/till/", "/status/", "/does-not-exist/"];
 
+  // Every route, in every language and both themes: axe at desktop, phone and the 320 px reflow width; at 768 px (the
+  // tablet layout, where the footer has three columns) and at the three others, no horizontal scroll, no footer link
+  // drawn over another or over its label, no word broken inside itself and no copy cut by an ellipsis (spec §3.9
+  // "visual tests cover text expansion in FR and MG", §3.10).
+  const WIDTHS = [1280, 768, 390, 320] as const;
   for (const scheme of ["light", "dark"] as const) {
-    test(`axe: zero WCAG 2.2 AA violations on every route (${scheme}), no horizontal scroll at 390 px`, async ({ browser }) => {
-      const desktop = await actor(browser, ACCOUNTS.payee, { scheme });
-      const phone = await actor(browser, ACCOUNTS.payee, { scheme, width: 390 });
-      for (const route of ROUTES) {
-        await desktop.page.goto(`${server.origin}${route}`);
-        await expect(desktop.page.locator("main#terminal")).toBeVisible();
-        await desktop.page.waitForTimeout(300);
-        expect(await axe(desktop.page), `${route} ${scheme} 1280`).toEqual([]);
-        await phone.page.goto(`${server.origin}${route}`);
-        await expect(phone.page.locator("main#terminal")).toBeVisible();
-        await phone.page.waitForTimeout(300);
-        expect(await phone.page.evaluate(() => document.documentElement.scrollWidth), `${route} scroll width`).toBeLessThanOrEqual(390);
-        expect(await axe(phone.page), `${route} ${scheme} 390`).toEqual([]);
+    test(`axe and reflow (${scheme}): every route in EN, FR and MG at 1280, 768, 390 and 320 px`, async ({ browser }) => {
+      test.setTimeout(600_000);
+      const visitor = await actor(browser, ACCOUNTS.payee, { scheme });
+      const { page } = visitor;
+      for (const locale of ["en", "fr", "mg"] as const) {
+        await page.goto(`${server.origin}/`);
+        await setLocale(page, locale);
+        for (const width of WIDTHS) {
+          await page.setViewportSize({ width, height: 900 });
+          for (const route of ROUTES) {
+            const where = `${route} ${locale} ${scheme} ${String(width)}`;
+            await page.goto(`${server.origin}${route}`);
+            await expect(page.locator("main#terminal")).toBeVisible();
+            await expect(page.locator("html")).toHaveAttribute("lang", locale === "fr" ? /^fr/ : locale);
+            await page.waitForTimeout(200);
+            expect(await horizontalOverflow(page), `${where}: horizontal scroll`).toBeLessThanOrEqual(0);
+            expect(await overlappingTargets(page), `${where}: footer links`).toEqual([]);
+            expect(await brokenWords(page), `${where}: words broken inside`).toEqual([]);
+            expect(await truncatedText(page), `${where}: copy cut`).toEqual([]);
+            if (width !== 768) {
+              expect(await axe(page), where).toEqual([]);
+            }
+          }
+        }
       }
-      expect(desktop.problems).toEqual([]);
-      expect(phone.problems).toEqual([]);
+      expect(visitor.problems).toEqual([]);
     });
   }
 

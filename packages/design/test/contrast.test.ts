@@ -44,9 +44,13 @@ const TEXT: [string, string][] = [
 ];
 // Field edges (--rule-2) are measured against the surface the field sits on, the panel, where v1 documents 3.3:1
 // (WCAG 1.4.11: the boundary against its adjacent colour); against the well inside the field they reach 2.99:1.
+// Focus rings are measured on the surface they are drawn on: the page (--focus), printed paper (--slip-focus, light in
+// both themes) and the dark display windows and toast (their own --screen-ink). The selected key of a dial, tab row or
+// segmented control is marked by a --ink bar on the raised key.
 const NON_TEXT: [string, string][] = [
   ["--rule-2", "--panel"], ["--focus", "--panel"], ["--focus", "--bg"], ["--signal", "--screen"],
   ["--led-ok", "--screen"], ["--led-wait", "--screen"], ["--led-err", "--screen"],
+  ["--slip-focus", "--slip"], ["--screen-ink", "--screen"], ["--ink", "--raise"],
 ];
 
 describe("documented contrast", () => {

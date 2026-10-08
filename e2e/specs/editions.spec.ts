@@ -25,6 +25,7 @@ import type { Address, Hex } from "viem";
 import { ACCOUNTS, PAYER_FUNDS, PAYLINK, TOKEN } from "../fixtures/app.ts";
 import { addAuthenticator, BASE, buildEditionsSite, DRIP, MONAD, RELAYER_ORIGIN, routeRelayer, startEditionChains, startRelayer } from "../fixtures/editions.ts";
 import type { EditionChains, LocalRelayer } from "../fixtures/editions.ts";
+import { brokenWords, horizontalOverflow, setLocale, truncatedText } from "../fixtures/layout.ts";
 import { servePages } from "../fixtures/pages.ts";
 import type { StaticServer } from "../fixtures/pages.ts";
 import { REPO } from "../fixtures/server.ts";
@@ -137,7 +138,8 @@ async function sellerInvoice(page: Page, amount: string, memo: string, first: bo
     await expect(key).toHaveText("Use my PayLink key to sign");
     await key.click();
     await createKey(page, "Rakoto Design");
-    await key.click();
+    // The review follows the new key at once, and its signature key is then the only laterite key on screen.
+    await expect(key).toBeHidden();
   } else {
     await key.click();
   }
@@ -260,7 +262,7 @@ test("Monad: the receive card on Send, and a contact paying it any amount", asyn
   await expect(card).toContainText("Receive card");
   await expect(card).toContainText("Any amount");
   await expect(card.locator(".qr path")).toHaveCount(1);
-  const cardLink = `${origin}/monad/pay/#${(await card.locator(".printed-url").textContent())?.split("#")[1] ?? ""}`;
+  const cardLink = `${origin}/monad/pay/#${(await card.locator(".printed-url-full").textContent())?.split("#")[1] ?? ""}`;
   expect(await axe(seller.page)).toEqual([]);
 
   const sender = await person(browser, { phone: true });
@@ -432,12 +434,60 @@ test("all: the relayer fails after the signature; the payer sends the same autho
 
 test("Monad: the KeyCard and the pay view in dark mode on a phone, without axe violations or horizontal scroll", async ({ browser }) => {
   const visitor = await person(browser, { phone: true, scheme: "dark" });
-  await addAuthenticator(visitor.context, visitor.page);
-  await visitor.page.goto(`${origin}/monad/`);
-  await visitor.page.locator(".connect").click();
-  await expect(visitor.page.locator("dialog.modal-key")).toBeVisible();
-  expect(await axe(visitor.page)).toEqual([]);
-  expect(await visitor.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
-  await visitor.page.screenshot({ path: test.info().outputPath("monad-keycard-390-dark.png"), fullPage: true });
+  const { page } = visitor;
+  await addAuthenticator(visitor.context, page);
+  await page.goto(`${origin}/monad/`);
+  await page.locator(".connect").click();
+  const dialog = page.locator("dialog.modal-key");
+  await expect(dialog).toBeVisible();
+  expect(await axe(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: test.info().outputPath("monad-keycard-390-dark.png"), fullPage: true });
+
+  // On a small phone (360 × 740) the irreversible-loss warning is read before the name field and the key that creates
+  // the account, and the close key stays in view on the card's plate however far the card scrolls.
+  await page.setViewportSize({ width: 360, height: 740 });
+  const top = async (selector: string): Promise<number> => (await dialog.locator(selector).boundingBox())?.y ?? Number.POSITIVE_INFINITY;
+  await expect(dialog.locator(".warn-note")).toContainText("Test network only.");
+  expect(await top(".warn-note")).toBeLessThan(await top("#key-label"));
+  expect(await top(".warn-note")).toBeLessThan(await top("[data-key=create]"));
+  await expect(dialog.locator(".modal-plate .modal-close")).toBeInViewport();
+  await dialog.locator(".modal-device").evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await expect(dialog.locator(".modal-plate .modal-close")).toBeInViewport();
+  await expect(dialog.locator("[data-key=create]")).toBeInViewport();
+
+  // Malagasy on a 320 px phone, through the whole seller flow and the pay view: no word broken inside itself, no copy
+  // cut by an ellipsis, no sideways scroll and no axe violation (spec §3.9 text expansion, §3.10 reflow).
+  const readable = async (where: string): Promise<void> => {
+    expect(await brokenWords(page), `${where}: words broken inside`).toEqual([]);
+    expect(await truncatedText(page), `${where}: copy cut`).toEqual([]);
+    expect(await horizontalOverflow(page), `${where}: horizontal scroll`).toBeLessThanOrEqual(0);
+    expect(await axe(page), where).toEqual([]);
+  };
+  await setLocale(page, "mg");
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "mg");
+  await page.locator(".connect").click();
+  await expect(dialog).toBeVisible();
+  await readable("KeyCard");
+  await dialog.locator("#key-label").fill("Telefaoniko");
+  await dialog.locator("[data-key=create]").click();
+  await expect(dialog).toBeHidden();
+  await readable("create");
+  await page.locator("#amount").fill("12,5");
+  await page.locator("#memo").fill("Fandoavana sakafo");
+  await page.locator(".view-create > .key-primary").click();
+  await expect(page.locator(".signing")).toBeVisible();
+  await readable("signing display");
+  await page.locator(".signing + .key-row .key-primary").click();
+  await expect(page.locator(".ticket")).toBeVisible();
+  await readable("issued card");
+  await page.goto(await page.locator(".share input").inputValue());
+  await expect(page.locator(".vstrip > li").nth(0)).toHaveAttribute("data-lamp", "ok");
+  await readable("pay view");
+  await page.screenshot({ path: test.info().outputPath("monad-pay-320-mg-dark.png"), fullPage: true });
   expect(visitor.problems).toEqual([]);
 });

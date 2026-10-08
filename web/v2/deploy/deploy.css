@@ -172,6 +172,17 @@
 .record-json:focus-visible { outline: 2px solid var(--focus); outline-offset: 6px; }
 .record-next { margin-top: 14px; font-size: 14px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
 
+/* The step's primary key carries a sentence ("Deploy PayLinkV2 to Monad testnet"): its label wraps inside the key, as
+   v1's .payform .key-primary does, instead of inheriting .key's nowrap and running past the card on a phone. */
+.proc .key-primary { white-space: normal; text-align: left; line-height: 1.15; padding-top: 8px; padding-bottom: 8px; overflow-wrap: normal; }
+
+/* Small phones: the spec strip goes 2 × 2, so an engraved label ("Approvals") is never broken inside the word. */
+@media (max-width: 419px) {
+  .specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .specs > div:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .specs > div:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+
 /* Phones: readings stack (label over value) so addresses and the cost get the window's full width. */
 @media (max-width: 599px) {
   .readings > div { grid-template-columns: minmax(0, 1fr); gap: 3px; }

@@ -22,23 +22,32 @@ export function announce(message: string): void {
 
 let toastTimer = 0;
 
-/** A short-lived dark strip at the bottom of the screen; `action` adds one key. Also announced. */
+/**
+ * A short-lived dark strip at the bottom of the screen; `action` adds one key. Also announced (role=status). While it
+ * is up, `--toast-clearance` on the root reserves its height at the bottom of the page (scroll padding and body
+ * padding), so a focused element or the end of the page can always be brought above it (WCAG 2.2 SC 2.4.11).
+ */
 export function toast(message: string, action?: { readonly label: string; readonly run: () => void }, ms = 6000): void {
   document.querySelector(".toast")?.remove();
   window.clearTimeout(toastTimer);
+  const root = document.documentElement;
+  const dismiss = (): void => {
+    element.remove();
+    root.style.removeProperty("--toast-clearance");
+  };
   const element = h(
     "div",
     { class: "toast", attrs: { role: "status" } },
     h("span", null, message),
     action === undefined
       ? null
-      : h("button", { class: "key", attrs: { type: "button" }, on: { click: () => { element.remove(); action.run(); } } }, action.label),
+      : h("button", { class: "key", attrs: { type: "button" }, on: { click: () => { dismiss(); action.run(); } } }, action.label),
   );
   document.body.append(element);
+  // The strip's height and its 16 px from the bottom edge, plus a margin above it.
+  root.style.setProperty("--toast-clearance", `${String(Math.ceil(element.getBoundingClientRect().height) + 32)}px`);
   if (action === undefined) {
-    toastTimer = window.setTimeout(() => {
-      element.remove();
-    }, ms);
+    toastTimer = window.setTimeout(dismiss, ms);
   }
 }
 

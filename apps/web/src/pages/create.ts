@@ -132,6 +132,7 @@ function renderTerminal(app: App, ui: PageUi): void {
 
   const clearOutput = (): void => {
     replace(signing);
+    key.hidden = false;
     setStatus(status, "", "");
   };
   const refreshKey = (): void => {
@@ -311,6 +312,7 @@ function renderTerminal(app: App, ui: PageUi): void {
     });
     issued = result;
     replace(signing);
+    key.hidden = false;
     setStatus(status, "ok", t("create.status.done"));
     renderIssued(app, out, result, draft);
   };
@@ -358,6 +360,9 @@ function renderTerminal(app: App, ui: PageUi): void {
       ),
       h("div", { class: "key-row" }, confirm, edit),
     );
+    // One signal key on screen: the signature. "Review and sign" steps aside until the form changes or "Edit" is
+    // pressed (both clear the review and bring it back).
+    key.hidden = true;
     confirm.focus();
   };
 

@@ -4,7 +4,8 @@
 @layer components {
   #print-area { display: none; }
   @page slip80 { size: 80mm 210mm; margin: 4mm 3mm; }
-  @page a6 { size: A6 portrait; margin: 7mm; }
+  /* Explicit dimensions: Chromium ignores the `A6` page-size keyword and falls back to Letter or A4. */
+  @page a6 { size: 105mm 148mm; margin: 7mm; }
   @media print {
     :root { --slip: #FFFFFF; --bg: #FFFFFF; --panel: #FFFFFF; color-scheme: light; }
     html, body { background: #FFFFFF !important; }
@@ -19,6 +20,21 @@
     #print-area[data-size="80mm"] .receipt { padding: 2mm 1mm; font-size: 11px; }
     #print-area[data-size="80mm"] .receipt-amt .num { font-size: 34px; }
     #print-area .qr { width: 52mm; }
+    /* On paper the link is printed in full under the QR code (the typed fallback); the screen shows a short form. */
+    #print-area .printed-url-short { display: none; }
+    #print-area .printed-url-full { display: inline; }
+    #print-area .printed-url { max-height: none; overflow: visible; font-size: 7px; line-height: 1.35; }
+    /* The receive card on one A6 sheet: the QR code and its caption (with the whole link) side by side. */
+    #print-area[data-size="a6"] .ticket { padding: 0 4mm 4mm; }
+    #print-area[data-size="a6"] .lamba { margin: 0 -4mm 3mm; }
+    #print-area[data-size="a6"] .ticket-amt { margin-top: 3mm; }
+    #print-area[data-size="a6"] .perf { margin: 3mm -4mm; }
+    #print-area[data-size="a6"] .ticket-scan { display: grid; grid-template-columns: 48mm minmax(0, 1fr); gap: 3mm; align-items: start; text-align: left; }
+    #print-area[data-size="a6"] .qr-frame { padding: 1.5mm; }
+    #print-area[data-size="a6"] .qr { width: 45mm; padding: 1.5mm; }
+    #print-area[data-size="a6"] .scan-cap { align-items: flex-start; }
+    #print-area[data-size="a6"] .scan-cap b { font-size: 14px; }
+    #print-area[data-size="a6"] .scan-cap > span { font-size: 11px; }
     #print-area a { text-decoration: none; }
     #print-area .ext::after { display: none; }
   }

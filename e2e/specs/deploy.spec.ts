@@ -23,6 +23,7 @@ import type { Anvil } from "../fixtures/anvil.ts";
 import { REPO, serveWeb, WEB_ROOT } from "../fixtures/server.ts";
 import type { StaticServer } from "../fixtures/server.ts";
 import { withoutRecord } from "../fixtures/deploy-data.ts";
+import { brokenWords } from "../fixtures/layout.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 
 interface Bounds {
@@ -319,10 +320,21 @@ test("phone, dark: 390 px without horizontal scrolling, and no axe violations", 
   await installWallet(page, { account: ACCOUNT, chainId: 10143, endpoints: new Map([[10143, monad.url]]), known: [10143] });
   await routeRegistry(context, new Map([[10143, monad.url]]));
   await withoutRecord(context, 10143);
+  // Measured against the configured width: a phone's layout viewport grows to fit overflowing content, so
+  // window.innerWidth would hide the very overflow this checks.
+  const overflow = async (width = 390): Promise<number> => await page.evaluate((w) => document.documentElement.scrollWidth - w, width);
+  // A chain chosen from a link (create and status pages link here with ?chain=): the primary key names it in full,
+  // and that sentence wraps inside the key at 320 and 390 px (spec §3.10 reflow).
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(`${server.origin}/v2/deploy/?chain=monad`);
+    await expect(page.locator("#deploy")).toContainText("Monad testnet");
+    expect(await overflow(width), `?chain=monad at ${String(width)} px`).toBeLessThanOrEqual(0);
+    expect(await brokenWords(page), `?chain=monad at ${String(width)} px`).toEqual([]);
+  }
   await page.goto(`${server.origin}/v2/deploy/`);
   await page.getByRole("button", { name: /PayLink Test Wallet/ }).click();
   await expect(page.locator("#deploy")).toBeEnabled();
-  const overflow = async (): Promise<number> => await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(await overflow()).toBeLessThanOrEqual(0);
   await page.screenshot({ path: test.info().outputPath("monad-review-390-dark.png"), fullPage: true });
   await page.locator("#step-review").screenshot({ path: test.info().outputPath("monad-review-step-390-dark.png") });

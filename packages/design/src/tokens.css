@@ -88,6 +88,7 @@
   --t-med: 180ms;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --tap: 44px;            /* minimum target: 44 px keys (WCAG 2.2 AA needs 24 px) */
+  --slip-focus: #AD3709;  /* focus ring on printed paper (receipt, receive card), light in both themes: 5.6:1 on --slip */
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --warn: #F2B84B; }

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
- * `/till/`: the counter display (spec §2.1 T1 "Till mode", §3.8). One big display window, big condensed numerals, an
- * LED that turns green with a chime when a payment lands.
+ * `/till/`: the counter display (spec §2.1 T1 "Till mode", §3.8). One big display window, big condensed numerals, and
+ * a verdict band read from across the counter: a breathing amber lamp and "Waiting for payment", then, when a payment
+ * lands, the window flips the way the pay view's does: a full-width green band with a check glyph (a shape, not only a
+ * colour) and PAID in letters sized to the window, with a chime. Full screen keeps only the window and its keys.
  *
  * Armed (`/till/#<invoice fragment>`): only a receipt-verified `Paid` with that invoice's key, and for a fixed invoice
  * exactly its amount, lights it (invoice spec §13.4, threat T-44). Watching (no fragment): every verified `Paid` to the
@@ -146,13 +148,24 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
   ui.plate(plateText(chain), "wait");
   const token = armed?.token ?? chain.tokens.find((x) => x.listing === "default");
   const expected = armed !== null && armed.invoice.amount !== 0n ? displayAmount(armed.invoice.amount, armed.token, app.locale) : null;
-  const ledText = h("span", { class: "till-led" }, t("till.idle"));
+  const stateWord = h("b", { class: "till-word" }, t("till.idle"));
+  const verdict = h("div", { class: "till-verdict" }, h("span", { class: "till-glyph", attrs: { "aria-hidden": "true" } }), stateWord);
   const figure = h("div", { class: "till-figure" }, expected === null ? num(t("ticket.any"), "any") : num(expected), h("span", { class: "unit" }, token?.symbol ?? ""));
   const fxLine = h("p", { class: "till-fx" }, armed !== null && armed.invoice.amount !== 0n ? ariaryLabel(armed.invoice.amount, armed.token, app.fx, app.locale, (p) => t("fx.estimate", p)) : null);
   const caption = h("p", { class: "till-caption" }, armed?.memo === null || armed === null ? t("till.watching", { address: shortHex(payee) }) : sanitizeMemoForDisplay(armed.memo));
   const settled = h("p", { class: "till-settled", attrs: { "aria-live": "polite" } });
   const log = h("ul", { class: "till-log", attrs: { "aria-label": t("till.log") } }, h("li", null, t("till.noPayments")));
-  const display = h("div", { class: "screen till", attrs: { "data-state": "idle", role: "region", "aria-label": t("till.display") } }, h("div", { class: "till-top" }, ledText, h("span", null, `${chain.label} · ${String(chain.chainId)}`)), figure, fxLine, caption, settled, log);
+  const display = h(
+    "div",
+    { class: "screen till", attrs: { "data-state": "idle", role: "region", "aria-label": t("till.display") } },
+    h("div", { class: "till-top" }, h("span", null, t("till.display")), h("span", null, `${chain.label} · ${String(chain.chainId)}`)),
+    verdict,
+    figure,
+    fxLine,
+    caption,
+    settled,
+    log,
+  );
   const status = statusLine();
   const chime = new Chime();
   let running = false;
@@ -163,7 +176,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
 
   const light = (state: "idle" | "waiting" | "paid" | "error", text: string): void => {
     display.setAttribute("data-state", state === "waiting" ? "waiting" : state);
-    ledText.textContent = text;
+    stateWord.textContent = text;
     ui.plate(plateText(chain), state === "paid" ? "ok" : state === "error" ? "err" : "wait");
   };
 
@@ -235,7 +248,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
 
   const startKey = h("button", { class: "key key-primary", attrs: { type: "button" } }, t("till.start"));
   const chimeKey = h("button", { class: "key key-line", attrs: { type: "button", "aria-pressed": prefs.chime.get() ? "true" : "false" } }, prefs.chime.get() ? t("till.chimeOn") : t("till.chimeOff"));
-  const fullKey = h("button", { class: "key key-line", attrs: { type: "button" } }, t("till.fullscreen"));
+  const fullKey = h("button", { class: "key key-line", attrs: { type: "button", "aria-pressed": "false" } }, t("till.fullscreen"));
   let wakeLock: { release(): Promise<void> } | null = null;
   startKey.addEventListener("click", () => {
     running = !running;
@@ -263,17 +276,15 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
     chimeKey.textContent = on ? t("till.chimeOn") : t("till.chimeOff");
   });
   fullKey.addEventListener("click", () => {
-    const root = document.documentElement;
     if (document.fullscreenElement === null) {
-      void ui.terminal.requestFullscreen().then(() => { root.dataset["fullscreen"] = "true"; }).catch(() => undefined);
+      // The terminal goes full screen; its stylesheet then keeps only the till window and these keys.
+      void ui.terminal.requestFullscreen().catch(() => undefined);
     } else {
       void document.exitFullscreen().catch(() => undefined);
     }
   });
   document.addEventListener("fullscreenchange", () => {
-    if (document.fullscreenElement === null) {
-      delete document.documentElement.dataset["fullscreen"];
-    }
+    fullKey.setAttribute("aria-pressed", document.fullscreenElement === null ? "false" : "true");
   });
   replace(
     section,

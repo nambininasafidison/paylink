@@ -68,7 +68,7 @@ describe("pickWallet", () => {
     const picked = pickWallet(appWith(session([])));
     await new Promise((r) => setTimeout(r, 0));
     expect(document.querySelector("dialog .wallets-empty")?.textContent).toBe(EN["wallet.pick.none"]);
-    document.querySelector<HTMLButtonElement>("dialog .modal-foot button")?.click();
+    document.querySelector<HTMLButtonElement>("dialog .modal-plate .modal-close")?.click();
     expect(await picked).toBeNull();
   });
 

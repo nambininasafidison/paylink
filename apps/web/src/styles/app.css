@@ -13,7 +13,14 @@
   .modal::backdrop { background: rgba(14, 14, 13, .55); }
   .modal-device { max-height: calc(100dvh - 32px); overflow: auto; }
   .modal .view { padding-top: 16px; }
-  .modal-foot { display: flex; justify-content: flex-end; padding: 0 18px 18px; }
+  /* The plate is the panel's header: it stays at the top while the panel scrolls, with the close key on it. */
+  .modal-plate { position: sticky; top: 0; z-index: 1; background: var(--panel); border-radius: 16px 16px 0 0; padding-top: 6px; padding-bottom: 6px; }
+  .modal-close { flex: none; min-height: 36px; margin-right: -8px; padding: 0 8px; gap: 8px; color: var(--ink-2); text-decoration: none;
+    font: 600 10.5px/1 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; }
+  .modal-close::before { content: ""; width: 10px; height: 10px; flex: none; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 1l8 8M9 1L1 9' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 1l8 8M9 1L1 9' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .modal-close:hover { color: var(--ink); }
   .account-panel { display: grid; gap: 8px; padding-bottom: 16px; margin-bottom: 14px; border-bottom: 1px solid var(--rule); }
   .account-panel .key-row { margin-top: 4px; }
 
@@ -26,9 +33,15 @@
   .view-send .row-main .addr { margin-top: 6px; }
   .view-send .links > li { grid-template-areas: "main main" "foot foot"; }
 
-  /* Till: the window grows on a counter display; the terminal is the full-screen element. */
-  .device:fullscreen { overflow: auto; border-radius: 0; padding: max(12px, env(safe-area-inset-top)) 12px 12px; background: var(--panel); }
-  .device:fullscreen .till { min-height: calc(100dvh - 220px); }
+  /* Till: the terminal is the full-screen element, and in full screen it keeps only the till window and its keys (the
+     plate, the mode tabs and the view head step aside); the window takes the height, and the amount grows with it. */
+  .device:fullscreen { display: flex; flex-direction: column; overflow: auto; border-radius: 0; padding: max(12px, env(safe-area-inset-top)) 12px 12px; background: var(--panel); }
+  .device:fullscreen > .plate, .device:fullscreen > .tabs, .device:fullscreen > .banners, .device:fullscreen .view-head { display: none; }
+  .device:fullscreen > .views, .device:fullscreen .view-till { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .device:fullscreen .view-till { padding: 0; }
+  .device:fullscreen .till { flex: 1; margin-top: 0; min-height: 0; overflow-y: auto; }
+  .device:fullscreen .till-figure .num { font-size: min(26vh, calc(190cqw / var(--n, 6))); }
+  .device:fullscreen .till-caption { font-size: clamp(17px, 2.4vw, 28px); }
 
   /* The pay view's verification strip sits between the window and the facts. */
   .bill .vstrip { margin-top: 18px; }

@@ -64,6 +64,13 @@
 }
 .dial button:hover { color: var(--ink); }
 .dial button[aria-pressed="true"] { background: var(--raise); color: var(--ink); box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 0 0 1px var(--rule); }
+.dial button { position: relative; }
+/* The selected key of a dial, tab row or segmented control carries a 2 px graphite bar (WCAG 1.4.11: 18:1 on the raised
+   key, 13:1 in dark), so the state never rests on the raised tile alone (1.3:1). The weight change stays as a second
+   cue; laterite stays for lights and the band marker. */
+.dial button[aria-pressed="true"]::after, .tabs > [aria-current="page"]::after, .tabs > [aria-pressed="true"]::after, .seg label:has(input:checked)::after {
+  content: ""; position: absolute; left: 8px; right: 8px; bottom: 3px; height: 2px; border-radius: 1px; background: var(--ink); }
+.dial button[aria-pressed="true"]::after { left: 6px; right: 6px; bottom: 2px; }
 .dial svg { width: 14px; height: 14px; display: block; }
 
 /* ---------- Keys (buttons and link-buttons) ---------- */
@@ -156,7 +163,7 @@
 .specs > div { padding: 10px 8px 12px; border-left: 1px solid var(--rule); min-width: 0; }
 .specs > div:first-child { border-left: 0; padding-left: 0; }
 .specs dt { color: var(--muted); font-size: 9.5px; letter-spacing: .08em; }
-.specs dd { margin: 6px 0 0; font-weight: 520; font-stretch: 80%; font-size: 24px; line-height: 1; letter-spacing: -.01em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.specs dd { margin: 6px 0 0; font-weight: 520; font-stretch: 80%; font-size: 24px; line-height: 1; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .specs dd small { font-size: .6em; font-weight: 500; margin-left: 1px; }
 
 /* ---------- The terminal ---------- */
@@ -202,7 +209,7 @@
 .tabs > a:hover, .tabs > button:hover { color: var(--ink); }
 .tabs > [aria-current="page"], .tabs > [aria-pressed="true"] { background: var(--raise); color: var(--ink); font-weight: 620; box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 0 0 1px var(--rule), 0 2px 6px -2px rgba(0,0,0,.18); }
 .tabs > [aria-current="page"]::before, .tabs > [aria-pressed="true"]::before { color: var(--signal-ink); }
-.tab-label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tab-label { display: block; max-width: 100%; overflow-wrap: normal; hyphens: manual; }
 
 /* ---------- Views ---------- */
 .view { padding: 20px 18px 24px; }
@@ -218,6 +225,8 @@
   box-shadow: inset 0 0 0 1px var(--screen-rule), inset 0 2px 10px rgba(0,0,0,.55), 0 0 0 4px var(--bezel), 0 0 0 5px var(--bezel-edge);
 }
 .readout { margin-top: 22px; padding: 12px 16px 12px; transition: box-shadow .15s ease; }
+/* A focus ring drawn on the dark glass uses the glass's own ink (15.7:1); laterite on it is 2.8:1 in light theme. */
+.screen { --focus: var(--screen-ink); }
 .readout:focus-within { box-shadow: inset 0 0 0 1px var(--screen-rule), inset 0 2px 10px rgba(0,0,0,.55), 0 0 0 4px var(--bezel), 0 0 0 6px var(--focus); }
 .readout-top { display: flex; justify-content: space-between; gap: 12px; color: var(--screen-dim); }
 .readout-top label { font: inherit; color: inherit; }
@@ -240,7 +249,7 @@
 .readout select { -webkit-appearance: none; appearance: none; border: 0; background: transparent; color: var(--screen-dim); font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; padding: 0 14px 0 0;
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-position: calc(100% - 5px) 55%, 100% 55%; background-size: 5px 5px; background-repeat: no-repeat; min-height: 24px; }
-.readout select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.readout select:focus-visible { outline: 2px solid var(--screen-ink); outline-offset: 2px; }
 .readout select option { color: var(--ink); background: var(--panel); }
 
 /* ---------- Form fields: labelled wells, so an example never passes for a value ---------- */
@@ -274,9 +283,12 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .form-grid { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 16px; }
 
 /* Segmented control: a recessed track of raised radio keys (v1 tabs' grammar, without the counter). */
-.seg { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 4px; padding: 4px; background: var(--sunk); border-radius: 11px; box-shadow: inset 0 1px 2px rgba(0,0,0,.08); }
-.seg label { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 48px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
-  color: var(--muted); font: 560 14px/1.15 var(--sans); letter-spacing: -.01em; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; min-width: 0; }
+/* Options share the track equally; one that cannot fit its longest word moves to a new row whole, so a label is never
+   cut or broken inside a word (French and Malagasy run up to twice as long as English). */
+.seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--sunk); border-radius: 11px; box-shadow: inset 0 1px 2px rgba(0,0,0,.08); }
+.seg label { position: relative; flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 48px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  color: var(--muted); font: 560 14px/1.15 var(--sans); letter-spacing: -.01em; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+  overflow-wrap: normal; hyphens: manual; }
 .seg label:hover { color: var(--ink); }
 .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
 .seg label:has(input:checked) { background: var(--raise); color: var(--ink); font-weight: 620; box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 0 0 1px var(--rule), 0 2px 6px -2px rgba(0,0,0,.18); }
@@ -319,7 +331,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 /* ---------- Receive card: printed on paper in both themes ---------- */
 .issued { margin-top: 18px; animation: rise .35s var(--ease); }
 .ticket {
-  --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule);
+  --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule); --focus: var(--slip-focus);
   position: relative; overflow: hidden;
   padding: 0 18px 20px; border-radius: 4px; background: var(--slip); color: var(--slip-ink);
   box-shadow: 0 0 0 1px rgba(22,22,21,.10), 0 18px 30px -20px rgba(0,0,0,.5);
@@ -356,8 +368,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .ticket-scan { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
 .scan-cap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .scan-cap b { display: block; font-weight: 680; font-size: 17px; letter-spacing: -.01em; }
-.scan-cap span { display: block; font-size: 14px; color: var(--slip-muted); max-width: 30ch; }
-.printed-url { margin-top: 8px; font-size: 10px; color: var(--slip-ink); word-break: break-all; letter-spacing: 0; line-height: 1.45; max-height: 4.4em; overflow: hidden; }
+.scan-cap > span { display: block; font-size: 14px; color: var(--slip-muted); max-width: 30ch; }
+/* The link under the QR code: a deliberate short form on screen (host, path, the start and the end of the link, with a
+   visible ellipsis), the whole link on paper (print.css). Never a clamp that looks complete. */
+.printed-url { margin-top: 8px; font-size: 10px; color: var(--slip-ink); word-break: break-all; letter-spacing: 0; line-height: 1.45; }
+.printed-url-full { display: none; }
 /* QR: always black on white, framed by crop marks so it reads as "scan here". */
 .qr-frame {
   --c: var(--slip-ink); --l: 16px; --w: 2px; padding: 9px; flex: none; max-width: 100%;
@@ -402,8 +417,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
 .bill { margin-top: 4px; }
 .screen { position: relative; container-type: inline-size; padding: 14px 16px 16px; overflow: hidden; }
-.screen-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--screen-dim); font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; }
-.screen-top > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Engraved line of a display window: never cut. The right-hand reading (the band) keeps its line and moves under the
+   left one when both do not fit; words wrap whole. */
+.screen-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; color: var(--screen-dim); font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; overflow-wrap: normal; hyphens: manual; }
+.screen-top > span { min-width: 0; }
+.screen-top > span:last-child { margin-left: auto; text-align: right; }
 .screen-label { margin-top: 12px; color: var(--screen-dim); }
 .amount { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
 .amount .num {
@@ -550,7 +568,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
 /* ---------- Receipt slip: prints out of the terminal ---------- */
 .receipt {
-  --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule);
+  --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule); --focus: var(--slip-focus);
   --z: 7px; padding: 18px 18px calc(18px + var(--z)); background: var(--slip); color: var(--slip-ink);
   -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--z)) 100%;
           mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--z)) 100%;
@@ -657,14 +675,24 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .verdict .verdict-time { display: block; margin-top: 6px; color: var(--lcd-ok); font-variant-numeric: tabular-nums; }
 .my-card .field-hint { margin-top: 10px; }
 
-/* ---------- Till display: one big instrument window ---------- */
+/* ---------- Till display: one big instrument window, read from across a counter ---------- */
 .till { margin-top: 18px; padding: 16px 18px 18px; min-height: 340px; display: flex; flex-direction: column; }
 .till-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--screen-dim); font: 400 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; }
-.till-led { display: inline-flex; align-items: center; gap: 10px; }
-.till-led::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--led-wait); box-shadow: 0 0 12px rgba(255,176,0,.6); animation: breathe 2.4s ease-in-out infinite; flex: none; }
-.till[data-state="paid"] .till-led::before { background: var(--led-ok); box-shadow: 0 0 18px rgba(34,200,102,.8); animation: none; }
-.till[data-state="error"] .till-led::before { background: var(--led-err); box-shadow: 0 0 14px rgba(255,59,46,.7); animation: none; }
-.till[data-state="idle"] .till-led::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--screen-dim); animation: none; }
+/* The verdict band: a lamp glyph and the state word, sized to the window (cqw), never colour alone: waiting breathes
+   amber, paid is a green disc with a check, an error a red disc with a cross, a stopped till a hollow ring. */
+.till-verdict { display: flex; align-items: center; gap: .45em; margin: 14px -18px 0; padding: .35em 18px;
+  font: 600 clamp(20px, 6.5cqw, 64px)/1.1 var(--mono); letter-spacing: .1em; text-transform: uppercase; word-spacing: 0; overflow-wrap: normal; hyphens: manual;
+  color: var(--screen-warn); border-block: 1px solid transparent; }
+.till-glyph { width: .9em; height: .9em; flex: none; align-self: center; border-radius: 50%; background: var(--led-wait); box-shadow: 0 0 .35em rgba(255,176,0,.6); animation: breathe 2.4s ease-in-out infinite; }
+.till[data-state="idle"] .till-verdict { color: var(--screen-dim); }
+.till[data-state="idle"] .till-glyph { background: transparent; box-shadow: inset 0 0 0 .1em var(--screen-dim); animation: none; }
+.till[data-state="paid"] .till-verdict { font-size: clamp(48px, min(15cqw, 12vh), 180px); letter-spacing: .14em; color: var(--lcd-ok);
+  background: linear-gradient(rgba(34,200,102,.24), rgba(34,200,102,.10)); border-block-color: rgba(34,200,102,.45); animation: lcd .28s steps(7, end) 1 both; }
+.till[data-state="paid"] .till-glyph { animation: none; box-shadow: 0 0 .3em rgba(34,200,102,.75);
+  background: var(--led-ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M6.5 11.5l3 3 6-7' fill='none' stroke='%23071A0E' stroke-width='2.4' stroke-linecap='square'/%3E%3C/svg%3E") center / 100% no-repeat; }
+.till[data-state="error"] .till-verdict { color: var(--screen-err); background: linear-gradient(rgba(255,59,46,.16), rgba(255,59,46,.07)); border-block-color: rgba(255,59,46,.35); }
+.till[data-state="error"] .till-glyph { animation: none; box-shadow: 0 0 .3em rgba(255,59,46,.6);
+  background: var(--led-err) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M7 7l8 8M15 7l-8 8' fill='none' stroke='%232A0603' stroke-width='2.4'/%3E%3C/svg%3E") center / 100% no-repeat; }
 .till-figure { flex: 1; display: flex; flex-direction: column; justify-content: center; container-type: inline-size; padding: 18px 0 10px; }
 .till-figure .num { font-weight: 460; font-stretch: 70%; letter-spacing: -.02em; line-height: .86; font-variant-numeric: tabular-nums; font-size: min(160px, calc(190cqw / var(--n, 6))); }
 .till-figure .unit { margin-top: 10px; color: var(--screen-dim); font: 400 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; word-spacing: 0; }
@@ -674,7 +702,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .till-log { list-style: none; margin: 14px 0 0; padding: 10px 0 0; border-top: 1px solid var(--screen-rule); display: grid; gap: 6px; }
 .till-log li { display: flex; justify-content: space-between; gap: 12px; font: 400 11.5px/1.5 var(--mono); color: var(--screen-dim); word-spacing: 0; }
 .till-log li b { color: var(--screen-ink); font-weight: 600; }
-:root[data-fullscreen="true"] .till { min-height: calc(100dvh - 120px); }
 
 /* ---------- Disclosure: chain, contract and transaction details ---------- */
 .details { margin-top: 16px; border-top: 1px solid var(--rule); }
@@ -699,9 +726,15 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .board .vstrip li { padding: 6px 0; border-bottom: 0; }
 
 /* ---------- Toast and update bar ---------- */
-.toast { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 30; transform: translateX(-50%); max-width: calc(100vw - 32px);
+/* Centred between the gutters without a transform (the `rise` animation owns `transform`), as wide as its message up
+   to 560 px. While it is up, the page reserves its height at the bottom (--toast-clearance, set by the app), so focus
+   and the last lines of the page are never hidden behind it (WCAG 2.2 SC 2.4.11). */
+.toast { position: fixed; inset-inline: var(--gutter); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 30; margin-inline: auto; width: fit-content; max-width: min(560px, calc(100vw - 2 * var(--gutter)));
+  --focus: var(--screen-ink);
   display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 10px; background: var(--screen); color: var(--screen-ink);
-  box-shadow: inset 0 0 0 1px var(--screen-rule), 0 18px 40px -16px rgba(0,0,0,.6); font-size: 14px; animation: rise var(--t-med) var(--ease); }
+  box-shadow: inset 0 0 0 1px var(--screen-rule), 0 18px 40px -16px rgba(0,0,0,.6); font-size: 14px; line-height: 1.4; animation: rise var(--t-med) var(--ease); }
+.toast > span { min-width: 0; }
+.toast .key { flex: none; }
 .toast .key { min-height: 40px; color: var(--screen-ink); border-color: var(--screen-dim); background: transparent; }
 .toast .key:hover { border-color: var(--screen-ink); }
 
@@ -726,10 +759,12 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .foot { border-top: 1px solid var(--rule); margin-top: 8px; }
 .foot .bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding-top: 22px; padding-bottom: 32px; font-size: 13px; color: var(--ink-2); }
 .foot-item { min-width: 0; }
-.foot-item a { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; }
-/* Each link is a 24 px tall target at least (WCAG 2.2 SC 2.5.8), with rows that wrap clear of each other. */
-.foot-links { display: flex; flex-wrap: wrap; gap: 0 16px; }
-.foot-links a { display: inline-flex; align-items: center; min-height: 24px; }
+.foot-item > a { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; }
+/* Each link is a 24 px tall target at least (WCAG 2.2 SC 2.5.8), with rows that wrap clear of each other: the v1
+   rule above (one 44 px link per item, pulled up by its negative margins) is scoped to direct children, so a wrapped
+   row of links keeps its full height and never lands on the row above or on the label. */
+.foot-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.foot-links a { display: inline-flex; align-items: center; min-height: 24px; margin: 0; }
 .foot-label { display: block; color: var(--muted); margin-bottom: 4px; }
 .coords { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 
@@ -746,6 +781,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 @media (forced-colors: active) {
   .tabs > [aria-current="page"], .seg label:has(input:checked), .band[aria-checked="true"], .dial button[aria-pressed="true"] { outline: 2px solid CanvasText; outline-offset: -2px; }
   .vstrip li::before, .lamp::before, .pill::before, .status::before { forced-color-adjust: none; }
+  .dial button[aria-pressed="true"]::after, .tabs > [aria-current="page"]::after, .tabs > [aria-pressed="true"]::after, .seg label:has(input:checked)::after { background: CanvasText; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -754,6 +790,12 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 /* ---------- Small phones: the brand drops its tag before the tools would push off the edge ---------- */
 @media (max-width: 419px) {
   .edition-tag { display: none; }
+  /* The spec strip goes 2 × 2: a label or a value is never cut, and words never break inside. */
+  .specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .specs > div:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .specs > div:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  /* Mode tabs: Archivo's narrower width keeps four whole labels on one row. */
+  .tabs > a, .tabs > button { font-stretch: 84%; letter-spacing: -.015em; }
   .tally { grid-template-columns: minmax(0, 1fr); }
   .tally-sub { justify-self: start; display: flex; gap: 18px; }
 }
@@ -766,7 +808,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   :root { --gutter: 12px; }
   .view { padding: 20px 14px; }
   .tabs { margin: 10px 10px 0; }
-  .tabs > a, .tabs > button { font-size: 13px; padding: 8px 6px 10px; }
+  .tabs > a, .tabs > button { font-size: 13px; padding: 8px 6px 10px; font-stretch: 78%; }
   .plate { padding: 11px 14px 9px; gap: 8px; font-size: 9.5px; letter-spacing: .05em; }
   .specs dd { font-size: 20px; }
   .facts > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }

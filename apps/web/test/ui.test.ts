@@ -13,7 +13,7 @@ import { announce, copyText, download, toast } from "../src/ui/live.ts";
 import { correctionFor, qrMatrix, qrPath, qrSvg } from "../src/ui/qr.ts";
 import { receiptSlip } from "../src/ui/receipt.ts";
 import { signingDisplay } from "../src/ui/signing.ts";
-import { ticket } from "../src/ui/ticket.ts";
+import { shortLink, ticket } from "../src/ui/ticket.ts";
 
 const ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
 const LINK = "https://paylink-mg.pages.dev/pay/#2.10143.cJl5cMUYEtw6AQx9AbUODRfcechmPzrWFxkxSHEdKPUzTuTtBwFmAgAAAAAA";
@@ -112,6 +112,12 @@ describe("atoms", () => {
 });
 
 describe("printed pieces", () => {
+  it("shortens a payment link on screen without ever looking complete: host, path, version and chain, then the last 8 characters", () => {
+    const long = `https://paylink-mg.pages.dev/monad/pay/#2.10143.${"A".repeat(186)}.${"B".repeat(87)}kEqJH123`;
+    expect(shortLink(long)).toBe("paylink-mg.pages.dev/monad/pay/#2.10143.AAAA…kEqJH123");
+    expect(shortLink("http://localhost:4173/pay/#2.1.x")).toBe("localhost:4173/pay/#2.1.x");
+  });
+
   it("prints the receive card with what the payer checks and the link's QR code", () => {
     const card = ticket({
       kind: "Invoice",
@@ -130,7 +136,15 @@ describe("printed pieces", () => {
     });
     expect(card.getAttribute("aria-label")).toBe("Invoice for 25.50 AUSD");
     expect(card.querySelector(".ticket-amt")?.textContent).toBe("25.50AUSD");
-    expect(card.querySelector(".printed-url")?.textContent).toBe(LINK.replace("https://", ""));
+    // The whole link is printed on paper; the screen shows a deliberate short form whose ellipsis says it is cut.
+    expect(card.querySelector(".printed-url-full")?.textContent).toBe(LINK.replace("https://", ""));
+    const short = card.querySelector(".printed-url-short")?.textContent ?? "";
+    expect(short).toBe(shortLink(LINK));
+    if (short !== LINK.replace("https://", "")) {
+      expect(short).toContain("…");
+      expect(LINK.endsWith(short.split("…")[1] ?? "?")).toBe(true);
+      expect(LINK.replace("https://", "").startsWith(short.split("…")[0] ?? "?")).toBe(true);
+    }
     expect(card.querySelector(".qr path")).not.toBeNull();
     expect(card.querySelector(".lamba")?.getAttribute("aria-hidden")).toBe("true");
   });
@@ -168,10 +182,23 @@ describe("live regions and clipboard", () => {
     toast("First");
     toast("An update is ready", { label: "Reload", run: () => (ran += 1) });
     expect(document.querySelectorAll(".toast")).toHaveLength(1);
+    // While it is up, the page reserves room for it at the bottom (scroll padding, body padding): focus is never hidden.
+    expect(document.documentElement.style.getPropertyValue("--toast-clearance")).toMatch(/^\d+px$/);
     document.querySelector<HTMLButtonElement>(".toast button")?.click();
     expect(ran).toBe(1);
     expect(document.querySelector(".toast")).toBeNull();
+    expect(document.documentElement.style.getPropertyValue("--toast-clearance")).toBe("");
     announce("x");
+  });
+
+  it("gives the room back when a toast without a key times out", () => {
+    vi.useFakeTimers();
+    toast("Saved", undefined, 1000);
+    expect(document.documentElement.style.getPropertyValue("--toast-clearance")).not.toBe("");
+    vi.advanceTimersByTime(1000);
+    expect(document.querySelector(".toast")).toBeNull();
+    expect(document.documentElement.style.getPropertyValue("--toast-clearance")).toBe("");
+    vi.useRealTimers();
   });
 
   it("downloads through a same-origin blob URL and revokes it", () => {

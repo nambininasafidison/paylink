@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 /**
  * The web app (apps/web) against a local chain: anvil with Monad testnet's chain id, the PayLinkV2 release deployed
- * through the CREATE2 proxy exactly as Deploy.s.sol does (so at the release address, 0x448e…5082), and a 6-decimal
- * EIP-2612 + EIP-3009 token standing in for AUSD (protocol/test/mocks/Mock3009.sol, from protocol/out).
+ * through the CREATE2 proxy exactly as Deploy.s.sol does (so at the release address, 0x448e…5082), a 6-decimal
+ * EIP-2612 + EIP-3009 token standing in for AUSD (protocol/test/mocks/Mock3009.sol, from protocol/out), and an
+ * 18-decimal EIP-2612-only token standing in for MUSD (protocol/test/mocks/MockPermit.sol), which no authorisation
+ * rail can carry, so its payers take `permit`.
  *
  * The app trusts only its registry, so an end-to-end build (`scripts/build.ts --e2e`, into apps/web/dist-e2e) swaps
  * that chain's token list and deployment for these local ones through `PAYLINK_E2E_CHAINS`; the RPC URL stays the
@@ -32,7 +34,7 @@ export const ACCOUNTS = {
   payee: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   /** Deploys the token (nonce 0, so its address is known before the chain starts). */
   tokenOwner: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-  /** The payer: holds the token and pays the link. */
+  /** The payer: holds the tokens and pays the link. */
   payer: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
 } as const satisfies Record<string, Address>;
 
@@ -51,6 +53,17 @@ export const TOKEN = {
 } as const;
 /** What the payer holds: enough for every spec, few enough to read on screen. */
 export const PAYER_FUNDS = parseUnits("500", TOKEN.decimals);
+/** anvil's default account #6 deploys the EIP-2612-only token (nonce 0, so its address is known in advance). */
+const PERMIT_OWNER: Address = "0x976EA74026E726554dB657fA54763abd0C3a0aa9";
+export const PERMIT_TOKEN = {
+  symbol: "MUSD",
+  name: "MUSD (local)",
+  /** OpenZeppelin ERC20Permit: EIP-712 version "1". */
+  domain: { name: "MUSD (local)", version: "1" },
+  decimals: 18,
+  address: getCreateAddress({ from: PERMIT_OWNER, nonce: 0n }),
+} as const;
+export const PERMIT_FUNDS = parseUnits("1000", PERMIT_TOKEN.decimals);
 
 interface ReleaseData {
   readonly initCode: Hex;
@@ -67,9 +80,10 @@ export const IMPOSTOR = getCreateAddress({ from: ACCOUNTS.deployer, nonce: 0n })
  */
 export function e2eChains(): string {
   const token = { symbol: TOKEN.symbol, name: TOKEN.name, address: TOKEN.address, decimals: TOKEN.decimals, eip3009: true, eip2612: true, domain: TOKEN.domain };
+  const permitOnly = { symbol: PERMIT_TOKEN.symbol, name: PERMIT_TOKEN.name, address: PERMIT_TOKEN.address, decimals: PERMIT_TOKEN.decimals, eip3009: false, eip2612: true, domain: PERMIT_TOKEN.domain };
   const recorded = { txHash: `0x${"0".repeat(63)}1`, blockNumber: "1", deployer: ACCOUNTS.deployer };
   return JSON.stringify([
-    { base: CHAIN_ID, rpcUrl: REGISTRY_RPC, chargesGasLimit: true, tokens: [token], deployment: { ...recorded, address: PAYLINK } },
+    { base: CHAIN_ID, rpcUrl: REGISTRY_RPC, chargesGasLimit: true, tokens: [token, permitOnly], deployment: { ...recorded, address: PAYLINK } },
     { base: FOREIGN_CHAIN_ID, rpcUrl: FOREIGN_RPC, tokens: [token], deployment: { ...recorded, address: IMPOSTOR } },
   ]);
 }
@@ -118,6 +132,8 @@ export interface AppChain {
   /** Moves the chain clock (and mines a block), for expiry. */
   advance(seconds: number): Promise<void>;
   balanceOf(owner: Address): Promise<bigint>;
+  /** Balance in the EIP-2612-only token (MUSD stand-in). */
+  permitBalanceOf(owner: Address): Promise<bigint>;
 }
 
 /** Deploys the token (the first transaction of its owner, so at TOKEN.address on every chain) and funds the payer. */
@@ -143,16 +159,22 @@ export async function startAppChain(chainId: number = CHAIN_ID, domain: { readon
     throw new Error("PayLinkV2 is not at the release address");
   }
   const mock = await deployToken(anvil, domain, symbol);
+  const permit = artifact("MockPermit.sol/MockPermit.json");
+  const deployed = await send(anvil, PERMIT_OWNER, null, encodeDeployData({ abi: permit.abi, bytecode: permit.bytecode, args: [PERMIT_TOKEN.name, PERMIT_TOKEN.symbol] }));
+  if (deployed.contractAddress?.toLowerCase() !== PERMIT_TOKEN.address.toLowerCase()) {
+    throw new Error(`the permit token landed at ${String(deployed.contractAddress)}, not ${PERMIT_TOKEN.address}`);
+  }
+  await send(anvil, PERMIT_OWNER, PERMIT_TOKEN.address, encodeFunctionData({ abi: permit.abi, functionName: "mint", args: [ACCOUNTS.payer, PERMIT_FUNDS] }));
+  const read = async (abi: Abi, token: Address, owner: Address): Promise<bigint> =>
+    BigInt(await anvil.rpc<Hex>("eth_call", [{ to: token, data: encodeFunctionData({ abi, functionName: "balanceOf", args: [owner] }) }, "latest"]));
   return {
     anvil,
     advance: async (seconds) => {
       await anvil.rpc("evm_increaseTime", [seconds]);
       await anvil.rpc("evm_mine");
     },
-    balanceOf: async (owner) => {
-      const data = encodeFunctionData({ abi: mock.abi, functionName: "balanceOf", args: [owner] });
-      return BigInt(await anvil.rpc<Hex>("eth_call", [{ to: TOKEN.address, data }, "latest"]));
-    },
+    balanceOf: async (owner) => await read(mock.abi, TOKEN.address, owner),
+    permitBalanceOf: async (owner) => await read(permit.abi, PERMIT_TOKEN.address, owner),
   };
 }
 

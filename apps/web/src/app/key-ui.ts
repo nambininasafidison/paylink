@@ -4,7 +4,8 @@
  * the Monad edition, where a passkey is the only account layer. One dark display window says what the key is (the
  * phone's passkey, behind its fingerprint or screen lock, synced by its passkey manager) and what it is not (PayLink
  * never sees it; there is no recovery beyond the passkey itself), then two keys: create one, or use the one this phone
- * already has. Signed in, the same card shows the account and offers to forget the key on this device.
+ * already has. The test-network warning (no recovery beyond the passkey) comes before the key that creates one. Signed
+ * in, the same card shows the account and offers to forget the key on this device.
  */
 import type { AccountProvider } from "../accounts/types.ts";
 import type { PasskeyLayer } from "../accounts/passkey.ts";
@@ -107,10 +108,11 @@ export async function keyCard(app: App, layer: PasskeyLayer, manage = false): Pr
         run(SIGN_IN_ID, use);
       });
       body.push(
+        // What cannot be undone comes before the key that does it.
+        h("p", { class: "warn-note" }, h("b", null, t("key.testnet")), " ", t("key.testnetText")),
         h("div", { class: "field" }, h("label", { attrs: { for: "key-label" } }, t("key.label"), h("span", { class: "opt" }, t("common.optional"))), label, h("p", { class: "field-hint", attrs: { id: "key-label-hint" } }, t("key.labelHint"))),
         create,
         h("div", { class: "key-row" }, use),
-        h("p", { class: "warn-note" }, h("b", null, t("key.testnet")), " ", t("key.testnetText")),
       );
     }
     body.push(status);

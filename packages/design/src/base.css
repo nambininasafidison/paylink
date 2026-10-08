@@ -15,11 +15,14 @@
   code, .mono { font-family: var(--mono); font-size: .8em; }
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
   /* Focus is never hidden behind sticky chrome (WCAG 2.2 SC 2.4.11). */
-  html { scroll-padding-block: 88px 24px; }
+  html { scroll-padding-block: 88px calc(24px + var(--toast-clearance, 0px)); }
+  body { padding-bottom: var(--toast-clearance, 0px); }
 
-  /* Long words in French and Malagasy wrap instead of overflowing (spec §3.9). */
+  /* Long words in French and Malagasy wrap instead of overflowing (spec §3.9), but only a word that cannot fit a line
+     at all is broken (body: overflow-wrap: break-word). `overflow-wrap: anywhere` (the spec's first wording) also
+     shrinks every grid and flex cell to its narrowest letter, which split ordinary Malagasy words ("Hamor|ona") in
+     labels, tabs and segments; no browser ships a Malagasy hyphenation dictionary to soften that. */
   :lang(fr), :lang(mg) { hyphens: auto; -webkit-hyphens: auto; }
-  :lang(mg) { overflow-wrap: anywhere; }
 
   /* Running text: no one-word last lines. */
   .lede, .steps p, .note-list li, .legend dd, .proc-text, .field-hint, .assure, .readout-hint, .state-note, .scan-cap span, .foot-item, .prose { text-wrap: pretty; }
@@ -29,7 +32,7 @@
   .plate, .ticket-top, .receipt-top, .foot-label, .row-id, .tally-label, .step-n, .unit, .loading, .eyebrow,
   .ledger-head, .footing-label, .legend-k {
     font-family: var(--mono); font-weight: 400; font-size: 10.5px; line-height: 1.4;
-    letter-spacing: .09em; text-transform: uppercase; word-spacing: 0;
+    letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; hyphens: manual;
   }
   code, .addr, .status, .pill, .lamp, .share input, .coords, .hex { word-spacing: 0; }
   h1 {
