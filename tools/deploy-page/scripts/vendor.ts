@@ -104,6 +104,20 @@ export async function buildVendor(): Promise<VendorFiles> {
     throw new Error(`expected ${Object.keys(EXPECTED_PACKAGES).join(", ")} in the bundle, got ${list.map((p) => p.name).join(", ")}`);
   }
 
+  // rolldown names each region by its path in the pnpm store, whose directory names carry the peer-dependency
+  // suffix of the whole workspace (`viem@2.57.3_..._zod@4.6.5`): an unrelated workspace package adding a peer would
+  // change the bundle. A rebuild names each region `<package>@<version>/<path in the package>` instead: stable, and
+  // exactly what a reviewer diffs against the published tarball. The committed bundle may still carry store paths
+  // (it is served as is and stays byte-identical); `canonicalRegions` maps them for the comparison.
+  code = code.replace(/^\/\/#region (.+)$/gmu, (line, path: string) => {
+    const absolute = resolve(PACKAGE_DIR, path);
+    const owner = packages.get(packageDirOf(absolute));
+    if (owner === undefined) {
+      throw new Error(`region outside the bundled packages: ${path} (${line})`);
+    }
+    return `//#region ${owner.name}@${owner.version}/${relative(owner.dir, absolute)}`;
+  });
+
   const summary = list.map((p) => `${p.name}@${p.version} (${p.license}, ${p.modules} modules)`).join(", ");
   const header = [
     "// SPDX-License-Identifier: MIT",
@@ -145,30 +159,62 @@ export async function buildVendor(): Promise<VendorFiles> {
   return { "viem.js": js, "viem.d.ts": dts, "LICENSES.txt": licencesTxt, SHA256SUMS: sums };
 }
 
+/**
+ * Maps every `//#region` comment that names a module by its pnpm store path
+ * (`../../node_modules/.pnpm/<dir>/node_modules/<package>/<path>`) to `<package>@<version>/<path>`, the form a rebuild
+ * writes. The version comes from the store directory (`<package with + for />@<version>[_<peers>]`). Code is untouched.
+ */
+export function canonicalRegions(code: string): string {
+  return code.replace(/^\/\/#region (?:\.\.\/)*node_modules\/\.pnpm\/([^/]+)\/node_modules\/((?:@[^/]+\/)?[^/]+)\/(.+)$/gmu, (line, dir: string, name: string, path: string) => {
+    const prefix = `${name.replace("/", "+")}@`;
+    if (!dir.startsWith(prefix)) {
+      throw new Error(`region path does not match its store directory: ${line}`);
+    }
+    const version = dir.slice(prefix.length).split("_")[0] ?? "";
+    return `//#region ${name}@${version}/${path}`;
+  });
+}
+
+/**
+ * What the vendored files must be, given the committed ones: a rebuild, except that a committed `viem.js` whose code
+ * equals the rebuild once its region comments are canonical (`canonicalRegions`) keeps its bytes, and SHA256SUMS then
+ * lists those bytes.
+ */
+export function expectedFiles(fresh: VendorFiles, read: (name: keyof VendorFiles) => string): VendorFiles {
+  const committedJs = read("viem.js");
+  if (committedJs === fresh["viem.js"] || canonicalRegions(committedJs) !== fresh["viem.js"]) {
+    return fresh;
+  }
+  return { ...fresh, "viem.js": committedJs, SHA256SUMS: fresh.SHA256SUMS.replace(/^[0-9a-f]{64}(?= {2}viem\.js$)/mu, sha256(committedJs)) };
+}
+
+/** Names of the committed files that differ from `expectedFiles`. */
+export function staleFiles(fresh: VendorFiles, read: (name: keyof VendorFiles) => string): (keyof VendorFiles)[] {
+  const expected = expectedFiles(fresh, read);
+  return (Object.keys(expected) as (keyof VendorFiles)[]).filter((name) => read(name) !== expected[name]);
+}
+
 /** Writes the files, or (with `check`) compares them with the committed ones. Returns the number of stale files. */
 export async function vendor(check: boolean): Promise<number> {
-  const files = await buildVendor();
-  let stale = 0;
-  for (const [name, content] of Object.entries(files) as [keyof VendorFiles, string][]) {
-    const path = join(VENDOR_DIR, name);
-    let current: string;
+  const read = (name: keyof VendorFiles): string => {
     try {
-      current = readFileSync(path, "utf8");
+      return readFileSync(join(VENDOR_DIR, name), "utf8");
     } catch {
-      current = "";
+      return "";
     }
-    if (current === content) {
-      continue;
-    }
+  };
+  const expected = expectedFiles(await buildVendor(), read);
+  const stale = staleFiles(expected, read);
+  for (const name of stale) {
+    const path = join(VENDOR_DIR, name);
     if (check) {
-      stale += 1;
       console.error(`stale: ${relative(REPO_DIR, path)} (run: pnpm --filter @paylink/deploy-page run vendor)`);
     } else {
-      writeFileSync(path, content);
+      writeFileSync(path, expected[name]);
       console.log(`wrote ${relative(REPO_DIR, path)}`);
     }
   }
-  return stale;
+  return stale.length;
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

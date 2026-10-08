@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { registry } from "@paylink/chains";
 import { describe, expect, it } from "vitest";
 import { CREATE2_PROXY_PRESIGNED_TX, DEPLOY_CHAIN_IDS, proxyDeployment, renderAll, renderReleaseData, sourceCommit } from "../scripts/generate.ts";
-import { buildVendor } from "../scripts/vendor.ts";
+import { buildVendor, canonicalRegions, staleFiles } from "../scripts/vendor.ts";
 
 const repo = (path: string): string => new URL(`../../../${path}`, import.meta.url).pathname;
 const read = (path: string): string => readFileSync(repo(path), "utf8");
@@ -57,11 +57,27 @@ describe("generated data (pnpm --filter @paylink/deploy-page run generate)", () 
 });
 
 describe("vendored viem subset (pnpm --filter @paylink/deploy-page run vendor)", () => {
-  it("rebuilds byte for byte from the pinned packages", async () => {
+  it("rebuilds from the pinned packages: code byte for byte, region comments up to their store paths", async () => {
     const files = await buildVendor();
-    for (const [name, content] of Object.entries(files)) {
-      expect(read(`web/v2/deploy/vendor/${name}`), name).toBe(content);
+    expect(staleFiles(files, (name) => read(`web/v2/deploy/vendor/${name}`))).toEqual([]);
+    expect(canonicalRegions(read("web/v2/deploy/vendor/viem.js"))).toBe(files["viem.js"]);
+    for (const name of ["viem.d.ts", "LICENSES.txt"] as const) {
+      expect(read(`web/v2/deploy/vendor/${name}`), name).toBe(files[name]);
     }
+  });
+
+  it("canonicalises store-path regions only, and rejects a region whose path contradicts its store directory", () => {
+    const store = "//#region ../../node_modules/.pnpm/@noble+hashes@1.8.0_x@1.0.0/node_modules/@noble/hashes/esm/sha3.js\nconst a = 1;\n";
+    expect(canonicalRegions(store)).toBe("//#region @noble/hashes@1.8.0/esm/sha3.js\nconst a = 1;\n");
+    expect(canonicalRegions("//#region viem@2.57.3/_esm/index.js\n")).toBe("//#region viem@2.57.3/_esm/index.js\n");
+    expect(() => canonicalRegions("//#region ../../node_modules/.pnpm/viem@2.57.3/node_modules/abitype/dist/x.js\n")).toThrow(/does not match/);
+  });
+
+  it("flags a change of code, or a checksum that does not list the committed bundle", async () => {
+    const files = await buildVendor();
+    const committed = (name: keyof typeof files): string => read(`web/v2/deploy/vendor/${name}`);
+    expect(staleFiles(files, (name) => (name === "viem.js" ? `${committed(name)}// tampered\n` : committed(name)))).toContain("viem.js");
+    expect(staleFiles(files, (name) => (name === "SHA256SUMS" ? files.SHA256SUMS : committed(name)))).toEqual(files["viem.js"] === committed("viem.js") ? [] : ["SHA256SUMS"]);
   });
 
   it("matches its SHA256SUMS", () => {
