@@ -6,13 +6,18 @@
  *
  * @module
  */
-import { allPassed, deploymentRecordJson, verifyCode, verifyDeploymentTx } from "./core.js";
+import { allPassed, authorityCandidates, deploymentRecordJson, deploymentRoute, verifyCode, verifyDeploymentTx } from "./core.js";
+import { RpcError } from "./rpc.js";
 
 /** @typedef {import("./core.js").Hex} Hex */
 /** @typedef {import("./core.js").Address} Address */
 /** @typedef {import("./core.js").Check} Check */
 /** @typedef {import("./core.js").ReleaseData} ReleaseData */
 /** @typedef {import("./core.js").ChainConfig} ChainConfig */
+/** @typedef {import("./core.js").CodeReading} CodeReading */
+/** @typedef {import("./core.js").RelayEvidence} RelayEvidence */
+/** @typedef {import("./core.js").TxFacts} TxFacts */
+/** @typedef {import("./core.js").ReceiptFacts} ReceiptFacts */
 /** @typedef {import("./rpc.js").Reader} Reader */
 
 /**
@@ -21,10 +26,57 @@ import { allPassed, deploymentRecordJson, verifyCode, verifyDeploymentTx } from 
  * @property {Check[]} checks
  * @property {Hex} code                runtime code read at the address
  * @property {"CREATE2" | "CREATE" | null} method
- * @property {import("./core.js").TxFacts | null} tx
- * @property {import("./core.js").ReceiptFacts | null} receipt
+ * @property {"direct" | "relayed" | null} route
+ * @property {Address | null} deployer    the account whose call reached the factory (or that sent the creation)
+ * @property {Address | null} submitter   the transaction's sender (a relayer on the relayed route)
+ * @property {RelayEvidence | null} evidence  what was read for a relayed transaction: historical code, trace
+ * @property {TxFacts | null} tx
+ * @property {ReceiptFacts | null} receipt
  * @property {string | null} record    deployments/<chainId>.json, when the transaction was given and everything passed
  */
+
+/**
+ * Reads the evidence of a relayed deployment: the address's code at blocks N − 1 and N (N: the transaction's block), the
+ * transaction's trace when the endpoint serves one, and the code of the authorities the transaction names. A block whose
+ * state the endpoint no longer keeps (not an archive node) is recorded as such, and block N falls back to the latest
+ * block; core.js `verifyDeploymentTx` says so in its checks.
+ *
+ * @param {object} p
+ * @param {Reader} p.read
+ * @param {number} p.chainId
+ * @param {Address} p.address
+ * @param {TxFacts} p.tx
+ * @param {ReceiptFacts} p.receipt
+ * @returns {Promise<RelayEvidence>}
+ */
+export async function relayEvidence({ read, chainId, address, tx, receipt }) {
+  /** @param {Address} who @param {bigint} block @returns {Promise<CodeReading>} */
+  const codeAt = async (who, block) => {
+    try {
+      return { block, code: await read.codeAt(who, block), error: null };
+    } catch (error) {
+      if (error instanceof RpcError) {
+        return { block, code: null, error: error.message };
+      }
+      throw error;
+    }
+  };
+  /** @param {Address} who @param {bigint} block @returns {Promise<CodeReading>} */
+  const atOrLatest = async (who, block) => {
+    const reading = await codeAt(who, block);
+    return reading.code !== null ? reading : { block: "latest", code: await read.code(who), error: reading.error };
+  };
+  const n = receipt.blockNumber;
+  const before = n === 0n ? { block: 0n, code: /** @type {Hex} */ ("0x"), error: null } : await codeAt(address, n - 1n);
+  const after = await atOrLatest(address, n);
+  const trace = await read.trace(tx.hash);
+  /** @type {Record<string, CodeReading>} */
+  const authorities = {};
+  for (const authority of authorityCandidates(tx, chainId)) {
+    authorities[authority] = await atOrLatest(authority, n);
+  }
+  return { before, after, trace, authorities };
+}
 
 /**
  * Verifies the contract at `address` on `chain` through `read`, and, with `txHash`, the transaction that deployed it;
@@ -45,30 +97,40 @@ export async function verifyDeployment({ read, data, chain, address, txHash = nu
   const checks = [];
   const reported = await read.chainId();
   checks.push({ id: "chain", label: "RPC is on the expected chain", ok: reported === chain.chainId, detail: `chain ${String(reported)}, expected ${String(chain.chainId)} (${chain.name})` });
+  /** @type {Verification} */
+  const result = { ok: false, checks, code: "0x", method: null, route: null, deployer: null, submitter: null, evidence: null, tx: null, receipt: null, record: null };
   if (reported !== chain.chainId) {
-    return { ok: false, checks, code: "0x", method: null, tx: null, receipt: null, record: null };
+    return result;
   }
   const code = await read.code(address);
+  result.code = code;
   const domain = code === "0x" ? null : await read.eip712Domain(address);
   checks.push(...verifyCode({ data, chainId: chain.chainId, address, code, domain }));
 
-  /** @type {Verification["tx"]} */
-  let tx = null;
-  /** @type {Verification["receipt"]} */
-  let receipt = null;
-  /** @type {Verification["method"]} */
-  let method = null;
+  /** @type {import("./core.js").TxVerdict | null} */
+  let verdict = null;
   if (txHash !== null) {
-    tx = await read.transaction(txHash, chain.chainId);
-    receipt = await read.receipt(txHash);
-    const result = verifyDeploymentTx({ data, chainId: chain.chainId, address, tx, receipt });
-    checks.push(...result.checks);
-    method = result.method;
+    const tx = await read.transaction(txHash, chain.chainId);
+    const receipt = await read.receipt(txHash);
+    if (tx !== null && receipt !== null && receipt.success && deploymentRoute(data, tx) === "relayed") {
+      result.evidence = await relayEvidence({ read, chainId: chain.chainId, address, tx, receipt });
+    }
+    verdict = verifyDeploymentTx({ data, chainId: chain.chainId, address, tx, receipt, relay: result.evidence });
+    checks.push(...verdict.checks);
+    Object.assign(result, { tx, receipt, method: verdict.method, route: verdict.route, deployer: verdict.deployer, submitter: verdict.submitter });
   }
-  const ok = allPassed(checks);
-  const record =
-    ok && tx !== null && receipt !== null && method !== null && txHash !== null
-      ? deploymentRecordJson(data, chain, { address, method, deployer: tx.from, txHash, blockNumber: receipt.blockNumber, runtimeCode: code, commit })
-      : null;
-  return { ok, checks, code, method, tx, receipt, record };
+  result.ok = allPassed(checks);
+  if (result.ok && verdict !== null && verdict.method !== null && result.receipt !== null && txHash !== null) {
+    result.record = deploymentRecordJson(data, chain, {
+      address,
+      method: verdict.method,
+      deployer: verdict.deployer,
+      txHash,
+      blockNumber: result.receipt.blockNumber,
+      runtimeCode: code,
+      commit,
+      ...(verdict.route === "relayed" && verdict.submitter !== null ? { relayed: { submitter: verdict.submitter, authorization: verdict.authorization } } : {}),
+    });
+  }
+  return result;
 }

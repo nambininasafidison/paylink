@@ -1,6 +1,6 @@
 # verify-deployment
 
-Re-verifies a PayLinkV2 deployment **on-chain** and writes `protocol/deployments/<chainId>.json`. It runs the deploy page's own verifier ([`web/v2/deploy/lib`](../../web/v2/deploy/lib/)) against the registry's RPC endpoints ([`web/v2/deploy/data/chains.json`](../../web/v2/deploy/data/chains.json), generated from `@paylink/chains`), so the file it writes is the file the page printed and the file `forge script script/Deploy.s.sol --sig 'record()'` writes, byte for byte (`e2e/specs/record-parity.spec.ts`).
+Re-verifies a PayLinkV2 deployment **on-chain** and writes `protocol/deployments/<chainId>.json`. It runs the deploy page's own verifier ([`web/v2/deploy/lib`](../../web/v2/deploy/lib/)) against the registry's RPC endpoints ([`web/v2/deploy/data/chains.json`](../../web/v2/deploy/data/chains.json), generated from `@paylink/chains`), so the file it writes is the file the page printed and, for a direct deployment, the file `forge script script/Deploy.s.sol --sig 'record()'` writes, byte for byte (`e2e/specs/record-parity.spec.ts`).
 
 Zero runtime dependencies: plain Node ≥ 22.18, nothing to install. It only reads; no key is involved.
 
@@ -43,8 +43,16 @@ Every reachable registry endpoint is asked **independently** (Monad lists two); 
 
 1. The endpoint reports the expected chain id.
 2. Code at the address; masked runtime hash = `release.json` (immutable ranges zeroed, CBOR metadata removed); code size and CBOR metadata of the release; the seven EIP-712 immutables recomputed for this chain and address (copied code fails here); `eip712Domain()` = `{0x0f, "PayLink", "2", chainId, address, 0, []}`.
-3. With `--tx`: the transaction is on this chain and succeeded, and either calls the factory `0x4e59…956C` with `salt ++ initCode` and the address is the CREATE2 prediction, or creates the contract with the release init code at `getCreateAddress(sender, nonce)`.
+3. With `--tx`: the transaction is on this chain and succeeded, and either calls the factory `0x4e59…956C` with exactly `salt ++ initCode` and the address is the CREATE2 prediction, or creates the contract with the release init code at `getCreateAddress(sender, nonce)` (the **direct** routes, as `Deploy.s.sol`).
+4. Or, for a **relayed** deployment (a smart account's transaction, for example MetaMask's EIP-7702 mode, that reaches the factory inside another contract's call), all of these must hold:
+   - its input carries `salt ‖ initCode` contiguously, and the address is the CREATE2 prediction;
+   - `eth_getCode` at the address is empty at block N − 1 and present at block N, N being the transaction's block. Without archive state, the check accepts on the latest evidence the RPC serves and says so;
+   - when the endpoint serves `debug_traceTransaction` (callTracer) or `trace_transaction`, the trace shows a standing CREATE2 of the release by the factory.
+
+   The record names the account that called the factory as `deployer`. That account comes from the trace, or else it is the EIP-7702 authority, recovered from the authorization's signature, that the transaction names and that is delegated at block N. Otherwise `deployer` is `null`, with the reason printed. The record adds `route: "relayed"`, `submitter` and `authorization` ([ADR 0013, amendment 1](../../docs/adr/0013-browser-deploy-page.md)).
+
+For a relayed transaction the CLI prints, for each endpoint, the evidence it obtained (`evidence from <host>`: historical `eth_getCode` served or not, trace served or not, the authority's code); `--json` includes it per endpoint, with `route`, `deployer` and `submitter`.
 
 ## Tests
 
-`pnpm --filter @paylink/verify-deployment test` runs the CLI against an anvil chain with Base Sepolia's chain id: usage refusals, unknown chains, write / up to date / protected / `--force` / `--check` / `--compare`, copied code, a transaction that did not deploy the contract, an RPC on the wrong chain, an empty address.
+`pnpm --filter @paylink/verify-deployment test` runs the CLI against an anvil chain with Base Sepolia's chain id: usage refusals, unknown chains, write / up to date / protected / `--force` / `--check` / `--compare`, copied code, a transaction that did not deploy the contract, an RPC on the wrong chain, an empty address. On a second anvil chain it rehearses a relayed EIP-7702 deployment, with a signed authorization and a manager contract that swallows failures. It records that deployment, with the trace's confirmation, and refuses two relayed transactions that carry the payload: one that created nothing and one sent after the contract existed.

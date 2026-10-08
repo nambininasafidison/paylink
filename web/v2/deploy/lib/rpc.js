@@ -7,13 +7,14 @@
  *
  * @module
  */
-import { getAddress, hexToBigInt } from "../vendor/viem.js";
+import { getAddress, hexToBigInt, numberToHex } from "../vendor/viem.js";
 import { EIP712_DOMAIN_CALLDATA } from "./core.js";
 
 /** @typedef {import("./core.js").Hex} Hex */
 /** @typedef {import("./core.js").Address} Address */
 /** @typedef {import("./core.js").TxFacts} TxFacts */
 /** @typedef {import("./core.js").ReceiptFacts} ReceiptFacts */
+/** @typedef {import("./eip7702.js").Authorization} Authorization */
 
 /** @typedef {{ request: (method: string, params?: readonly unknown[]) => Promise<unknown> }} Rpc */
 /** @typedef {{ request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown> }} Eip1193Provider */
@@ -144,6 +145,36 @@ function hex(value, what) {
 const quantity = (value, what) => hexToBigInt(hex(value, what));
 
 /**
+ * A type-4 transaction's `authorizationList` entries (quantities as the RPC gives them, `r` and `s` possibly unpadded).
+ * @param {unknown} list
+ * @returns {Authorization[] | null}
+ */
+function authorizations(list) {
+  if (!Array.isArray(list)) {
+    return null;
+  }
+  return list.map((raw, i) => {
+    const a = /** @type {Record<string, unknown>} */ (raw);
+    const what = `authorizationList[${String(i)}]`;
+    const yParity = a["yParity"] ?? a["v"];
+    return {
+      chainId: quantity(a["chainId"], `${what}.chainId`),
+      address: getAddress(hex(a["address"], `${what}.address`)),
+      nonce: quantity(a["nonce"], `${what}.nonce`),
+      yParity: Number(quantity(yParity, `${what}.yParity`)),
+      r: quantity(a["r"], `${what}.r`),
+      s: quantity(a["s"], `${what}.s`),
+    };
+  });
+}
+
+/** The traces a relayed deployment may be confirmed with, most common first. */
+const TRACERS = /** @type {const} */ ([
+  ["debug_traceTransaction (callTracer)", "debug_traceTransaction", (/** @type {Hex} */ hash) => [hash, { tracer: "callTracer" }]],
+  ["trace_transaction", "trace_transaction", (/** @type {Hex} */ hash) => [hash]],
+]);
+
+/**
  * Typed reads over any `Rpc`.
  * @param {Rpc} rpc
  */
@@ -153,6 +184,30 @@ export function reader(rpc) {
     chainId: async () => Number(quantity(await rpc.request("eth_chainId"), "eth_chainId")),
     /** @param {Address} address */
     code: async (address) => hex(await rpc.request("eth_getCode", [address, "latest"]), "eth_getCode"),
+    /** Code at a past block: a JSON-RPC error (RpcError) when the endpoint keeps no state there. @param {Address} address @param {bigint} block */
+    codeAt: async (address, block) => hex(await rpc.request("eth_getCode", [address, numberToHex(block)]), "eth_getCode"),
+    /**
+     * The transaction's trace from the first tracer the endpoint serves, or the refusals (public endpoints usually
+     * refuse both). Never throws: a trace only adds evidence.
+     * @param {Hex} hash
+     * @returns {Promise<{ source: string | null; result: unknown; errors: string[] }>}
+     */
+    async trace(hash) {
+      /** @type {string[]} */
+      const errors = [];
+      for (const [source, method, params] of TRACERS) {
+        try {
+          const result = /** @type {unknown} */ (await rpc.request(method, params(hash)));
+          if (result !== null && result !== undefined) {
+            return { source, result, errors };
+          }
+          errors.push(`${method}: empty answer`);
+        } catch (error) {
+          errors.push(`${method}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      return { source: null, result: null, errors };
+    },
     /** @param {Address} address */
     balance: async (address) => quantity(await rpc.request("eth_getBalance", [address, "latest"]), "eth_getBalance"),
     /** @param {Address} address */
@@ -206,6 +261,8 @@ export function reader(rpc) {
         nonce: Number(quantity(t["nonce"], "nonce")),
         gas: quantity(t["gas"], "gas"),
         chainId: t["chainId"] === undefined || t["chainId"] === null ? fallbackChainId : Number(quantity(t["chainId"], "chainId")),
+        type: t["type"] === undefined || t["type"] === null ? 0 : Number(quantity(t["type"], "type")),
+        authorizationList: authorizations(t["authorizationList"]),
       };
     },
     /** @param {Hex} hash @returns {Promise<ReceiptFacts | null>} */

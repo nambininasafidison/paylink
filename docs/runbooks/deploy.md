@@ -116,6 +116,29 @@ The deploy page ([ADR 0013](../adr/0013-browser-deploy-page.md), [tools/deploy-p
 
 If the page reloads or the phone browser restarts after you signed, open it again on the same network: it offers *Check that transaction* instead of a second deployment. If the CREATE2 address is already occupied (deployed by another route), the page only verifies it; paste the deployment transaction hash to print the record.
 
+#### MetaMask smart account (EIP-7702): relayed deployments
+
+With MetaMask's smart-account mode on, MetaMask may not send the deployment from your address. Its relayer submits an EIP-7702 (type 4) transaction to MetaMask's delegation contract, and your account calls the proxy inside it; the relayer pays that gas. Your account then carries MetaMask's delegation designator (`0xef0100 ‖ delegate`) on that chain; that is MetaMask's choice, not the page's. This is how PayLinkV2 reached Base Sepolia ([ADR 0013, amendment 1](../adr/0013-browser-deploy-page.md)).
+
+**Supported for CREATE2** (the three testnets have the proxy). The page and `tools/verify-deployment` recognise the factory call inside the relayed transaction. A relayed transaction is recorded only if all of these hold:
+
+- it succeeded;
+- its input carries `salt ‖ initCode` contiguously;
+- the address is the CREATE2 prediction;
+- the code was absent at the block before the transaction's and present at its block (historical `eth_getCode`);
+- when the RPC serves a trace, the trace shows the proxy's CREATE2.
+
+The code checks (masked runtime hash, immutables, `eip712Domain()`) are the same as for a direct deployment. The record then names:
+
+- `deployer`: your account, the one that called the proxy. It is taken from the trace, or from the EIP-7702 authorization you signed, when the transaction names your account and your account is delegated at that block; otherwise it is `null`, with the reason printed;
+- `route: "relayed"`;
+- `submitter`: the relayer;
+- `authorization`: your authorization and its recovered signer.
+
+Claude's step 7 is unchanged. The CLI also prints which evidence it obtained, under `evidence from <rpc>`: whether the RPC served historical `eth_getCode`, whether it served a trace, and the authority's code. If the RPC keeps no state at the earlier block (not an archive node), the check accepts on the code present at the transaction's block, or at the latest block, and says that absence before it is not proven.
+
+**Not supported for plain CREATE** (a chain without the proxy). A relayed creation cannot be recorded, so turn smart-account mode off for that deployment and send it from a standard account.
+
 ### Route C: your own computer, with a Foundry keystore
 
 Only on your own machine, **never in the Claude Code sandbox**. Import W-deploy once into an encrypted keystore (`cast wallet import w-deploy --interactive`; the key is typed, never pasted into a file or a shell history), then run the three steps with `--account w-deploy --sender <W-deploy address>` on step 2. Send Claude the resulting `protocol/deployments/<chainId>.json` in a pull request.
@@ -126,6 +149,7 @@ Only on your own machine, **never in the Claude Code sandbox**. Import W-deploy 
 
 - the address in EIP-55 and CAIP-10 form, the chain ID and its CAIP-2 identifier;
 - the method (`CREATE2` or `CREATE`), the deployer, the transaction hash and the block; the factory, salt and salt preimage, or `null` for CREATE;
+- for a relayed deployment only: `route` (`"relayed"`), `submitter` (the relayer that sent the transaction) and `authorization` (the EIP-7702 authorizations with their recovered signers, or `null`). The deployer is then the account that called the proxy, or `null` if the chain does not show it. A record without `route` is a direct deployment, byte-identical to what `Deploy.s.sol record()` writes;
 - the `initCodeHash` and masked runtime hash (equal to `release.json`), plus the hash and size of the runtime code actually on that chain;
 - the compiler settings, the OpenZeppelin and forge-std versions, and the git commit;
 - the ERC-5267 domain as verified on-chain, and explorer links.
@@ -134,7 +158,7 @@ Only on your own machine, **never in the Claude Code sandbox**. Import W-deploy 
 
 ## 5. After every deployment
 
-- [ ] `node tools/verify-deployment/verify-deployment.mjs --chain <chainId> --address <address> --tx <txHash> --check` exits 0 (every reachable registry RPC agrees with the committed record).
+- [ ] `node tools/verify-deployment/verify-deployment.mjs --chain <chainId> --address <address> --tx <txHash> --check` exits 0 (every reachable registry RPC agrees with the committed record). For a relayed record, read the `evidence` lines: historical `eth_getCode` served or not, trace served or not.
 - [ ] `deployments-check.yml` is green: the `initCodeHash`, the masked runtime code, the seven EIP-712 immutables and the ERC-5267 domain all match ([ARCHITECTURE §6](../ARCHITECTURE.md#6-deployments-and-code-integrity)).
 - [ ] The source is verified on the explorer: `testnet.monadvision.com` for Monad, `base-sepolia.blockscout.com` or `sepolia.basescan.org` for Base.
 - [ ] `/status/` shows the deployment green.

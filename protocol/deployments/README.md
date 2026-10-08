@@ -55,7 +55,8 @@ The scripts refuse any build that is not the release build (`NotReleaseBuild`): 
 | `address`, `caip10` | EIP-55 address and its CAIP-10 form |
 | `deployment.method` | `CREATE2` or `CREATE` |
 | `deployment.deployer`, `deployment.txHash`, `deployment.blockNumber` | From Foundry's broadcast receipt (`broadcast/Deploy.s.sol/<chainId>/run-latest.json`) |
-| `deployment.factory`, `deployment.salt`, `deployment.saltPreimage` | CREATE2 parameters; `null` for CREATE, so every record has the same keys |
+| `deployment.factory`, `deployment.salt`, `deployment.saltPreimage` | CREATE2 parameters; `null` for CREATE, so every direct record has the same keys |
+| `deployment.route`, `deployment.submitter`, `deployment.authorization` | **Relayed deployments only**, appended after the keys above: `route` is `"relayed"`, `submitter` the relayer that sent the transaction, `authorization` the EIP-7702 authorizations `{chainId, address, nonce, authority}` (signer recovered, `null` when the protocol skips the tuple), or `null` for a transaction without any. A relayed deployment is a CREATE2 through the factory reached inside another contract's call, for example a MetaMask smart account. Its `deployer` is the account that called the factory (from a trace, or the EIP-7702 authority the transaction names and that is delegated at its block), or `null` when the chain does not show it. A record without `route` is direct |
 | `bytecode.initCodeHash`, `bytecode.maskedRuntimeHash` | Equal to `release.json` |
 | `bytecode.runtimeCodeHash`, `bytecode.runtimeCodeSize` | keccak256 and size of the code actually on that chain (differs per chain) |
 | `bytecode.masking`, `bytecode.immutableReferences` | As in `release.json` |
@@ -69,6 +70,8 @@ The scripts refuse any build that is not the release build (`NotReleaseBuild`): 
 ## Three writers, one format
 
 `Deploy.s.sol record()` (Foundry), the browser deploy page [`web/v2/deploy/`](../../web/v2/deploy/) and [`tools/verify-deployment`](../../tools/verify-deployment/README.md) write this file. The last two share `web/v2/deploy/lib/core.js`, a port of `PayLinkRelease._deploymentJson` and `Json.sol`; `tools/deploy-page/test/core.test.ts` re-renders records written by forge (`tools/deploy-page/test/fixtures/forge-records.json`) byte for byte, and `e2e/specs/record-parity.spec.ts` deploys with forge on anvil and requires the page and the CLI to print the same bytes.
+
+Relayed records (`deployment.route = "relayed"`) come only from the page and the CLI: forge broadcasts directly. They need on-chain evidence beyond the receipt: no code at the address in the block before the transaction and code in its block, and, when the RPC serves one, a trace that shows the factory's CREATE2. The rule is in [ADR 0013, amendment 1](../../docs/adr/0013-browser-deploy-page.md). `core.test.ts` also re-renders every shipped `<chainId>.json` byte for byte from its facts, relayed ones included.
 
 ## Commands
 

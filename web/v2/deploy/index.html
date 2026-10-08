@@ -66,6 +66,7 @@
           <li><b>Gas on the chain you pick.</b> About 0.31&nbsp;MON on Monad testnet, where the whole gas limit is charged; a fraction of a cent of Sepolia ETH on Base or Arbitrum.</li>
           <li><b>Same address everywhere.</b> Where the deterministic-deployment proxy exists, the contract lands at its CREATE2 address on every chain. If it already exists there, the page only verifies it.</li>
           <li><b>One deployment per chain.</b> The contract has no owner and no admin: whoever sends the transaction only pays its gas.</li>
+          <li><b>Smart accounts are supported.</b> MetaMask’s smart-account mode (EIP-7702) may relay the deployment: a relayer submits a transaction through which your account calls the proxy. The page recognises that route, proves the proxy call, the address and the block it was created in, and prints the record with your account as deployer. A chain without the proxy (plain CREATE) needs a standard account.</li>
         </ul>
       </aside>
     </div>

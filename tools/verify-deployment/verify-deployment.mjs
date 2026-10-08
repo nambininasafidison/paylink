@@ -30,7 +30,9 @@ Re-verifies a PayLinkV2 deployment through the registry's RPC endpoints (code, m
 EIP-712 immutables, eip712Domain(), and with --tx the deployment transaction), then writes its record.
 
 Options:
-  --tx <hash>        deployment transaction; required to write the record (deployer, tx hash and block come from it)
+  --tx <hash>        deployment transaction; required to write the record (deployer, tx hash and block come from it).
+                     Direct (to the factory, or a creation) or relayed (a smart account's call that reaches the factory,
+                     e.g. MetaMask EIP-7702): a relayed one also needs the code absent at its block - 1 and present at it
   --out <path>       where to write (default protocol/deployments/<chainId>.json); "-" prints to stdout
   --compare <file>   also require the record to equal this file byte for byte (for example the page's download)
   --commit <sha>     source.commit of the record (default: the release data's sourceCommit, as the deploy page)
@@ -107,6 +109,37 @@ function options(argv) {
 const readJson = (path) => /** @type {unknown} */ (JSON.parse(readFileSync(path, "utf8")));
 
 /**
+ * What a relayed verification read, in plain JSON (block numbers as strings, the trace reduced to its source).
+ * @param {import("../../web/v2/deploy/lib/verify.js").Verification} v
+ */
+function evidenceOf(v) {
+  const e = v.evidence;
+  if (e === null) {
+    return null;
+  }
+  /** @param {import("../../web/v2/deploy/lib/core.js").CodeReading} r */
+  const reading = (r) => ({ block: String(r.block), code: r.code === null ? null : r.code === "0x" ? "empty" : `${String((r.code.length - 2) / 2)} bytes`, error: r.error });
+  return {
+    codeBefore: reading(e.before),
+    codeAfter: reading(e.after),
+    trace: { source: e.trace.source, confirmed: e.trace.source === null ? null : v.checks.find((c) => c.id === "tx-trace")?.ok === true, errors: e.trace.errors },
+    authorities: Object.fromEntries(Object.entries(e.authorities).map(([a, r]) => [a, reading(r)])),
+  };
+}
+
+/** One line per fact of a relayed verification's evidence. @param {NonNullable<ReturnType<typeof evidenceOf>>} e */
+function evidenceLines(e) {
+  /** @param {{ block: string; code: string | null; error: string | null }} r */
+  const said = (r) => (r.code === null ? `not served (${r.error ?? "no answer"})` : `${r.code}${r.block === "latest" && r.error !== null ? ` (block not served: ${r.error})` : ""}`);
+  return [
+    `historical eth_getCode at block ${e.codeBefore.block}: ${said(e.codeBefore)}`,
+    `eth_getCode at ${e.codeAfter.block === "latest" ? "the latest block" : `block ${e.codeAfter.block}`}: ${said(e.codeAfter)}`,
+    e.trace.source !== null ? `trace: ${e.trace.source}, ${e.trace.confirmed === true ? "confirms" : "does NOT show"} the factory's CREATE2` : `trace: not served (${e.trace.errors.join("; ")})`,
+    ...Object.entries(e.authorities).map(([a, r]) => `authority ${a} at ${r.block === "latest" ? "the latest block" : `block ${r.block}`}: ${said(r)}`),
+  ];
+}
+
+/**
  * @param {string[]} argv
  * @param {{ stdout: (s: string) => void; stderr: (s: string) => void }} io
  * @returns {Promise<number>}
@@ -168,6 +201,18 @@ export async function main(argv, io) {
   if (first !== null) {
     for (const c of first.checks) {
       log(`  [${c.ok ? "ok" : "FAIL"}] ${c.label}: ${c.detail}`);
+    }
+    if (first.route !== null) {
+      log(`  route: ${first.route}, method ${first.method ?? "?"}, deployer ${first.deployer ?? "null"}${first.route === "relayed" ? `, submitted by ${first.submitter ?? "?"}` : ""}`);
+    }
+  }
+  for (const run of answered) {
+    const evidence = run.result === null ? null : evidenceOf(run.result);
+    if (evidence !== null) {
+      log(`  evidence from ${new URL(run.url).host}:`);
+      for (const line of evidenceLines(evidence)) {
+        log(`    ${line}`);
+      }
     }
   }
 
@@ -235,7 +280,11 @@ export async function main(argv, io) {
           chainId: chain.chainId,
           address: o.address,
           ok: status === 0 && ok,
-          endpoints: runs.map((r) => ({ url: r.url, ok: r.result?.ok ?? null, error: r.error })),
+          endpoints: runs.map((r) => ({ url: r.url, ok: r.result?.ok ?? null, error: r.error, evidence: r.result === null ? null : evidenceOf(r.result) })),
+          route: first?.route ?? null,
+          method: first?.method ?? null,
+          deployer: first?.deployer ?? null,
+          submitter: first?.submitter ?? null,
           checks: first?.checks ?? [],
           action,
         },

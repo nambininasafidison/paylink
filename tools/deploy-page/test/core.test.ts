@@ -7,16 +7,21 @@
 import { readFileSync } from "node:fs";
 import { deployGasFor, RELEASE, registry } from "@paylink/chains";
 import { clampGasLimit as sdkClamp, expectedImmutables as sdkImmutables, maskedRuntimeHash as sdkMasked } from "@paylink/sdk";
-import { concat, getCreate2Address, getCreateAddress, keccak256 } from "viem";
+import { readdirSync } from "node:fs";
+import { concat, getCreate2Address, getCreateAddress, keccak256, padHex } from "viem";
 import type { Address, Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import {
   allPassed,
+  authorityCandidates,
+  byteOffset,
   chainOrThrow,
   clampGasLimit,
+  create2InTrace,
   DeployError,
   deploymentCost,
   deploymentRecordJson,
+  deploymentRoute,
   expectedImmutables,
   explorerLinks,
   maskRuntime,
@@ -26,7 +31,7 @@ import {
   verifyCode,
   verifyDeploymentTx,
 } from "../../../web/v2/deploy/lib/core.js";
-import type { ChainConfig, ReleaseData, TxFacts } from "../../../web/v2/deploy/lib/core.js";
+import type { ChainConfig, RelayEvidence, ReleaseData, TxFacts } from "../../../web/v2/deploy/lib/core.js";
 
 const repo = (path: string): string => new URL(`../../../${path}`, import.meta.url).pathname;
 const readJson = (path: string): unknown => JSON.parse(readFileSync(repo(path), "utf8"));
@@ -207,26 +212,37 @@ describe("code verification (PayLinkRelease._verifyDeployed)", () => {
   });
 });
 
-describe("deployment transaction (Deploy.s.sol _fromBroadcast)", () => {
-  const create2: TxFacts = { hash: `0x${"11".repeat(32)}`, from: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", to: data.release.create2.factory, input: concat([data.release.create2.salt, data.initCode]), nonce: 0, gas: 3_000_000n, chainId: 84532 };
-  const receipt = { success: true, blockNumber: 5n, contractAddress: null, gasUsed: 2_678_851n };
-  const ids = (r: { checks: { id: string; ok: boolean }[] }): Record<string, boolean> => Object.fromEntries(r.checks.map((c) => [c.id, c.ok]));
+const CREATE2_ADDRESS = RELEASE.create2.address;
+const FACTORY = data.release.create2.factory;
+const PAYLOAD = concat([data.release.create2.salt, data.initCode]);
+const ids = (r: { checks: { id: string; ok: boolean }[] }): Record<string, boolean> => Object.fromEntries(r.checks.map((c) => [c.id, c.ok]));
 
-  it("accepts the factory call that lands on the CREATE2 address", () => {
-    const r = verifyDeploymentTx({ data, chainId: 84532, address: RELEASE.create2.address, tx: create2, receipt });
-    expect(r.method).toBe("CREATE2");
+describe("deployment transaction, direct route (Deploy.s.sol _fromBroadcast)", () => {
+  const create2: TxFacts = { hash: `0x${"11".repeat(32)}`, from: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", to: FACTORY, input: PAYLOAD, nonce: 0, gas: 3_000_000n, chainId: 84532, type: 2, authorizationList: null };
+  const receipt = { success: true, blockNumber: 5n, contractAddress: null, gasUsed: 2_678_851n };
+
+  it("accepts the factory call that lands on the CREATE2 address, with the sender as deployer", () => {
+    const r = verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: create2, receipt });
+    expect(r).toMatchObject({ method: "CREATE2", route: "direct", deployer: create2.from, submitter: create2.from, authorization: null });
+    expect(r.checks.map((c) => c.id)).toEqual(["tx-chain", "tx-status", "tx-input", "tx-address"]);
     expect(allPassed(r.checks)).toBe(true);
+    expect(deploymentRoute(data, create2)).toBe("direct");
   });
 
-  it("rejects another chain, a failed receipt, other calldata, another target and a missing transaction", () => {
-    expect(ids(verifyDeploymentTx({ data, chainId: 10143, address: RELEASE.create2.address, tx: create2, receipt }))["tx-chain"]).toBe(false);
-    expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: RELEASE.create2.address, tx: create2, receipt: { ...receipt, success: false } }))["tx-status"]).toBe(false);
-    expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: RELEASE.create2.address, tx: { ...create2, input: `${create2.input}00` }, receipt }))["tx-input"]).toBe(false);
+  it("rejects another chain, a failed receipt, other calldata or init code, another target and a missing transaction", () => {
+    expect(ids(verifyDeploymentTx({ data, chainId: 10143, address: CREATE2_ADDRESS, tx: create2, receipt }))["tx-chain"]).toBe(false);
+    expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: create2, receipt: { ...receipt, success: false } }))["tx-status"]).toBe(false);
+    expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: { ...create2, input: `${create2.input}00` }, receipt }))["tx-input"]).toBe(false);
+    // The direct route stays exact: the payload inside a longer factory call is not accepted as "contained".
+    expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: { ...create2, input: concat(["0x00", PAYLOAD]) }, receipt }))["tx-input"]).toBe(false);
+    const wrongInit = concat([data.release.create2.salt, `${data.initCode.slice(0, -2)}${data.initCode.endsWith("00") ? "01" : "00"}` as Hex]);
+    expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: { ...create2, input: wrongInit }, receipt }))["tx-input"]).toBe(false);
     expect(ids(verifyDeploymentTx({ data, chainId: 84532, address: "0x5FbDB2315678afecb367f032d93F642f64180aa3", tx: create2, receipt }))["tx-address"]).toBe(false);
-    const call = verifyDeploymentTx({ data, chainId: 84532, address: RELEASE.create2.address, tx: { ...create2, to: "0x5FbDB2315678afecb367f032d93F642f64180aa3" }, receipt });
-    expect(call.method).toBeNull();
+    const call = verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: { ...create2, to: "0x5FbDB2315678afecb367f032d93F642f64180aa3", input: "0x12345678" }, receipt });
+    expect(call).toMatchObject({ method: null, route: null, deployer: null });
+    expect(call.checks.at(-1)).toMatchObject({ id: "tx-input", label: "Deployment transaction", ok: false });
     expect(allPassed(call.checks)).toBe(false);
-    expect(verifyDeploymentTx({ data, chainId: 84532, address: RELEASE.create2.address, tx: null, receipt: null }).checks).toEqual([
+    expect(verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: null, receipt: null }).checks).toEqual([
       { id: "tx", label: "Deployment transaction", ok: false, detail: "transaction not found" },
     ]);
   });
@@ -235,9 +251,210 @@ describe("deployment transaction (Deploy.s.sol _fromBroadcast)", () => {
     const from = create2.from;
     const address = getCreateAddress({ from, nonce: 3n });
     const tx = { ...create2, to: null, input: data.initCode, nonce: 3 };
-    expect(allPassed(verifyDeploymentTx({ data, chainId: 84532, address, tx, receipt: { ...receipt, contractAddress: address } }).checks)).toBe(true);
+    const r = verifyDeploymentTx({ data, chainId: 84532, address, tx, receipt: { ...receipt, contractAddress: address } });
+    expect(r).toMatchObject({ method: "CREATE", route: "direct", deployer: from });
+    expect(allPassed(r.checks)).toBe(true);
+    expect(deploymentRoute(data, tx)).toBe("direct");
     expect(ids(verifyDeploymentTx({ data, chainId: 84532, address, tx: { ...tx, nonce: 4 }, receipt: { ...receipt, contractAddress: address } }))["tx-address"]).toBe(false);
     expect(ids(verifyDeploymentTx({ data, chainId: 84532, address, tx: { ...tx, input: `${data.initCode}00` }, receipt: { ...receipt, contractAddress: address } }))["tx-input"]).toBe(false);
+  });
+});
+
+describe("deployment transaction, relayed route (smart account, EIP-7702)", () => {
+  // The shape of tx 0x2969…b5ed on Base Sepolia: MetaMask's relayer sends a type-4 transaction to the delegation manager,
+  // carrying the user's authorization (delegate 0x63c0…) and, inside its input, the user's account as an ABI word and
+  // the factory call packed as target ‖ value ‖ salt ‖ initCode.
+  const USER: Address = "0x0c397c6c8F94EAA6662eE548fA140e6DfEd4aea6";
+  const RELAYER: Address = "0xC066ac5D385419B1A8c43A0E146fA439837a8B8c";
+  const MANAGER: Address = "0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3";
+  const DELEGATE: Address = "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B";
+  const AUTHORIZATION = {
+    chainId: 84532n,
+    address: DELEGATE,
+    nonce: 0n,
+    yParity: 0,
+    r: 0x3fca8aff26ea0f1251afc940e234c777342b93fcfb4a5d51c728bfea7715b09n,
+    s: 0x228ddefc70eddfdf68e5d2b444012c605ee2c52ed14e0ea712f0659c9a4fbbc7n,
+  };
+  const BLOCK = 47_859_253n;
+  const input = concat(["0xcef6d209", padHex(USER, { size: 32 }), FACTORY, padHex("0x00", { size: 32 }), PAYLOAD, padHex("0x00", { size: 23 })]);
+  const relayed: TxFacts = { hash: "0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed", from: RELAYER, to: MANAGER, input, nonce: 123_173, gas: 3_623_648n, chainId: 84532, type: 4, authorizationList: [AUTHORIZATION] };
+  const receipt = { success: true, blockNumber: BLOCK, contractAddress: null, gasUsed: 3_260_830n };
+  const designator = `0xef0100${DELEGATE.slice(2).toLowerCase()}` as Hex;
+  const evidence: RelayEvidence = {
+    before: { block: BLOCK - 1n, code: "0x", error: null },
+    after: { block: BLOCK, code: "0x6080604052", error: null },
+    trace: { source: null, result: null, errors: ["debug_traceTransaction: rejected due to request filter settings"] },
+    authorities: { [USER]: { block: BLOCK, code: designator, error: null } },
+  };
+  const check = (tx: TxFacts, relay: RelayEvidence | null, rcpt = receipt, address: Address = CREATE2_ADDRESS) => verifyDeploymentTx({ data, chainId: 84532, address, tx, receipt: rcpt, relay });
+  const failed = (r: { checks: { id: string; ok: boolean }[] }): string[] => r.checks.filter((c) => !c.ok).map((c) => c.id);
+
+  /** geth callTracer: relayer → manager → user (delegated) → factory → CREATE2. */
+  const callTrace = ({ userError, createTo = CREATE2_ADDRESS, factoryInput = PAYLOAD }: { userError?: string; createTo?: Address; factoryInput?: Hex } = {}): unknown => ({
+    type: "CALL",
+    from: RELAYER.toLowerCase(),
+    to: MANAGER.toLowerCase(),
+    input,
+    calls: [
+      {
+        type: "CALL",
+        from: MANAGER.toLowerCase(),
+        to: USER.toLowerCase(),
+        input: "0x",
+        ...(userError === undefined ? {} : { error: userError }),
+        calls: [
+          {
+            type: "CALL",
+            from: USER.toLowerCase(),
+            to: FACTORY.toLowerCase(),
+            input: factoryInput,
+            calls: [{ type: "CREATE2", from: FACTORY.toLowerCase(), to: createTo.toLowerCase(), input: data.initCode }],
+          },
+        ],
+      },
+    ],
+  });
+  /** parity/erigon trace_transaction of the same transaction. */
+  const parityTrace = (userError?: string): unknown[] => [
+    { type: "call", traceAddress: [], action: { callType: "call", from: RELAYER, to: MANAGER, input } },
+    { type: "call", traceAddress: [0], action: { callType: "call", from: MANAGER, to: USER, input: "0x" }, ...(userError === undefined ? {} : { error: userError }) },
+    { type: "call", traceAddress: [0, 0], action: { callType: "call", from: USER, to: FACTORY, input: PAYLOAD } },
+    { type: "create", traceAddress: [0, 0, 0], action: { from: FACTORY, init: data.initCode, creationMethod: "create2" }, result: { address: CREATE2_ADDRESS } },
+  ];
+
+  it("finds the payload byte-aligned inside the input, and the authority it names", () => {
+    expect(deploymentRoute(data, relayed)).toBe("relayed");
+    expect(byteOffset(input, PAYLOAD)).toBe(4 + 32 + 20 + 32);
+    expect(byteOffset("0x0abc", "0xbc")).toBe(1);
+    expect(byteOffset("0xabcd", "0xbc")).toBe(-1);
+    expect(authorityCandidates(relayed, 84532)).toEqual([USER]);
+    expect(authorityCandidates({ ...relayed, input: concat(["0xcef6d209", PAYLOAD]) }, 84532)).toEqual([]);
+    expect(authorityCandidates({ ...relayed, to: USER, input: PAYLOAD }, 84532)).toEqual([USER]);
+  });
+
+  it("accepts the factory call reached inside a relayed transaction, with the user's account as deployer", () => {
+    const r = check(relayed, evidence);
+    expect(failed(r)).toEqual([]);
+    expect(r).toMatchObject({ method: "CREATE2", route: "relayed", deployer: USER, submitter: RELAYER });
+    expect(r.authorization).toEqual([{ chainId: 84532n, address: DELEGATE, nonce: 0n, authority: USER }]);
+    expect(r.checks.map((c) => c.id)).toEqual(["tx-chain", "tx-status", "tx-route", "tx-input", "tx-address", "tx-created", "tx-deployer"]);
+    expect(r.checks.find((c) => c.id === "tx-created")?.detail).toBe(`no code at block ${String(BLOCK - 1n)}, code at block ${String(BLOCK)} (historical eth_getCode)`);
+    expect(r.checks.find((c) => c.id === "tx-deployer")?.detail).toContain(`${USER}: signed this transaction's EIP-7702 authorization`);
+  });
+
+  it("rejects a relayed transaction whose input does not carry the factory call", () => {
+    for (const other of [concat(["0xcef6d209", padHex(USER, { size: 32 })]), concat([FACTORY, data.release.create2.salt]), PAYLOAD.slice(0, -2) as Hex]) {
+      const r = check({ ...relayed, input: other }, evidence);
+      expect(r).toMatchObject({ method: null, route: null, deployer: null });
+      expect(failed(r)).toEqual(["tx-input"]);
+    }
+    // The payload must start on a byte boundary: shifted by one nibble it is not the factory call.
+    const shifted = `0x0${PAYLOAD.slice(2)}0` as Hex;
+    expect(deploymentRoute(data, { ...relayed, input: shifted })).toBeNull();
+  });
+
+  it("rejects wrong init code or another salt inside the relayed call", () => {
+    const flipped = `${data.initCode.slice(0, -2)}${data.initCode.endsWith("00") ? "01" : "00"}` as Hex;
+    const wrongInit = concat(["0xcef6d209", padHex(USER, { size: 32 }), FACTORY, padHex("0x00", { size: 32 }), data.release.create2.salt, flipped]);
+    const otherSalt = concat(["0xcef6d209", padHex(USER, { size: 32 }), FACTORY, padHex("0x00", { size: 32 }), keccak256("0x01"), data.initCode]);
+    for (const bad of [wrongInit, otherSalt]) {
+      const r = check({ ...relayed, input: bad }, evidence);
+      expect(r.method).toBeNull();
+      expect(failed(r)).toEqual(["tx-input"]);
+    }
+  });
+
+  it("rejects a relayed transaction when the code was already there before its block", () => {
+    const r = check(relayed, { ...evidence, before: { block: BLOCK - 1n, code: "0x6080604052", error: null } });
+    expect(failed(r)).toEqual(["tx-created"]);
+    expect(r.checks.find((c) => c.id === "tx-created")?.detail).toContain("this transaction did not create it");
+  });
+
+  it("rejects a relayed transaction that left no code at its block (a swallowed inner revert), or failed", () => {
+    expect(failed(check(relayed, { ...evidence, after: { block: BLOCK, code: "0x", error: null } }))).toEqual(["tx-created"]);
+    expect(failed(check(relayed, evidence, { ...receipt, success: false }))).toEqual(["tx-status"]);
+    expect(failed(check({ ...relayed, chainId: 10143 }, evidence))).toEqual(["tx-chain"]);
+    expect(failed(check(relayed, evidence, receipt, "0x5FbDB2315678afecb367f032d93F642f64180aa3"))).toEqual(["tx-address"]);
+  });
+
+  it("refuses the relayed route without state evidence, or with evidence for other blocks", () => {
+    expect(failed(check(relayed, null))).toEqual(["tx-created"]);
+    expect(failed(check(relayed, { ...evidence, before: { block: BLOCK - 2n, code: "0x", error: null } }))).toEqual(["tx-created"]);
+    expect(failed(check(relayed, { ...evidence, after: { block: BLOCK + 1n, code: "0x6080", error: null } }))).toEqual(["tx-created"]);
+  });
+
+  it("without archive state, accepts on the evidence the RPC still serves and says so", () => {
+    const r = check(relayed, {
+      ...evidence,
+      before: { block: BLOCK - 1n, code: null, error: "missing trie node" },
+      after: { block: "latest", code: "0x6080604052", error: "missing trie node" },
+      authorities: { [USER]: { block: "latest", code: designator, error: "missing trie node" } },
+    });
+    expect(failed(r)).toEqual([]);
+    expect(r.deployer).toBe(USER);
+    expect(r.checks.find((c) => c.id === "tx-created")?.detail).toBe(`code at the latest block; absence at block ${String(BLOCK - 1n)} not proven, the RPC serves no state there (missing trie node)`);
+  });
+
+  it("confirms the CREATE2 with a trace (callTracer or trace_transaction) and takes the deployer from it", () => {
+    for (const result of [callTrace(), parityTrace()]) {
+      const r = check({ ...relayed, type: 2, authorizationList: null }, { ...evidence, authorities: {}, trace: { source: "debug_traceTransaction (callTracer)", result, errors: [] } });
+      expect(failed(r)).toEqual([]);
+      expect(r.checks.map((c) => c.id)).toContain("tx-trace");
+      expect(r.deployer).toBe(USER);
+      expect(create2InTrace(result, { factory: FACTORY, address: CREATE2_ADDRESS, initCode: data.initCode, payload: PAYLOAD })).toEqual({ caller: USER });
+    }
+  });
+
+  it("rejects a trace that does not show a standing CREATE2 of the release by the factory", () => {
+    const expected = { factory: FACTORY, address: CREATE2_ADDRESS, initCode: data.initCode, payload: PAYLOAD };
+    for (const result of [callTrace({ userError: "execution reverted" }), callTrace({ createTo: "0x5FbDB2315678afecb367f032d93F642f64180aa3" }), callTrace({ factoryInput: data.initCode }), parityTrace("Reverted"), [], {}]) {
+      expect(create2InTrace(result, expected)).toBeNull();
+      const r = check(relayed, { ...evidence, trace: { source: "trace", result, errors: [] } });
+      expect(failed(r)).toEqual(["tx-trace"]);
+    }
+  });
+
+  it("records a null deployer, and says why, when no authority qualifies and no trace is served", () => {
+    const why = (r: { checks: { id: string; detail: string }[] }): string => r.checks.find((c) => c.id === "tx-deployer")?.detail ?? "";
+    // A relayed call without an authorization list (an ERC-4337 account, or an account delegated earlier).
+    const plain = check({ ...relayed, type: 2, authorizationList: null }, { ...evidence, authorities: {} });
+    expect(failed(plain)).toEqual([]);
+    expect(plain).toMatchObject({ deployer: null, authorization: null, route: "relayed" });
+    expect(why(plain)).toContain("no EIP-7702 authorization");
+    // The authority is not delegated to the authorization's address at the block.
+    const elsewhere = check(relayed, { ...evidence, authorities: { [USER]: { block: BLOCK, code: "0x", error: null } } });
+    expect(elsewhere.deployer).toBeNull();
+    expect(why(elsewhere)).toContain("recorded as null");
+    // The authority is not named by the transaction.
+    const unnamed = check({ ...relayed, input: concat(["0xcef6d209", PAYLOAD]) }, evidence);
+    expect(unnamed.deployer).toBeNull();
+    // An authorization for another chain has no authority.
+    const foreign = check({ ...relayed, authorizationList: [{ ...AUTHORIZATION, chainId: 10143n }] }, evidence);
+    expect(foreign.deployer).toBeNull();
+    expect(foreign.authorization).toEqual([{ chainId: 10143n, address: DELEGATE, nonce: 0n, authority: null }]);
+  });
+
+  it("writes route, submitter and authorization after the forge keys of a relayed record", () => {
+    const facts = { address: CREATE2_ADDRESS, method: "CREATE2" as const, txHash: relayed.hash, blockNumber: BLOCK, runtimeCode: "0x6080604052" as Hex, commit: data.sourceCommit };
+    const json = deploymentRecordJson(data, chain(84532), { ...facts, deployer: USER, relayed: { submitter: RELAYER, authorization: [{ chainId: 84532n, address: DELEGATE, nonce: 0n, authority: USER }] } });
+    expect(json).toContain(
+      [
+        `    "saltPreimage": "paylink.v2.0.0",`,
+        `    "route": "relayed",`,
+        `    "submitter": "${RELAYER}",`,
+        `    "authorization": [`,
+        `      {"chainId": 84532, "address": "${DELEGATE}", "nonce": 0, "authority": "${USER}"}`,
+        `    ]`,
+        `  },`,
+      ].join("\n"),
+    );
+    expect(JSON.parse(json)).toMatchObject({ deployment: { method: "CREATE2", deployer: USER, route: "relayed", submitter: RELAYER } });
+    const unknown = deploymentRecordJson(data, chain(84532), { ...facts, deployer: null, relayed: { submitter: RELAYER, authorization: null } });
+    expect(unknown).toContain(`    "deployer": null,\n`);
+    expect(unknown).toContain(`    "authorization": null\n  },`);
+    refuses(() => deploymentRecordJson(data, chain(84532), { ...facts, deployer: null }), "E_ARGUMENT");
+    refuses(() => deploymentRecordJson(data, chain(84532), { ...facts, method: "CREATE", deployer: USER, relayed: { submitter: RELAYER, authorization: null } }), "E_ARGUMENT");
   });
 });
 
@@ -274,6 +491,58 @@ describe("deployment record (PayLinkRelease._deploymentJson)", () => {
         }),
       "E_ARGUMENT",
     );
+  });
+
+  /** PayLinkV2's runtime at `address` on `chainId`: the 31337 fixture with its seven immutables rebound. */
+  function runtimeFor(chainId: number, address: Address): Hex {
+    const from = expectedImmutables(runtimeFixture.chainId, runtimeFixture.address);
+    const to = expectedImmutables(chainId, address);
+    let code = runtimeFixture.runtimeCode.toLowerCase();
+    for (const ref of data.release.bytecode.immutableReferences) {
+      const at = 2 + ref.start * 2;
+      const index = from.indexOf(`0x${code.slice(at, at + 64)}`);
+      expect(index).toBeGreaterThanOrEqual(0);
+      code = `${code.slice(0, at)}${(to[index] ?? "").slice(2)}${code.slice(at + 64)}`;
+    }
+    return code as Hex;
+  }
+
+  const shipped = readdirSync(repo("protocol/deployments")).filter((name) => /^[1-9][0-9]*\.json$/.test(name));
+  it.each(shipped)("re-renders the shipped record protocol/deployments/%s byte for byte from its facts", (name) => {
+    const text = readFileSync(repo(`protocol/deployments/${name}`), "utf8");
+    const r = JSON.parse(text) as {
+      chainId: number;
+      address: Address;
+      source: { commit: string };
+      bytecode: { runtimeCodeHash: Hex };
+      deployment: {
+        method: "CREATE2" | "CREATE";
+        deployer: Address | null;
+        txHash: Hex;
+        blockNumber: number;
+        route?: "relayed";
+        submitter?: Address;
+        authorization?: { chainId: number; address: Address; nonce: number; authority: Address | null }[] | null;
+      };
+    };
+    const runtimeCode = runtimeFor(r.chainId, r.address);
+    expect(keccak256(runtimeCode)).toBe(r.bytecode.runtimeCodeHash);
+    const d = r.deployment;
+    const relayed =
+      d.route === "relayed" && d.submitter !== undefined
+        ? { submitter: d.submitter, authorization: d.authorization?.map((e) => ({ chainId: BigInt(e.chainId), address: e.address, nonce: BigInt(e.nonce), authority: e.authority })) ?? null }
+        : undefined;
+    const json = deploymentRecordJson(data, chain(r.chainId), {
+      address: r.address,
+      method: d.method,
+      deployer: d.deployer,
+      txHash: d.txHash,
+      blockNumber: BigInt(d.blockNumber),
+      runtimeCode,
+      commit: r.source.commit,
+      ...(relayed === undefined ? {} : { relayed }),
+    });
+    expect(json).toBe(text);
   });
 
   it("builds explorer links in the EIP-3091 layout", () => {

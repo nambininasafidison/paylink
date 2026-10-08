@@ -663,6 +663,11 @@ function renderLamps(chain, review) {
   }
   if (plan.kind === "deploy") {
     lamps.push(
+      plan.method === "CREATE2"
+        ? ["Smart account", "ok", "MetaMask smart-account (EIP-7702) mode may relay this call through its delegation contract: supported, the record names your account"]
+        : ["Smart account", "off", "Plain CREATE must come from a standard account: a relayed creation cannot be recorded"],
+    );
+    lamps.push(
       review.gasLimit === null || review.gasLimit === undefined
         ? ["Gas limit", "err", review.gasError ?? "No estimate"]
         : ["Gas limit", "ok", `${fmt.gas(review.gasLimit)}, inside the measured bounds`],
@@ -852,8 +857,8 @@ async function verify(chain, address, txHash, deployed) {
     say(
       $.status,
       deployed
-        ? `PayLinkV2 deployed and verified on ${chain.name}${state.settledMs === null ? "" : `, included in ${seconds(state.settledMs)}`}.`
-        : `The contract at ${short(address)} is the PayLinkV2 release.${result.record === null ? " Add its transaction hash to print the record." : ""}`,
+        ? `PayLinkV2 deployed and verified on ${chain.name}${state.settledMs === null ? "" : `, included in ${seconds(state.settledMs)}`}${result.route === "relayed" ? `, relayed by ${short(result.submitter ?? address)} through your smart account` : ""}.`
+        : `The contract at ${short(address)} is the PayLinkV2 release${result.route === "relayed" ? ", deployed through a relayed (smart-account) transaction" : ""}.${result.record === null ? " Add its transaction hash to print the record." : ""}`,
       "ok",
     );
   } else {
@@ -928,7 +933,8 @@ function renderSlip(chain, v) {
   const receipt = state.receipt ?? v.receipt;
   // What the deployment cost: the gas the chain charges (the whole limit on Monad) at the price the receipt reports.
   const charged = v.tx === null || receipt === null ? null : chain.gasModel.chargesGasLimit ? v.tx.gas : receipt.gasUsed;
-  const fee = state.receipt?.effectiveGasPrice === undefined || charged === null ? null : charged * state.receipt.effectiveGasPrice;
+  // A relayed deployment's gas was paid by the relayer, not by this account: no fee on the slip.
+  const fee = v.route === "relayed" || state.receipt?.effectiveGasPrice === undefined || charged === null ? null : charged * state.receipt.effectiveGasPrice;
   /** @param {string} label @param {Node | string} value */
   const line = (label, value) => h("div", {}, h("dt", { text: label }), h("dd", {}, value));
   /** @param {{ name: string; href: string }[]} links */
@@ -950,10 +956,11 @@ function renderSlip(chain, v) {
         {},
         line("Contract", grouped(address)),
         line("Network", `${chain.name} · ${String(chain.chainId)}`),
-        v.method === null ? null : line("Method", v.method),
+        v.method === null ? null : line("Method", v.route === "relayed" ? `${v.method}, relayed` : v.method),
         v.tx === null ? null : line("Tx", h("span", {}, short(v.tx.hash), " ", links(explorerLinks(chain, "tx", v.tx.hash)))),
         receipt === null ? null : line("Block", receipt.blockNumber.toString()),
-        v.tx === null ? null : line("Deployer", grouped(v.tx.from)),
+        v.tx === null ? null : line("Deployer", v.deployer === null ? "not shown by the chain" : grouped(v.deployer)),
+        v.route === "relayed" && v.submitter !== null ? line("Relayer", grouped(v.submitter)) : null,
         line("Explorer", links(explorerLinks(chain, "address", address))),
       ),
       h("div", { class: "receipt-foot", text: "Ownerless · immutable · fee-less" }),
