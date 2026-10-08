@@ -196,14 +196,17 @@ contract ScriptsTest is Test {
     // ================================================================== code verification
 
     /// @notice Runtime code differs per chain only inside the immutable ranges; the masked hash is identical.
+    /// @dev Real chain ids, so the EIP-712 immutables are those of the networks; `RedeployingDeploy` deploys even where
+    ///      `deployments/<chainId>.json` records the real deployment (10143 since 2026-10-08), which this local chain
+    ///      does not hold.
     function test_MaskedRuntimeHashIsChainIndependent() public releaseBuildOnly {
         uint256 snap = vm.snapshotState();
         vm.chainId(10_143);
-        address a = new Deploy().run();
+        address a = new RedeployingDeploy().run();
         bytes memory codeA = a.code;
         vm.revertToState(snap);
         vm.chainId(84_532);
-        address b = new Deploy().run();
+        address b = new RedeployingDeploy().run();
         bytes memory codeB = b.code;
 
         assertEq(a, b, "same CREATE2 address");
