@@ -119,7 +119,7 @@ flowchart LR
 | **Translations** | `packages/i18n` | EN, FR, MG JSON with typed keys | Whole-sentence messages; completeness test | Presentation only. Malagasy strings are written or reviewed by the founder |
 | **Web app** | `apps/web` | Vite 8.3.2 multi-page app, TypeScript 6.0.3, vite-plugin-pwa 2.0.0, no framework ([ADR 0006](adr/0006-vanilla-typescript-port-at-parity.md)) | Routes `/`, `/pay/`, `/r/`, `/ledger/`, `/send/`, `/till/`, `/deploy/`, `/status/`; editions ([§8](#8-editions)) | Displaying exactly what is signed; holding passkey-derived keys in memory |
 | **Account providers** | inside `apps/web` | EIP-6963 discovery; `@category-labs/mera` 0.2.0 (preview, lazy); `@base-org/account` 2.5.13 (lazy) | One `AccountProvider` interface `{address, chainId, kind, signTypedData, sendCalls?}` | Producing signatures the user approved |
-| **Relayer** | `apps/relayer` | Cloudflare Worker, Hono 4.13.13, zod 4.6.5, viem; one Durable Object `ChainSender` per chain; Node adapter for e2e | Submits `payWithAuthorization` and `cancelBySig` only; testnet onboarding; nonce, queue, caps and gas budget | **Availability only.** It can delay a payment but cannot redirect it ([ADR 0003](adr/0003-bind-3009-nonce-to-payment.md), [ADR 0007](adr/0007-relayer-durable-object-per-chain.md)) |
+| **Relayer** | `apps/relayer` | Cloudflare Worker, Hono 4.13.13, zod 4.6.5, viem; one Durable Object `ChainSender` per chain; Node adapter for e2e; deployed by Cloudflare's Git integration from the committed bundle `apps/relayer/deploy/` ([runbook](runbooks/relayer.md)) | Submits `payWithAuthorization` and `cancelBySig` only; testnet onboarding; nonce, queue, caps and gas budget | **Availability only.** It can delay a payment but cannot redirect it ([ADR 0003](adr/0003-bind-3009-nonce-to-payment.md), [ADR 0007](adr/0007-relayer-durable-object-per-chain.md)) |
 | **Indexer** | `apps/indexer` | Envio HyperIndex 3.12.1 on the Envio Cloud free development plan | Entities `Payment`, `LinkAgg`, `PayeeStats`, `PayerPayee`, `DailyVolume` for history, statistics and the trust line | **Nothing authoritative.** Cache only ([ADR 0009](adr/0009-read-model-chain-device-indexer.md)) |
 | **API** (from Oct 28) | `apps/api` | Hono on Workers | PayPal bridge and AI back-office copilot (PayPal edition) | Out of scope for v2.0 |
 | **End-to-end tests** | `e2e/` | Playwright 1.56.1 on Chromium 141; anvil chains; EIP-1193 test wallet; CDP WebAuthn virtual authenticator with PRF | Release gate for user flows and accessibility | Evidence |
@@ -225,7 +225,7 @@ The CSV export follows RFC 4180, ISO 8601 and CAIP-10.
 
 ### 4.8 Testnet onboarding (Monad edition)
 
-`POST /v1/10143/onboard` makes the relayer call the AUSD faucet `requestFunds(user)` at `0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C` (**L**: 10,000 per drip, 60 s cooldown, drained once). If the faucet fails, the relayer transfers from its own capped AUSD inventory. This is the relayer's only token-moving action, and it exists only on testnet.
+`POST /v1/10143/onboard` makes the relayer call the AUSD faucet `requestFunds(user)` at `0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C` (**C**, checked on a fork on 2026-10-07: 10,000 AUSD per drip, one global 60 s cooldown; it ran dry once, **L**). It is capped per day, per address and per requester, and exists only on Monad testnet. If the faucet refuses, the client is told to retry after a minute: the relayer holds no AUSD and never signs a token transfer (revised 2026-10-08; [THREAT_MODEL T-33](security/THREAT_MODEL.md#t-33)).
 
 ### 4.9 Contract deployment
 

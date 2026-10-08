@@ -1,0 +1,46 @@
+{
+  "name": "@paylink/relayer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PayLink v2 gasless relayer (PAYLINK-V2-SPEC §3.7, invoice spec §13.3): a Cloudflare Worker with one Durable Object ChainSender per chain that relays payWithAuthorization and cancelBySig, never with value, behind the SDK's checks and admission policy; plus a Node adapter for local e2e against anvil.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "apps/relayer"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "node --conditions=@paylink/source scripts/build.ts",
+    "build:check": "node --conditions=@paylink/source scripts/build.ts --check",
+    "start:local": "node --conditions=@paylink/source src/node/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/worker/tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@paylink/chains": "workspace:*",
+    "@paylink/sdk": "workspace:*",
+    "hono": "catalog:",
+    "viem": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@hono/node-server": "catalog:",
+    "@paylink/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "miniflare": "catalog:",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

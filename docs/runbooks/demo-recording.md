@@ -96,7 +96,7 @@ Framing: well lit, eye level, a quiet room, an external microphone if available,
 |---|---|
 | A notification or popup appears | Enable Do Not Disturb and retake that segment |
 | Wrong theme or language visible | Reset to dark and EN, then retake |
-| The faucet or onboarding is empty | Use the relayer inventory or a pre-funded payer; never fake a balance |
+| The faucet or onboarding is empty | Use a pre-funded payer (send AUSD from a wallet that holds some); never fake a balance |
 | A network-switch prompt appears unexpectedly | Pre-switch the wallet; retake |
 | The till did not light up within 10 s | Check `/status/`; retake rather than splice |
 | A typo in the payee name or amount | Recreate the invoice; keep the amounts consistent across shots |

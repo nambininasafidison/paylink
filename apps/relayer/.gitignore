@@ -1,0 +1,4 @@
+# Test bundles and wrangler state written by test/integration/worker.test.ts
+.test-cache/
+.wrangler/
+.dev.vars

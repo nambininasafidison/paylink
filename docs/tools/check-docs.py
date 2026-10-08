@@ -4,7 +4,7 @@
 Run from anywhere:  python3 docs/tools/check-docs.py [--strict] [extra.md ...]
 
 Documents: docs/**/*.md, the root policy files, protocol/ and protocol/audit/ Markdown, the deployments README and
-every packages/*/README.md. Checks, each reported with file and reason:
+every packages/*/README.md and apps/*/README.md. Checks, each reported with file and reason:
 
 1. links     Relative links resolve to a file, and every #fragment matches a heading (GitHub slug rules) or an
              explicit <a id="..."> anchor in the target Markdown file.
@@ -434,6 +434,7 @@ def main(argv: list[str]) -> int:
     extra = [Path(a) for a in argv if not a.startswith("--")]
     evidence_docs = sorted((ROOT / "protocol").glob("*.md")) + sorted((ROOT / "protocol" / "audit").glob("*.md"))
     evidence_docs += sorted((ROOT / "protocol" / "deployments").glob("*.md")) + sorted((ROOT / "packages").glob("*/README.md"))
+    evidence_docs += sorted((ROOT / "apps").glob("*/README.md"))
     md_files = sorted(DOCS.rglob("*.md")) + [ROOT / f for f in POLICY_FILES if (ROOT / f).exists()] + evidence_docs + extra
     json_files = sorted(DOCS.rglob("*.json"))
     index = test_index()

@@ -1,0 +1,10 @@
+{
+  "$comment": "The Worker entry and the core it bundles, against the Workers runtime types (no DOM, no Node).",
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "types": ["@cloudflare/workers-types"],
+    "noEmit": true
+  },
+  "include": [".", "../core"]
+}

@@ -90,6 +90,8 @@ describe("spec §3.4 facts", () => {
     expect(monadTestnet.rpcLimits.maxLogBlockRange).toBe(100);
     expect(monadTestnet.relay).toBe(DEFAULT_RELAY_TIMING);
     expect(monadTestnet.contracts.ausdFaucet?.address).toBe("0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C");
+    // Onboarding gas (relayer): measured on an anvil fork of Monad testnet, floor = 129,791 rounded up, ceiling = 1.5 x floor.
+    expect(monadTestnet.contracts.ausdFaucet?.gas).toEqual({ floor: 130_000n, ceiling: 195_000n });
   });
 
   it("Monad mainnet is registry-only and disabled, with its unverified token facts flagged", () => {
@@ -337,6 +339,8 @@ describe("createRegistry validation", () => {
     [{ deniedTokens: [{ address: token.address, reason: "x", confidence: "C" }] }, /on the chain's deny list/],
     [{ deniedTokens: [{ address: "0xf817257fed379853cde0fa4f97ab987181b1e5ea", reason: "x", confidence: "C" }] }, /denied.*not EIP-55/],
     [{ contracts: { multicall3: { address: "0xca11bde05977b3631167028862be2a173976ca11", confidence: "L" } } }, /contracts.multicall3.*not EIP-55/],
+    [{ contracts: { ausdFaucet: { address: "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C", confidence: "L", gas: { floor: 0n, ceiling: 1n } } } }, /gas bounds of contracts.ausdFaucet/],
+    [{ contracts: { ausdFaucet: { address: "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C", confidence: "L", gas: { floor: 10n, ceiling: 9n } } } }, /gas bounds of contracts.ausdFaucet/],
     [{ gas: null }, /v2 chain needs a gas table/],
     [{ gas: { source: "snapshot", provisional: true, limits: { ...SNAPSHOT_GAS_LIMITS, pay: { floor: 0n, ceiling: 1n } } } }, /gas bounds of pay/],
     [{ gas: { source: "snapshot", provisional: true, limits: { ...SNAPSHOT_GAS_LIMITS, cancel: { floor: 10n, ceiling: 9n } } } }, /gas bounds of cancel/],

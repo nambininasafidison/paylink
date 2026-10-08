@@ -66,8 +66,14 @@ export const monadTestnet: ChainDefinition = {
   contracts: {
     ausdFaucet: {
       address: "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C",
-      confidence: "L",
-      note: "AUSD faucet proxy, requestFunds(address): 10,000 AUSD per drip, 60 s cooldown; has been drained once. Relayer onboarding only.",
+      confidence: "C",
+      note:
+        "AUSD faucet proxy, requestFunds(address): 10,000 AUSD per drip; relayer onboarding only. Checked from the sandbox on 2026-10-07: " +
+        "an OZ transparent proxy whose implementation exposes requestFunds(address) (0x544c7cf9) and token() = AUSD; on an anvil fork the " +
+        "60 s cooldown is global (any second request within 60 s reverts with error 0x20e5bc67, whoever sends it and whoever it funds).",
+      // eth_estimateGas on an anvil 1.8.5 fork of Monad testnet (network monad, MonadTen): 129,791 for a first-time recipient,
+      // 112,521 for a repeat one (gasUsed 128,414). Same rule as the entry points: floor = max rounded up to 1,000, ceiling = 1.5 x floor.
+      gas: { floor: 130_000n, ceiling: 195_000n },
     },
     multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11", confidence: "L" },
     permit2: { address: "0x000000000022D473030F116dDEE9F6B43aC78BA3", confidence: "L", note: "Not used before Oct 12 (spec §2.7)." },

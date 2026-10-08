@@ -140,6 +140,12 @@ export interface HelperContract {
   readonly address: Address;
   readonly confidence: Confidence;
   readonly note?: string;
+  /**
+   * Gas-limit bounds of the one call a PayLink client makes on the helper (the AUSD faucet's `requestFunds(address)`,
+   * sent by the relayer's onboarding), with the rule of `GasBounds`: `clamp(estimate x 1.10, floor, ceiling)`.
+   * Absent when no client sends a transaction to the helper.
+   */
+  readonly gas?: GasBounds;
 }
 
 /** The six state-changing PayLinkV2 entry points that get a gas limit (spec §3.3.6). */

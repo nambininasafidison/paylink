@@ -25,7 +25,7 @@ Step-by-step instructions for the owner: what to do in the wallet, in GitHub and
 |---|---|---|
 | **W-pay**: your browser wallet (for example MetaMask or Rabby) | Payee and payer demos on Base and Arbitrum; Arc v1 on mainnet | The wallet |
 | **W-deploy**: a fresh EOA, testnets only | Deploys v2 | The wallet. For route A, also the GitHub secret `TESTNET_DEPLOYER_PK` in the environment `testnet` |
-| **W-relay**: a fresh EOA, testnets only | Relayer gas | The Cloudflare Worker secret `RELAYER_PK`, set in the dashboard |
+| **W-relay**: a fresh key made for the relayer alone, testnets only ([relayer runbook §4](relayer.md#4-create-the-relayer-key-and-store-it-yourself)) | Relayer gas | Only the Cloudflare Worker secret `RELAYER_PK`. It is generated straight into the clipboard and pasted there; no wallet or person keeps a copy |
 | **Mera passkeys**: merchant on your phone, payer on a second device or browser profile | Monad demo | The platform passkey store (Google Password Manager or iCloud Keychain) |
 
 Create W-deploy and W-relay as new accounts, never as an existing wallet with history. Fund them only from faucets ([faucets runbook](faucets.md)).
@@ -38,8 +38,8 @@ Create W-deploy and W-relay as new accounts, never as an existing wallet with hi
 2. In the project's settings, **disable preview deployments.** Production branch: `main` only.
 3. Create an API token with exactly two permissions: "Cloudflare Pages: Edit" and "Workers Scripts: Edit". No other scopes.
 4. In GitHub → Settings → Secrets and variables → Actions, add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-5. After the first relayer deploy: Workers → `paylink-relayer` → Settings → Variables and Secrets → add the **encrypted** secret `RELAYER_PK` (the W-relay key).
-6. Check at sign-up that Durable Objects are available on the free plan (**L**). If not, the relayer uses its stateless fallback ([ADR 0007](../adr/0007-relayer-durable-object-per-chain.md)).
+5. The relayer Worker `paylink-relayer`, its secret `RELAYER_PK` (the W-relay key, generated for the relayer alone and never displayed) and its funding: follow the [relayer runbook](relayer.md). It is deployed by Cloudflare's Git integration from `apps/relayer/deploy` and needs no API token in GitHub.
+6. Durable Objects: the relayer uses the SQLite-backed kind, which the free plan offers (**L**); the first deploy shows whether Cloudflare accepts it ([relayer runbook §10](relayer.md#10-troubleshooting)). If not, the relayer uses its stateless fallback ([ADR 0007](../adr/0007-relayer-durable-object-per-chain.md)).
 
 **If Cloudflare sign-up fails without a card:** use the fallback in [ADR 0005](../adr/0005-dedicated-origin-and-rpid.md): a new free GitHub organisation whose `<org>.github.io` hosts only PayLink. Tell Claude, so the build switches to the meta-CSP variant.
 
@@ -177,11 +177,11 @@ Testnet is the intended path: the Metropolis dashboard provides a MON testnet fa
 | Component | How it is deployed | Your part |
 |---|---|---|
 | Web app (editions) | `site.yml` on push to `main`: builds every edition, then `wrangler pages deploy` (action pinned by SHA) | None, once the secrets exist. Check `https://<app>.pages.dev/status/` |
-| Relayer | `relayer.yml`: `wrangler deploy`. The secret is never handled by Actions | Set or rotate `RELAYER_PK` in the Cloudflare dashboard; keep W-relay at about 1–2 MON at most |
+| Relayer | Cloudflare's Git integration (Workers Builds) on push to `main` when `apps/relayer/deploy/` changes: `npx wrangler@4.148.0 deploy` of the committed bundle. No GitHub secret; the key is a Worker secret only ([relayer runbook](relayer.md)) | One-time setup, key and funding ([relayer runbook](relayer.md)); keep W-relay at about 1–2 MON at most |
 | Indexer | Envio Cloud (development plan), connected to the repository | Redeploy before each judging window (Monad Oct 14–27). A deployment lives at most 30 days and its URL changes on every push (**L**); Claude updates `/config.json` |
 
 ## 10. Rollback
 
 - **Web app:** Cloudflare → Pages project → Deployments → the previous production deployment → **Rollback**.
-- **Relayer:** set the chain's budget to 0, or redeploy the previous Worker version.
+- **Relayer:** Cloudflare → Worker `paylink-relayer` → Deployments → the previous version → **Rollback**; to stop relaying at once, delete the secret `RELAYER_PK` ([relayer runbook §8](relayer.md#8-operations-refill-update-rotate-stop-roll-back)).
 - **Contract:** there is no rollback or pause. Mark the deployment `revoked` in the registry and follow [incident response PB-1](../security/incident-response.md#pb-1-contract-vulnerability-sev-1-or-sev-2).

@@ -61,6 +61,15 @@ Amended again on 2026-10-07 (re-audit, finding A-04): the time margin in steps 3
 
 **Key handling:** `RELAYER_PK` is a testnet-only key, set as a Cloudflare secret through the dashboard. The balance stays at about 2 MON at most. The key is never EIP-7702-delegated.
 
+Amended on 2026-10-08 (implementation, `apps/relayer`), without changing the decision:
+
+- **Deployment.** There is no `relayer.yml` workflow and no Cloudflare API token in GitHub: the owner's Cloudflare account has none, and the development sandbox cannot reach `api.cloudflare.com` (2026-10-07). Cloudflare's Git integration (Workers Builds) deploys from `main`, with `apps/relayer/deploy` as its root and `npx wrangler@4.148.0 deploy` as its only command. That folder holds `wrangler.toml` and the Worker bundle, built by `apps/relayer/scripts/build.ts` from the lockfile's exact packages (not minified, every region named `package@version/path`, seven allowlisted MIT packages), committed, and uploaded byte for byte (`no_bundle`). Nothing of ours is installed or built on Cloudflare, and what runs is the file that was reviewed: `build:check` and `apps/relayer/test/unit/deploy.test.ts` fail when it differs from a rebuild. Steps for the owner and a browser-assistant prompt: [relayer runbook](../runbooks/relayer.md).
+- **Durable Objects** are SQLite-backed (`new_sqlite_classes`), the kind the Workers Free plan offers (**L**), so option B is not built. The front Worker only validates and routes (under 1 ms of CPU per request); the signature checks and signing run inside the Durable Object.
+- **Onboarding** calls only the registry faucet's `requestFunds(address)` (Monad testnet). The fallback transfer from a relayer-held AUSD inventory is **not** built: the relayer never signs a token transfer. `assertSendable` is the single signing choke point: `payWithAuthorization` and `cancelBySig` on the canonical deployment, the faucet call, or a zero-value self-transfer that voids a stuck nonce; value always 0; testnets only; never from an account with code.
+- **Stuck transactions** are re-sent with the same nonce and fees × 1.25 every 30 s, at most three times; after that, or once the call's time bounds have passed, the nonce is voided with a zero-value self-transfer (21,000 gas) instead of paying the full limit for a certain revert.
+- **Abuse limits** (code, not configuration): token buckets of 30 requests a minute per requester and 600 per chain; daily caps per chain and per payer, and for onboarding per address and per requester; a daily gas budget (1 MON on Monad testnet, 0.005 ETH on each Sepolia chain), reserved at `gasLimit × maxFeePerGas` until the receipt settles the cost.
+- **CORS** answers only `https://paylink-mg.pages.dev` and its one-label preview subdomains; any other `Origin` is refused with 403 before anything runs ([THREAT_MODEL T-48](../security/THREAT_MODEL.md#t-48)). Logs are JSON lines without keys, bodies, signatures or IP addresses ([T-38](../security/THREAT_MODEL.md#t-38)).
+
 ### Consequences
 
 - Good, because nonce ordering, replacement (same nonce, fee × 1.25 after 30 s) and the counters are consistent per chain, without an external database.
@@ -72,7 +81,7 @@ Amended again on 2026-10-07 (re-audit, finding A-04): the time margin in steps 3
 
 ### Confirmation
 
-- Relayer unit tests run on anvil through Hono's `app.request()` in Node, with coverage of at least 85 %.
+- Relayer unit tests run through Hono's `app.request()` in Node, and integration tests run the Node adapter on anvil with the release build, with coverage of at least 85 % (`apps/relayer/test/`; the bundle itself runs in workerd in `apps/relayer/test/integration/worker.test.ts`).
 - Tests reject other selectors, non-zero value, unknown chains and deployments, a tampered nonce, cap overruns and failed simulations.
 - Tests replay the post-simulation revert cases on anvil (payee `cancel` under queued relays; an ERC-1271 payee that toggles; a payer that delegates; a payer that cancels its authorisation; the same authorisation landing first; a sold-out race; a relay mined past its margin) and show that each reverts at most one relay and that the attribution names, and bans, only what caused it. The admission policy itself is tested in `packages/sdk/test/relay-admission.test.ts`, `packages/sdk/test/relay-attribution.test.ts`, `packages/sdk/test/relayer.test.ts` (margin) and `packages/sdk/test/audit/A04-time-boundary-ban.test.ts`, and on anvil in `packages/sdk/test/integration/anvil.test.ts`.
 - The e2e tests "relayer down → pay with own gas" and "relayer slow, then lands → charged once" pass.

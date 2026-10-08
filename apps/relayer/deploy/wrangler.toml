@@ -1,0 +1,31 @@
+# PayLink relayer: Cloudflare Worker with one Durable Object (ChainSender) per chain.
+# Deployed by Cloudflare's Git integration with this folder as the root directory (docs/runbooks/relayer.md).
+# worker.js is the committed, reviewed bundle (apps/relayer/scripts/build.ts); no_bundle uploads it byte for byte.
+#
+# URL: https://paylink-relayer.raherizonambinina.workers.dev (account subdomain raherizonambinina.workers.dev).
+#
+# Secret, set in the dashboard only (Settings > Variables and Secrets > Add > Secret):
+#   RELAYER_PK  the relayer's own throwaway testnet key. Never a [vars] entry, never in this repository.
+# There are no plain variables: every limit is code (apps/relayer/src/core/policy.ts).
+
+name = "paylink-relayer"
+main = "worker.js"
+no_bundle = true
+# Upload worker.js alone (not LICENSES.txt or SHA256SUMS next to it).
+find_additional_modules = false
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[durable_objects.bindings]]
+name = "CHAIN_SENDER"
+class_name = "ChainSender"
+
+# The Workers Free plan offers SQLite-backed Durable Objects only.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChainSender"]

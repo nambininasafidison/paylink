@@ -54,8 +54,8 @@ Keep a UTC timeline from the first minute: who did what, when, and the transacti
 |---|---|---|---|
 | **Warning banner** | Every client shows a banner with the given text | Set `banner` in `apps/web/public/config.json`, merge, and let `site.yml` deploy. In an emergency, upload directly with `wrangler pages deploy` from a clean checkout | Minutes |
 | **Revoke a deployment** | Clients lock the Pay key for that deployment ([spec §4.2](../spec/paylink-invoice-v2.md#42-resolving-verifyingcontract)) | Set the deployment `status` to `revoked` in `@paylink/chains` and redeploy the site | One site deploy |
-| **Stop the relayer** for one chain | No gasless payments or cancellations on that chain | Set the chain's daily gas budget to 0 in the Worker configuration, or remove the route; as a last resort, delete the `RELAYER_PK` secret in the Cloudflare dashboard | Minutes |
-| **Keep cancellations open** | Payees can still cancel without gas during a payment freeze | Keep `/v1/:chainId/cancel` enabled when `cancelBySig` is not affected | — |
+| **Stop the relayer** | No gasless payments or cancellations; every request answers `fallback: self-submit` | Everything at once, immediately: delete the `RELAYER_PK` secret, or disable the Worker's `workers.dev` route ([relayer runbook §8](../runbooks/relayer.md#8-operations-refill-update-rotate-stop-roll-back)). One chain: a commit that sets its `dailyGasBudgetWei` to 0 in `apps/relayer/src/core/policy.ts` (limits are code, not dashboard settings), then the rebuilt bundle is pushed and Cloudflare's Git integration deploys it | Minutes; one push for a single chain |
+| **Keep cancellations open** | Payees can still cancel without gas during a payment freeze | Stop only payments on that chain: set its `maxRelaysPerPayerPerDay` to 0 in `apps/relayer/src/core/policy.ts` (every payment is refused as `daily-cap`, cancellations still pass), when `cancelBySig` is not affected | One push |
 | **Roll back the site** | Serve the previous build | Cloudflare dashboard → the Pages project → Deployments → the previous production deployment → Rollback | Minutes |
 | **Drop the indexer** | The UI shows "history unavailable" | Remove the indexer URL from `/config.json` | One site deploy |
 | **Rotate secrets** | Invalidates leaked credentials | Cloudflare API token, `RELAYER_PK`, `ENVIO_API_TOKEN`, `TESTNET_DEPLOYER_PK` (§5, PB-8) | Minutes |
@@ -90,8 +90,8 @@ Keep a UTC timeline from the first minute: who did what, when, and the transacti
 ### PB-3. Relayer key compromise or gas drain (SEV-2)
 
 1. Stop the relayer for the affected chain (§4).
-2. Generate a new testnet key. Set it as the `RELAYER_PK` secret in the Cloudflare dashboard. Fund it from faucets, keeping at most about 2 MON.
-3. Review the Durable Object counters and the drained transactions. Tighten the caps if the drain came from valid-looking requests.
+2. Generate a new testnet key without displaying it and set it as the `RELAYER_PK` secret ([relayer runbook §4](../runbooks/relayer.md#4-create-the-relayer-key-and-store-it-yourself)). Fund the new address, keeping at most about 2 MON.
+3. Review the drained transactions on the explorer, Workers Logs (`request.done`, `tx.sent`, `tx.final` with the attributed cause) and the budget in `/v1/health`. Tighten the caps in `apps/relayer/src/core/policy.ts` if the drain came from valid-looking requests.
 4. Impact is bounded: the key can spend gas but cannot redirect payments (invariant I8). Users can always self-submit.
 
 ### PB-4. Relayer outage or empty budget (SEV-3)
@@ -188,7 +188,7 @@ Before each submission deadline (Oct 12) and each deployment:
 
 - [ ] The banner field is present in `/config.json`, and its rendering is tested in e2e.
 - [ ] The registry `status` field is enforced by the client (an e2e "revoked deployment" spec).
-- [ ] Relayer budget and caps are configured, and `/v1/health` is green.
+- [ ] The relayer is funded, its budget and caps are the reviewed defaults (`apps/relayer/src/core/policy.ts`), and `/v1/health` reports `ready` for every chain the app relays.
 - [ ] Private vulnerability reporting is enabled on the repository ([SECURITY.md](../../SECURITY.md)).
 - [ ] Phishing-resistant MFA is on for the GitHub and Cloudflare accounts.
 - [ ] A tabletop run-through of PB-1 on anvil is done: banner, revoke, redeploy, re-issue.

@@ -14,6 +14,7 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | | [Incident response](security/incident-response.md) | Severity levels, kill switches, playbooks, communication and post-mortems |
 | | [SECURITY.md](../SECURITY.md) | How to report a vulnerability; safe harbour |
 | **Operations** | [Deploy runbook](runbooks/deploy.md) | Wallets, secrets, the contract go/no-go, testnet deployments, Arc v1 on mainnet, rollback |
+| | [Relayer runbook](runbooks/relayer.md) | Putting the gasless relayer online from the repository, its key and gas, checks, operations, and a prompt for a browser assistant |
 | | [Faucets runbook](runbooks/faucets.md) | Funding the testnet wallets, with a claim log |
 | | [Demo recording runbook](runbooks/demo-recording.md) | Video scripts, honesty rules, setup and retakes |
 | | [Sandbox bootstrap runbook](runbooks/sandbox-bootstrap.md) | Restoring the pinned toolchain in the development sandbox |

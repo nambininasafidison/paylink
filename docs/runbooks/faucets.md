@@ -24,7 +24,7 @@ Monad note (**C**): an EOA with 0 MON cannot send anything, because of the 10-MO
 | Asset | Faucet | Cadence | Notes |
 |---|---|---|---|
 | MON (Monad testnet) | First, the MON testnet faucet on the Monad Metropolis dashboard (**UV**, 2026-10-06; terms as shown there). Then QuickNode `faucet.quicknode.com/monad` (no account or mainnet balance needed) or ZalalenA `faucet.zalalena.com/monad` (captcha). The public `faucet.monad.xyz` has unclear eligibility | Dashboard: as shown there; QuickNode every 12 h | Claim for W-deploy first, then W-relay |
-| AUSD (Monad testnet) | The relayer's `POST /v1/10143/onboard`, or call `requestFunds(<your address>)` on the faucet proxy `0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C` yourself | 60 s cooldown | 10,000 AUSD per drip; it ran dry once (**L**). The relayer falls back to its own capped AUSD inventory |
+| AUSD (Monad testnet) | The relayer's `POST /v1/10143/onboard`, or call `requestFunds(<your address>)` on the faucet proxy `0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C` yourself | 60 s cooldown, global: anyone's drip blocks everyone for a minute (**C**, fork, 2026-10-07) | 10,000 AUSD per drip; it ran dry once (**L**). The relayer has no AUSD of its own to fall back on: if the faucet is dry, fund payers from another test wallet |
 | USDC (Monad testnet, Base Sepolia, Arbitrum Sepolia, Arc testnet) | `faucet.circle.com` | 20 USDC per 2 h per chain (**L**) | Choose the right network on the page |
 | Base Sepolia ETH | Bware Labs (no registration), the Ethereum Ecosystem faucet (no login), the CDP faucet (free account), thirdweb, LearnWeb3 | about 24 h | Try them in that order |
 | Arbitrum Sepolia ETH | `arbitrum.faucet.dev`, LearnWeb3, `ethfaucet.com`; or proof-of-work Sepolia ETH from pk910, bridged over the canonical bridge | about 24 h, plus the bridge delay | Optional edition only |
@@ -51,6 +51,6 @@ Keep this table up to date: in this file, or privately if you prefer. Never reco
 ## 5. Before each demo or judging window
 
 - [ ] W-relay has enough MON for the window. Monad judging runs Oct 14–27 (**L**).
-- [ ] The AUSD faucet still has funds: try `/v1/10143/onboard` once. If it is dry, top up the relayer's AUSD inventory.
+- [ ] The AUSD faucet still has funds: try `/v1/10143/onboard` once ([relayer runbook §6](relayer.md#6-smoke-test)). If it is dry, send AUSD to the demo payers from a wallet that holds some.
 - [ ] Demo payers hold enough USDC or AUSD for every retake ([demo-recording runbook](demo-recording.md)).
 - [ ] Use small demo amounts (for example 5.00 or 12.50), so that faucet limits never block a retake.

@@ -45,6 +45,20 @@ The page links v1's `web/paylink.css` and fonts above. Its one library is a vend
 | hono | 4.13.13 | MIT | relayer |
 | zod | 4.6.5 | MIT | relayer |
 
+### 3.1 Distributed in the relayer Worker bundle (`apps/relayer/deploy/`)
+
+Cloudflare deploys the committed, unminified bundle `apps/relayer/deploy/worker.js`, built from the pinned packages by `apps/relayer/scripts/build.ts`, which refuses any other package or licence. The licence texts ship next to it in `apps/relayer/deploy/LICENSES.txt` and the checksums in `apps/relayer/deploy/SHA256SUMS`.
+
+| Component | Version | Licence |
+|---|---|---|
+| hono | 4.13.13 | MIT, © Yusuke Wada and Hono contributors |
+| zod | 4.6.5 | MIT, © Colin McDonnell |
+| viem | 2.57.3 | MIT, © weth, LLC |
+| ox | 0.14.45 | MIT, © wevm |
+| abitype | 1.2.3 | MIT, © weth, LLC |
+| @noble/curves | 1.9.1 | MIT, © Paul Miller |
+| @noble/hashes | 1.8.0 | MIT, © Paul Miller |
+
 ## 4. Indexer: Envio HyperIndex (not open source)
 
 | Component | Version | Licence |
@@ -81,7 +95,9 @@ Credit: **This project's indexer (`apps/indexer`) is built with HyperIndex by En
 | Playwright (@playwright/test) | 1.56.1 | Apache-2.0 |
 | axe-core | 4.13.0 | MPL-2.0 (e2e only, injected unmodified into the page under test) |
 | rolldown | 1.2.12 | MIT (bundles the deploy page's vendored viem subset) |
-| wrangler | exact pin | MIT OR Apache-2.0 |
+| wrangler | 4.148.0 | MIT OR Apache-2.0 (relayer: deploy-config check and `wrangler dev` tests; the Git integration deploys with the same version) |
+| miniflare, @cloudflare/workers-types | 5.20261006.0-alpha, 5.20261006.1 | MIT; MIT OR Apache-2.0 (relayer tests and Worker type-checking) |
+| @hono/node-server | 2.1.3 | MIT (the relayer's Node adapter for local e2e and demos; not in the Worker bundle) |
 | size-limit | exact pin | MIT |
 | v1 tooling: solc-js, ganache | 0.8.26, 7.9.2 | MIT, MIT |
 

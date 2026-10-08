@@ -172,6 +172,9 @@ function checkChain(issues: string[], chain: ChainDefinition): void {
   }
   for (const [name, helper] of Object.entries(chain.contracts)) {
     checkAddress(issues, `${where} contracts.${name}`, helper.address);
+    if (helper.gas !== undefined && (helper.gas.floor <= 0n || helper.gas.ceiling < helper.gas.floor)) {
+      issues.push(`${where}: gas bounds of contracts.${name} must satisfy 0 < floor <= ceiling`);
+    }
   }
   if (chain.protocol === "v2") {
     if (chain.gas === null) {

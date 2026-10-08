@@ -1,0 +1,10 @@
+{
+  "$comment": "Type-checks the isomorphic core, the Node adapter, tests, scripts and configs with Node types. src/worker/ has its own tsconfig.json with the Workers runtime types instead, and type-checks src/core/ a second time under them, so the core stays runnable in both.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src/core", "src/node", "test", "scripts", "*.config.ts"]
+}
