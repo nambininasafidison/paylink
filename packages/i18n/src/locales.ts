@@ -4,7 +4,8 @@
  *
  * Malagasy has CLDR plural rules and month names, but no Malagasy number symbols in CLDR (Intl falls back to the
  * root's "540,000"). Madagascar writes numbers the French way ("540 000 Ar", "25,50"), so Malagasy numbers are
- * formatted with `fr-MG` while dates and plurals use `mg`.
+ * formatted with `fr-MG` while plurals use `mg`. Dates do not go through `dateLocale` for Malagasy: Chromium ships no
+ * `mg` date data and would answer in US English, so `format.ts` writes them on `fr-MG` patterns with Malagasy names.
  */
 
 export const LOCALES = ["en", "fr", "mg"] as const;

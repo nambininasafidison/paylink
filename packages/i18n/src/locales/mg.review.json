@@ -1,5 +1,5 @@
 {
-  "$comment": "Malagasy strings drafted by Claude Code on 2026-10-07. PAYLINK-V2-SPEC §3.9: Malagasy is written or reviewed by the founder. Every key below awaits that review; remove a key from `pending` once its sentence is approved or rewritten. test/completeness.test.ts checks that each listed key exists.",
+  "$comment": "Malagasy strings drafted by Claude Code on 2026-10-07. PAYLINK-V2-SPEC §3.9: Malagasy is written or reviewed by the founder. Every key below awaits that review; remove a key from `pending` once its sentence is approved or rewritten. test/completeness.test.ts checks that each listed key exists. `pendingFormats` lists the Malagasy words written in code (month and weekday names, relative times in src/format.ts) for the same review.",
   "reviewer": "nambininasafidison",
   "pending": [
     "app.skip",
@@ -720,5 +720,9 @@
     "pay.step2.key",
     "pay.step2.keyOwn",
     "pay.step2.pending"
+  ],
+  "pendingFormats": [
+    "src/format.ts MG_MONTHS, MG_MONTHS_SHORT, MG_WEEKDAYS: CLDR mg names on fr-MG date patterns, 24-hour clock",
+    "src/format.ts formatRelative for mg: 'afaka 7 andro', '2 ora lasa'"
   ]
 }

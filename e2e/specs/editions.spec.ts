@@ -509,7 +509,19 @@ test("Monad: the KeyCard and the pay view in dark mode on a phone, without axe v
   await readable("issued card");
   await page.goto(await page.locator(".share input").inputValue());
   await expect(page.locator(".vstrip > li").nth(0)).toHaveAttribute("data-lamp", "ok");
+  // The seller's own invoice: the key settles locked once the key account is restored (after its 150 ms transition).
+  await expect(page.locator(".payform .key-primary")).toBeDisabled();
+  await expect(page.locator(".state-note")).toBeVisible();
+  await page.waitForTimeout(300);
   await readable("pay view");
+  // Dates in Malagasy, in this browser (Chromium has no `mg` date data, and Intl used to answer in US English): the
+  // rate date of the snapshot, exactly, and the expiry with a Malagasy month and the 24-hour clock.
+  const fxDate = (JSON.parse(readFileSync(join(REPO, "apps/web/public/fx.json"), "utf8")) as { date: string }).date;
+  const [year, month, day] = fxDate.split("-").map(Number);
+  const mgMonths = ["Jan", "Feb", "Mar", "Apr", "Mey", "Jon", "Jol", "Aog", "Sep", "Okt", "Nov", "Des"];
+  await expect(page.locator(".screen-fx")).toContainText(`sandan'ny ${String(day)} ${mgMonths[(month ?? 1) - 1] ?? ""} ${String(year)}`);
+  await expect(page.locator(".facts > div").nth(2).locator("dd")).toHaveText(new RegExp(`^\\d{1,2} (${mgMonths.join("|")}) \\d{4}, \\d{2}:\\d{2}$`));
+  await expect(page.locator(".view-pay")).not.toContainText(/\b(AM|PM)\b/);
   await page.screenshot({ path: test.info().outputPath("monad-pay-320-mg-dark.png"), fullPage: true });
   expect(visitor.problems).toEqual([]);
 });
