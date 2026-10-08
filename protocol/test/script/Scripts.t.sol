@@ -197,8 +197,8 @@ contract ScriptsTest is Test {
 
     /// @notice Runtime code differs per chain only inside the immutable ranges; the masked hash is identical.
     /// @dev Real chain ids, so the EIP-712 immutables are those of the networks; `RedeployingDeploy` deploys even where
-    ///      `deployments/<chainId>.json` records the real deployment (10143 since 2026-10-08), which this local chain
-    ///      does not hold.
+    ///      `deployments/<chainId>.json` records the real deployment (10143 and 84532 since 2026-10-08), which this
+    ///      local chain does not hold.
     function test_MaskedRuntimeHashIsChainIndependent() public releaseBuildOnly {
         uint256 snap = vm.snapshotState();
         vm.chainId(10_143);
@@ -344,9 +344,11 @@ contract ScriptsTest is Test {
         harness.fromBroadcast(json);
     }
 
+    /// @dev `RedeployingDeploy`: `deployments/84532.json` records the real Base Sepolia deployment (since 2026-10-08),
+    ///      which this local chain does not hold.
     function test_DeploymentJsonIsCompleteAndParses() public releaseBuildOnly {
         vm.chainId(84_532);
-        address deployed = new Deploy().run();
+        address deployed = new RedeployingDeploy().run();
         PayLinkRelease.Deployment memory d = harness.fromBroadcast(_broadcast("CREATE2", deployed, true));
         d.gitCommit = "0123456789abcdef0123456789abcdef01234567";
         string memory json = harness.deploymentJson(d);
