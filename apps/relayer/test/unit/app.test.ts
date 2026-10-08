@@ -63,9 +63,9 @@ const onboard = { chainId: 10143, address: "0x0000000000000000000000000000000000
 const json = (body: unknown, headers: Record<string, string> = {}): RequestInit => ({ method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
 
 describe("CORS", () => {
-  it("answers a preflight from the app and its previews, with the exposed headers", async () => {
+  it("answers a preflight from the production app, with the exposed headers", async () => {
     const { app } = harness();
-    for (const origin of [PRODUCTION_ORIGIN, "https://feat-relayer.paylink-mg.pages.dev", "https://3f2a9c1b.paylink-mg.pages.dev"]) {
+    for (const origin of [PRODUCTION_ORIGIN]) {
       const response = await app.request("/v1/10143/pay", { method: "OPTIONS", headers: { origin, "access-control-request-method": "POST" } });
       expect(response.status).toBe(204);
       expect(response.headers.get("access-control-allow-origin")).toBe(origin);
@@ -75,7 +75,8 @@ describe("CORS", () => {
     }
   });
 
-  it.each(["https://evil.example", "https://paylink-mg.pages.dev.evil.example", "https://a.b.paylink-mg.pages.dev", "http://paylink-mg.pages.dev", "https://paylink.pages.dev", "https://-x.paylink-mg.pages.dev", "null"])(
+  // Deployment hash hosts and branch aliases too: a withdrawn build stays reachable there (incident-response PB-2).
+  it.each(["https://evil.example", "https://paylink-mg.pages.dev.evil.example", "https://a.b.paylink-mg.pages.dev", "http://paylink-mg.pages.dev", "https://paylink.pages.dev", "https://-x.paylink-mg.pages.dev", "https://feat-relayer.paylink-mg.pages.dev", "https://3f2a9c1b.paylink-mg.pages.dev", "null"])(
     "refuses %s before anything else runs (403, no CORS grant)",
     async (origin) => {
       const { app, calls } = harness();

@@ -81,11 +81,16 @@ Keep a UTC timeline from the first minute: who did what, when, and the transacti
 
 ### PB-2. Web origin compromise, malicious deploy or XSS (SEV-1)
 
-1. **Roll back** the Pages deployment to the last known good build. If the cause is unclear, set the banner to "Do not sign anything on this site" while you investigate.
-2. Revoke and re-issue `CLOUDFLARE_API_TOKEN`. Review the Cloudflare audit log and the Actions run logs for the deploy that changed the site.
-3. Verify the restored `_headers` (CSP, frame-ancestors), `/config.json` and the registry against git.
-4. **Mera users:** a passkey-derived key that was in page memory during the compromise must be treated as exposed. The key is derived deterministically from the passkey, so the account cannot be "rotated". Users must create a new passkey (a new account) and move their testnet funds. Say this plainly in the banner and the advisory.
-5. Find the root cause (a dependency, a CI change, an account takeover) and continue with PB-7 or PB-8 as needed.
+**A rollback alone is not enough.** Cloudflare Pages keeps every deployment, production ones included and whatever the preview setting, reachable at its own URL `https://<hash>.paylink-mg.pages.dev`, and every push to `main` makes one. That host is a subdomain of the passkey rpId `paylink-mg.pages.dev`, so WebAuthn lets a page there call `navigator.credentials.get({ rpId: "paylink-mg.pages.dev", extensions: { prf } })` and derive any Monad user's PayLink key. The exact-host check in `apps/web/src/accounts/passkey.ts` binds honest builds only; a malicious or XSS-vulnerable build stays usable at its hash URL, by anyone who links to it, until the deployment is **deleted**.
+
+1. **Roll back** the production deployment to the last known good build (Workers & Pages → `paylink-mg` → Deployments → the good one → ⋯ → "Rollback to this deployment"). If the cause is unclear, set the banner to "Do not sign anything on this site" while you investigate.
+2. **Stop new deployments of the bad code.** Revert the offending commit on `main` (Pages deploys every push). If the cause is not yet understood, pause automatic deployments: Settings → Builds → Branch control → untick "Enable automatic production branch deployments"; tick it again once `main` is clean.
+3. **Delete every affected deployment** so its hash URL stops serving: Deployments → each deployment built from an affected commit (and any branch alias) → ⋯ → **"Delete deployment"**. Check each one: `curl -sI https://<hash>.paylink-mg.pages.dev/` must no longer return the app. List the deleted hashes in the advisory.
+4. **Fence the deployment hosts** where possible: Settings → General → enable the Cloudflare Access policy for the project's deployment hosts (`*.paylink-mg.pages.dev`), and check that `https://<hash>.paylink-mg.pages.dev/` now asks for an Access login while `https://paylink-mg.pages.dev/` does not. The relayer already refuses every origin but `https://paylink-mg.pages.dev` ([THREAT_MODEL T-48](THREAT_MODEL.md#t-48)), so a withdrawn build cannot drive it from a browser.
+5. Review the Cloudflare audit log and the git history of `main` (Pages builds from it through the Git integration; there is no deploy token in GitHub). If an API token for the account exists, revoke and re-issue it.
+6. Verify the restored `_headers` (CSP, frame-ancestors), `/config.json` and the registry against git.
+7. **Mera users:** a passkey-derived key that was in page memory during the compromise, or that a deleted deployment could have asked for while it was reachable, must be treated as exposed. The key is derived deterministically from the passkey, so the account cannot be "rotated". Users must create a new passkey (a new account) and move their testnet funds. Say this plainly in the banner and the advisory.
+8. Find the root cause (a dependency, a CI change, an account takeover) and continue with PB-7 or PB-8 as needed.
 
 ### PB-3. Relayer key compromise or gas drain (SEV-2)
 

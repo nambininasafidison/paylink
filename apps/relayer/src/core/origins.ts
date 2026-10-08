@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 /**
  * Which browser origins may call the relayer (CORS). Fixed in code, not configuration: the production app at
- * https://paylink-mg.pages.dev and its Cloudflare Pages preview deployments, `https://<label>.paylink-mg.pages.dev`
- * (a branch alias or a commit hash: exactly one DNS label). Nothing else, so a look-alike site cannot drive the
- * relayer from a visitor's browser.
+ * https://paylink-mg.pages.dev and nothing else, so a look-alike site cannot drive the relayer from a visitor's
+ * browser.
+ *
+ * Deployment hosts `https://<hash>.paylink-mg.pages.dev` and branch aliases are refused (narrowed 2026-10-08, ADR
+ * 0005): previews are meant to be disabled, and every deployment Cloudflare Pages keeps, production ones included,
+ * stays reachable at its own hash host. A build withdrawn after an incident (docs/security/incident-response.md PB-2)
+ * must not keep a working relayer behind it.
  *
  * CORS is a browser policy, not access control: scripts and servers send no `Origin` and are served like any
  * client. What protects the relayer from them is the pipeline behind it (schema, SDK checks, admission ledger,
@@ -13,9 +17,6 @@
 
 /** The v2 origin (fixed on 2026-10-07: Cloudflare Pages project "paylink-mg", passkey rpId paylink-mg.pages.dev; ADR 0005). */
 export const PRODUCTION_ORIGIN = "https://paylink-mg.pages.dev";
-
-/** One DNS label (RFC 1035 letters, digits and inner hyphens, at most 63 characters) under the production host. */
-const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.paylink-mg\.pages\.dev$/u;
 
 export interface OriginPolicy {
   /** True when a browser page served from `origin` may call the relayer. */
@@ -44,7 +45,7 @@ export function originPolicy(extraOrigins: readonly string[] = []): OriginPolicy
   }
   const extra = new Set(extraOrigins);
   return {
-    allows: (origin) => origin === PRODUCTION_ORIGIN || PREVIEW_ORIGIN.test(origin) || extra.has(origin),
-    description: [PRODUCTION_ORIGIN, "https://<preview>.paylink-mg.pages.dev", ...extra].join(", "),
+    allows: (origin) => origin === PRODUCTION_ORIGIN || extra.has(origin),
+    description: [PRODUCTION_ORIGIN, ...extra].join(", "),
   };
 }

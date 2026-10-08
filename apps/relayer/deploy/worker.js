@@ -26116,38 +26116,70 @@ function errorMessage(error) {
 const GWEI = 1000000000n;
 const ETHER = 10n ** 18n;
 /**
-* Per-chain limits. Monad testnet: a pay relay costs about 0.028 MON (a 275k limit at about 102 gwei, all of it
-* charged; measured on an anvil fork of Monad testnet on 2026-10-07, test/integration/fork.test.ts), so 1 MON a day
-* is about 35 relays and the key holds about two days of budget (spec §3.7: at most ~2 MON). The Sepolia rollups
-* cost a few thousandths of a cent per relay; their budgets only stop a runaway.
+* Per-chain limits. Monad testnet charges the whole gas limit at about 102 gwei (the 100-gwei minimum base fee and a
+* tip): a pay relay costs about 0.028 MON (a 275k limit, measured on an anvil fork of Monad testnet on 2026-10-07,
+* test/integration/fork.test.ts), a `cancelBySig` 0.009 to 0.014 MON (89k to 134k), a faucet drip 0.013 to 0.020 MON
+* (130k to 195k). The key holds about two days of budget (spec §3.7: at most ~2 MON). Shares of the 1 MON day:
+* - payments 0.6 MON, about 21 relays; one requester at most 0.12 MON (4 relays);
+* - cancellations 0.1 MON, 7 to 11; one requester at most 0.02 MON (2), and 3 per payee;
+* - onboarding 0.3 MON: 15 drips at the 195k ceiling and 102 gwei cost 0.298 MON (policy.test.ts checks the fit).
+* Draining a share therefore takes at least five requesters (IPv4 addresses or IPv6 /64s): THREAT_MODEL T-03.
+* The Sepolia rollups cost a few thousandths of a cent per relay; their budgets only stop a runaway.
 */
 const CHAIN_LIMITS = {
 	"monad-testnet": {
 		dailyGasBudgetWei: 1n * ETHER,
 		maxFeePerGasWei: 500n * GWEI,
 		maxRelaysPerDay: 300,
-		maxRelaysPerPayerPerDay: 30,
-		maxOnboardsPerDay: 100,
+		maxRelaysPerPayerPerDay: 10,
+		maxOnboardsPerDay: 15,
 		maxOnboardsPerAddressPerDay: 1,
-		maxOnboardsPerRequesterPerDay: 3
+		maxOnboardsPerRequesterPerDay: 3,
+		budgetShareBps: {
+			pay: 6e3,
+			cancel: 1e3,
+			onboard: 3e3
+		},
+		requesterShareBps: 2e3,
+		maxRelaysPerRequesterPerDay: 10,
+		maxPaysPerPayeePerDay: 20,
+		maxCancelsPerPayeePerDay: 3
 	},
 	"base-sepolia": {
 		dailyGasBudgetWei: ETHER / 200n,
 		maxFeePerGasWei: 10n * GWEI,
 		maxRelaysPerDay: 300,
-		maxRelaysPerPayerPerDay: 30,
+		maxRelaysPerPayerPerDay: 10,
 		maxOnboardsPerDay: 0,
 		maxOnboardsPerAddressPerDay: 0,
-		maxOnboardsPerRequesterPerDay: 0
+		maxOnboardsPerRequesterPerDay: 0,
+		budgetShareBps: {
+			pay: 8e3,
+			cancel: 2e3,
+			onboard: 0
+		},
+		requesterShareBps: 2e3,
+		maxRelaysPerRequesterPerDay: 10,
+		maxPaysPerPayeePerDay: 20,
+		maxCancelsPerPayeePerDay: 3
 	},
 	"arbitrum-sepolia": {
 		dailyGasBudgetWei: ETHER / 200n,
 		maxFeePerGasWei: 10n * GWEI,
 		maxRelaysPerDay: 300,
-		maxRelaysPerPayerPerDay: 30,
+		maxRelaysPerPayerPerDay: 10,
 		maxOnboardsPerDay: 0,
 		maxOnboardsPerAddressPerDay: 0,
-		maxOnboardsPerRequesterPerDay: 0
+		maxOnboardsPerRequesterPerDay: 0,
+		budgetShareBps: {
+			pay: 8e3,
+			cancel: 2e3,
+			onboard: 0
+		},
+		requesterShareBps: 2e3,
+		maxRelaysPerRequesterPerDay: 10,
+		maxPaysPerPayeePerDay: 20,
+		maxCancelsPerPayeePerDay: 3
 	}
 };
 /** Local anvil chains (tests, e2e, demo recording): generous, so that only the admission policy is exercised. */
@@ -26158,7 +26190,16 @@ const LOCAL_LIMITS = {
 	maxRelaysPerPayerPerDay: 1e3,
 	maxOnboardsPerDay: 1e3,
 	maxOnboardsPerAddressPerDay: 1,
-	maxOnboardsPerRequesterPerDay: 1e3
+	maxOnboardsPerRequesterPerDay: 1e3,
+	budgetShareBps: {
+		pay: 6e3,
+		cancel: 2e3,
+		onboard: 2e3
+	},
+	requesterShareBps: 1e4,
+	maxRelaysPerRequesterPerDay: 1e4,
+	maxPaysPerPayeePerDay: 1e3,
+	maxCancelsPerPayeePerDay: 1e3
 };
 /** Zero everything: a chain the relayer does not know limits for is not relayed. */
 const NO_LIMITS = {
@@ -26168,8 +26209,25 @@ const NO_LIMITS = {
 	maxRelaysPerPayerPerDay: 0,
 	maxOnboardsPerDay: 0,
 	maxOnboardsPerAddressPerDay: 0,
-	maxOnboardsPerRequesterPerDay: 0
+	maxOnboardsPerRequesterPerDay: 0,
+	budgetShareBps: {
+		pay: 0,
+		cancel: 0,
+		onboard: 0
+	},
+	requesterShareBps: 0,
+	maxRelaysPerRequesterPerDay: 0,
+	maxPaysPerPayeePerDay: 0,
+	maxCancelsPerPayeePerDay: 0
 };
+/** The share of the daily budget a kind of transaction may spend (wei). */
+function kindBudgetWei(limits, kind) {
+	return limits.dailyGasBudgetWei * BigInt(limits.budgetShareBps[kind]) / 10000n;
+}
+/** The most one requester may spend of a kind's share per UTC day (wei, at the expected price). */
+function requesterBudgetWei(limits, kind) {
+	return kindBudgetWei(limits, kind) * BigInt(limits.requesterShareBps) / 10000n;
+}
 /** One cent of a dollar token (10^(decimals - 2) base units): smaller payments are refused, so that sybil payers holding one base unit cost more than they grief. */
 function oneCent(token) {
 	return token.decimals >= 2 ? 10n ** BigInt(token.decimals - 2) : 1n;
@@ -26319,6 +26377,34 @@ function utcDay(seconds) {
 function secondsToMidnight(seconds) {
 	return 86400 - Number(seconds % 86400n);
 }
+const ZERO_KINDS = {
+	pay: {
+		spentWei: "0",
+		reservedWei: "0"
+	},
+	cancel: {
+		spentWei: "0",
+		reservedWei: "0"
+	},
+	onboard: {
+		spentWei: "0",
+		reservedWei: "0"
+	}
+};
+function emptyCounters(day) {
+	return {
+		day,
+		relays: 0,
+		onboards: 0,
+		perPayer: {},
+		perAddress: {},
+		perRequester: {},
+		perRequesterRelays: {},
+		perRequesterGasWei: {},
+		perPayeePays: {},
+		perPayeeCancels: {}
+	};
+}
 function emptyState(chainId, nowSeconds) {
 	const day = utcDay(nowSeconds);
 	return {
@@ -26337,25 +26423,50 @@ function emptyState(chainId, nowSeconds) {
 		budget: {
 			day,
 			spentWei: "0",
-			reservedWei: "0"
+			reservedWei: "0",
+			byKind: ZERO_KINDS
 		},
-		counters: {
-			day,
-			relays: 0,
-			onboards: 0,
-			perPayer: {},
-			perAddress: {},
-			perRequester: {}
-		},
+		counters: emptyCounters(day),
 		recent: []
 	};
 }
-/** Loads a stored state for `chainId`, or a fresh one when there is none or it is of another version or chain. */
+/**
+* Loads a stored state for `chainId`, or a fresh one when there is none or it is of another version or chain. A
+* state saved before the per-kind budget and the per-requester and per-payee counters (2026-10-08) keeps its pending
+* transactions and gains those fields: the day's spending so far is counted against the payments' share, and each
+* pending transaction's reservation against its own kind.
+*/
 function restoreState(stored, chainId, nowSeconds) {
 	if (typeof stored !== "object" || stored === null) return emptyState(chainId, nowSeconds);
 	const state = stored;
-	if (state.version !== 1 || state.chainId !== chainId || state.ledger?.version !== 2 || !Array.isArray(state.pending)) return emptyState(chainId, nowSeconds);
-	return state;
+	if (state.version !== 1 || state.chainId !== chainId || state.ledger?.version !== 2 || !Array.isArray(state.pending) || state.budget === void 0 || state.counters === void 0) return emptyState(chainId, nowSeconds);
+	const reservedOf = (kind) => state.pending?.filter((p) => p.kind === kind).reduce((sum, p) => sum + BigInt(p.reservedWei), 0n).toString() ?? "0";
+	const budget = state.budget.byKind === void 0 ? {
+		...state.budget,
+		byKind: {
+			pay: {
+				spentWei: state.budget.spentWei,
+				reservedWei: reservedOf("pay")
+			},
+			cancel: {
+				spentWei: "0",
+				reservedWei: reservedOf("cancel")
+			},
+			onboard: {
+				spentWei: "0",
+				reservedWei: reservedOf("onboard")
+			}
+		}
+	} : state.budget;
+	const counters = {
+		...emptyCounters(state.counters.day),
+		...state.counters
+	};
+	return {
+		...state,
+		budget,
+		counters
+	};
 }
 /** How long recent relays are remembered for duplicate answers. */
 const RECENT_SECONDS = 86400;
@@ -26377,6 +26488,10 @@ function prune(state, nowSeconds, admission) {
 	};
 	const day = utcDay(nowSeconds);
 	const recent = state.recent.filter((relay) => BigInt(relay.at) + BigInt(RECENT_SECONDS) > nowSeconds).slice(-500);
+	const carried = (kind) => ({
+		spentWei: "0",
+		reservedWei: state.budget.byKind[kind].reservedWei
+	});
 	return {
 		...state,
 		ledger,
@@ -26384,15 +26499,30 @@ function prune(state, nowSeconds, admission) {
 		budget: state.budget.day === day ? state.budget : {
 			day,
 			spentWei: "0",
-			reservedWei: state.budget.reservedWei
+			reservedWei: state.budget.reservedWei,
+			byKind: {
+				pay: carried("pay"),
+				cancel: carried("cancel"),
+				onboard: carried("onboard")
+			}
 		},
-		counters: state.counters.day === day ? state.counters : {
-			day,
-			relays: 0,
-			onboards: 0,
-			perPayer: {},
-			perAddress: {},
-			perRequester: {}
+		counters: state.counters.day === day ? state.counters : emptyCounters(day)
+	};
+}
+/** `budget` with `deltaSpent` and `deltaReserved` (wei, may be negative) applied to the total and to `kind`. */
+function adjustBudget(budget, kind, deltaSpent, deltaReserved) {
+	const floor = (value) => (value > 0n ? value : 0n).toString();
+	const own = budget.byKind[kind];
+	return {
+		...budget,
+		spentWei: floor(BigInt(budget.spentWei) + deltaSpent),
+		reservedWei: floor(BigInt(budget.reservedWei) + deltaReserved),
+		byKind: {
+			...budget.byKind,
+			[kind]: {
+				spentWei: floor(BigInt(own.spentWei) + deltaSpent),
+				reservedWei: floor(BigInt(own.reservedWei) + deltaReserved)
+			}
 		}
 	};
 }
@@ -26528,10 +26658,11 @@ var ChainEngine = class ChainEngine {
 				fallback: "self-submit"
 			});
 			const payerKey = checked.payer.toLowerCase();
+			const payeeKey = checked.payee.toLowerCase();
 			const counters = this.state.counters;
-			if (counters.relays >= this.limits.maxRelaysPerDay || (counters.perPayer[payerKey] ?? 0) >= this.limits.maxRelaysPerPayerPerDay) {
+			if (counters.relays >= this.limits.maxRelaysPerDay || (counters.perPayer[payerKey] ?? 0) >= this.limits.maxRelaysPerPayerPerDay || (counters.perPayeePays[payeeKey] ?? 0) >= this.limits.maxPaysPerPayeePerDay || (counters.perRequesterRelays[requester] ?? 0) >= this.limits.maxRelaysPerRequesterPerDay) {
 				const until = secondsToMidnight(this.now());
-				return problem("refused", "the daily relay cap for this chain or this payer is reached", {
+				return problem("refused", "the daily relay cap for this chain, this payer, this payee or this network is reached", {
 					reason: "daily-cap",
 					retryAfter: until,
 					fallback: "self-submit"
@@ -26544,14 +26675,23 @@ var ChainEngine = class ChainEngine {
 				dedupeId,
 				subject: checked.key,
 				onSent: () => {
+					const now = this.state.counters;
 					this.state = {
 						...this.state,
 						counters: {
-							...this.state.counters,
-							relays: this.state.counters.relays + 1,
+							...now,
+							relays: now.relays + 1,
 							perPayer: {
-								...this.state.counters.perPayer,
-								[payerKey]: (this.state.counters.perPayer[payerKey] ?? 0) + 1
+								...now.perPayer,
+								[payerKey]: (now.perPayer[payerKey] ?? 0) + 1
+							},
+							perPayeePays: {
+								...now.perPayeePays,
+								[payeeKey]: (now.perPayeePays[payeeKey] ?? 0) + 1
+							},
+							perRequesterRelays: {
+								...now.perRequesterRelays,
+								[requester]: (now.perRequesterRelays[requester] ?? 0) + 1
 							}
 						}
 					};
@@ -26591,7 +26731,9 @@ var ChainEngine = class ChainEngine {
 			} catch (error) {
 				return payLinkProblem(error);
 			}
-			if (this.state.counters.relays >= this.limits.maxRelaysPerDay) return problem("refused", "the daily relay cap for this chain is reached", {
+			const payeeKey = checked.payee.toLowerCase();
+			const counters = this.state.counters;
+			if (counters.relays >= this.limits.maxRelaysPerDay || (counters.perPayeeCancels[payeeKey] ?? 0) >= this.limits.maxCancelsPerPayeePerDay || (counters.perRequesterRelays[requester] ?? 0) >= this.limits.maxRelaysPerRequesterPerDay) return problem("refused", "the daily cancellation cap for this chain, this payee or this network is reached", {
 				reason: "daily-cap",
 				retryAfter: secondsToMidnight(this.now()),
 				fallback: "self-submit"
@@ -26603,11 +26745,20 @@ var ChainEngine = class ChainEngine {
 				dedupeId,
 				subject: checked.key,
 				onSent: () => {
+					const now = this.state.counters;
 					this.state = {
 						...this.state,
 						counters: {
-							...this.state.counters,
-							relays: this.state.counters.relays + 1
+							...now,
+							relays: now.relays + 1,
+							perPayeeCancels: {
+								...now.perPayeeCancels,
+								[payeeKey]: (now.perPayeeCancels[payeeKey] ?? 0) + 1
+							},
+							perRequesterRelays: {
+								...now.perRequesterRelays,
+								[requester]: (now.perRequesterRelays[requester] ?? 0) + 1
+							}
 						}
 					};
 				},
@@ -26652,7 +26803,8 @@ var ChainEngine = class ChainEngine {
 				ticket: null,
 				dedupeId: null,
 				subject: recipient,
-				log
+				log,
+				requester
 			}, block.number, (error) => Promise.resolve(this.faucetProblem(error))));
 			if (!sent.ok) return sent.problem;
 			const after = this.state.counters;
@@ -26841,7 +26993,8 @@ var ChainEngine = class ChainEngine {
 				...plan,
 				window: checked,
 				ticket,
-				log
+				log,
+				requester
 			};
 			const sent = await this.queue.run(async () => await this.send(pipeline, checkedAt, plan.explain));
 			if (!sent.ok) return sent.problem;
@@ -27010,10 +27163,23 @@ var ChainEngine = class ChainEngine {
 		}), "fees");
 		const reservation = gas * fees.maxFeePerGas;
 		const budget = this.state.budget;
-		if (BigInt(budget.spentWei) + BigInt(budget.reservedWei) + reservation > this.limits.dailyGasBudgetWei) return await fail(problem("budget-exhausted", "the relayer's gas budget for today is spent", {
+		const share = budget.byKind[pipeline.kind];
+		if (BigInt(budget.spentWei) + BigInt(budget.reservedWei) + reservation > this.limits.dailyGasBudgetWei || BigInt(share.spentWei) + BigInt(share.reservedWei) + reservation > kindBudgetWei(this.limits, pipeline.kind)) return await fail(problem("budget-exhausted", "the relayer's gas budget for today is spent", {
 			retryAfter: secondsToMidnight(this.now()),
 			fallback: "self-submit"
 		}), "budget");
+		const base = pending.baseFeePerGas ?? 0n;
+		const expected = gas * (base + fees.maxPriorityFeePerGas < fees.maxFeePerGas ? base + fees.maxPriorityFeePerGas : fees.maxFeePerGas);
+		const requesterKey = `${pipeline.kind}|${pipeline.requester}`;
+		const requesterSpent = BigInt(this.state.counters.perRequesterGasWei[requesterKey] ?? "0");
+		if (requesterSpent + expected > requesterBudgetWei(this.limits, pipeline.kind)) return await fail({
+			...problem("refused", "this network has used its part of the relayer's gas for today; submit the transaction yourself", {
+				reason: "requester-budget",
+				retryAfter: secondsToMidnight(this.now()),
+				fallback: "self-submit"
+			}),
+			status: 429
+		}, "requester-budget");
 		const balance = await client.getBalance({
 			address: account.address,
 			blockTag: "pending"
@@ -27068,13 +27234,18 @@ var ChainEngine = class ChainEngine {
 				missingPasses: 0,
 				evidenceFailures: 0
 			};
+			const counters = this.state.counters;
 			this.state = {
 				...this.state,
 				nextNonce: nonce + 1,
 				pending: [...this.state.pending, record],
-				budget: {
-					...this.state.budget,
-					reservedWei: (BigInt(this.state.budget.reservedWei) + reservation).toString()
+				budget: adjustBudget(this.state.budget, pipeline.kind, 0n, reservation),
+				counters: {
+					...counters,
+					perRequesterGasWei: {
+						...counters.perRequesterGasWei,
+						[requesterKey]: (requesterSpent + expected).toString()
+					}
 				}
 			};
 			try {
@@ -27083,9 +27254,13 @@ var ChainEngine = class ChainEngine {
 				this.state = {
 					...this.state,
 					pending: this.state.pending.filter((p) => p !== record),
-					budget: {
-						...this.state.budget,
-						reservedWei: (BigInt(this.state.budget.reservedWei) - reservation).toString()
+					budget: adjustBudget(this.state.budget, pipeline.kind, 0n, -reservation),
+					counters: {
+						...this.state.counters,
+						perRequesterGasWei: {
+							...this.state.counters.perRequesterGasWei,
+							[requesterKey]: requesterSpent.toString()
+						}
 					}
 				};
 				throw error;
@@ -27120,9 +27295,13 @@ var ChainEngine = class ChainEngine {
 				...this.state,
 				nextNonce: broadcast === "nonce-too-low" ? null : this.state.nextNonce,
 				pending: this.state.pending.filter((p) => p !== record),
-				budget: {
-					...this.state.budget,
-					reservedWei: (BigInt(this.state.budget.reservedWei) - reservation).toString()
+				budget: adjustBudget(this.state.budget, pipeline.kind, 0n, -reservation),
+				counters: {
+					...this.state.counters,
+					perRequesterGasWei: {
+						...this.state.counters.perRequesterGasWei,
+						[requesterKey]: requesterSpent.toString()
+					}
 				}
 			};
 			await this.save();
@@ -27274,10 +27453,7 @@ var ChainEngine = class ChainEngine {
 		});
 		if (delta > 0n) this.state = {
 			...this.state,
-			budget: {
-				...this.state.budget,
-				reservedWei: (BigInt(this.state.budget.reservedWei) + delta).toString()
-			}
+			budget: adjustBudget(this.state.budget, record.kind, 0n, delta)
 		};
 		await this.save();
 		const outcome = await this.broadcast(raw);
@@ -27300,15 +27476,10 @@ var ChainEngine = class ChainEngine {
 			outcome = attribution;
 		}
 		const cost = receipt === null || attempt === null ? 0n : (this.chain.gasModel.chargesGasLimit && BigInt(attempt.gas) > receipt.gasUsed ? BigInt(attempt.gas) : receipt.gasUsed) * receipt.effectiveGasPrice;
-		const reserved = BigInt(this.state.budget.reservedWei) - BigInt(record.reservedWei);
 		this.state = {
 			...this.state,
 			pending: this.state.pending.filter((p) => p.nonce !== record.nonce || !isAddressEqual(p.from, record.from)),
-			budget: {
-				...this.state.budget,
-				spentWei: (BigInt(this.state.budget.spentWei) + cost).toString(),
-				reservedWei: (reserved > 0n ? reserved : 0n).toString()
-			},
+			budget: adjustBudget(this.state.budget, record.kind, cost, -BigInt(record.reservedWei)),
 			recent: outcome === "settled" && record.dedupeId !== null && receipt !== null ? [...this.state.recent, {
 				id: record.dedupeId,
 				txHash: receipt.transactionHash,
@@ -34863,9 +35034,13 @@ function chainClient(chain, transport) {
 //#region apps/relayer/src/core/origins.ts
 /**
 * Which browser origins may call the relayer (CORS). Fixed in code, not configuration: the production app at
-* https://paylink-mg.pages.dev and its Cloudflare Pages preview deployments, `https://<label>.paylink-mg.pages.dev`
-* (a branch alias or a commit hash: exactly one DNS label). Nothing else, so a look-alike site cannot drive the
-* relayer from a visitor's browser.
+* https://paylink-mg.pages.dev and nothing else, so a look-alike site cannot drive the relayer from a visitor's
+* browser.
+*
+* Deployment hosts `https://<hash>.paylink-mg.pages.dev` and branch aliases are refused (narrowed 2026-10-08, ADR
+* 0005): previews are meant to be disabled, and every deployment Cloudflare Pages keeps, production ones included,
+* stays reachable at its own hash host. A build withdrawn after an incident (docs/security/incident-response.md PB-2)
+* must not keep a working relayer behind it.
 *
 * CORS is a browser policy, not access control: scripts and servers send no `Origin` and are served like any
 * client. What protects the relayer from them is the pipeline behind it (schema, SDK checks, admission ledger,
@@ -34874,8 +35049,6 @@ function chainClient(chain, transport) {
 */
 /** The v2 origin (fixed on 2026-10-07: Cloudflare Pages project "paylink-mg", passkey rpId paylink-mg.pages.dev; ADR 0005). */
 const PRODUCTION_ORIGIN = "https://paylink-mg.pages.dev";
-/** One DNS label (RFC 1035 letters, digits and inner hyphens, at most 63 characters) under the production host. */
-const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.paylink-mg\.pages\.dev$/u;
 /**
 * The production policy, optionally widened with exact extra origins (the Node adapter's local web server for
 * e2e). Extra origins must be bare `http://127.0.0.1:<port>` / `http://localhost:<port>` or https origins; a
@@ -34894,12 +35067,8 @@ function originPolicy(extraOrigins = []) {
 	}
 	const extra = new Set(extraOrigins);
 	return {
-		allows: (origin) => origin === "https://paylink-mg.pages.dev" || PREVIEW_ORIGIN.test(origin) || extra.has(origin),
-		description: [
-			PRODUCTION_ORIGIN,
-			"https://<preview>.paylink-mg.pages.dev",
-			...extra
-		].join(", ")
+		allows: (origin) => origin === "https://paylink-mg.pages.dev" || extra.has(origin),
+		description: [PRODUCTION_ORIGIN, ...extra].join(", ")
 	};
 }
 

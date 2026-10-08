@@ -145,7 +145,7 @@ The incident banner ([incident response](../security/incident-response.md)) is t
 
 ## 7. Roll back
 
-- **A bad deployment:** Deployments → pick the last good production deployment → "…" → **"Rollback to this deployment"**. Instant; no build.
+- **A bad deployment:** Deployments → pick the last good production deployment → "…" → **"Rollback to this deployment"**. Instant; no build. If the bad build is a security problem (a malicious change, an XSS), a rollback is not enough: it stays reachable at its own `https://<hash>.paylink-mg.pages.dev` URL, a subdomain of the passkey rpId. **Delete** that deployment too ("…" → "Delete deployment") and follow [incident response PB-2](../security/incident-response.md).
 - **Back to the old layout** (v1 at `/`, the kit at `/v2/deploy/`): set the build command and output directory back to empty, the root directory back to `web`, and retry the deployment. The repository needs no change: `web/` and `web/_headers` are as they were.
 
 ## 8. Prompt for your browser assistant

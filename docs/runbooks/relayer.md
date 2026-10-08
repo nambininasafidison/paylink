@@ -135,7 +135,7 @@ Nobody knows this key now, which is the point: it only pays relay gas, it holds 
 3. **Base Sepolia and Arbitrum Sepolia** (when you have Sepolia ETH): send **0.01 to 0.02 ETH** to the same address on each. One key, one address, every chain.
 4. Reload the health page. Monad testnet should read `"state": "awaiting-deployment"` until the PayLinkV2 deployment on Monad is recorded in the registry ([deploy runbook](deploy.md#4-deploying-v2-to-a-testnet)), then `"ready"`. `balanceWei` is the balance in wei (1 MON = 10^18), `minBalanceWei` the level below which the chain reports `unfunded` (one payment at the gas ceiling and twice the base fee, about 0.07 MON on Monad).
 
-What a relay costs the relayer (measured on an anvil fork of Monad testnet, 2026-10-07): a gasless payment has a limit of about 275,000 gas, all of it charged on Monad, so about **0.028 MON** at the 100-gwei minimum base fee; an onboarding drip about 0.015 MON. The daily gas budget stops the relayer at **1 MON a day** on Monad (about 35 payments) and 0.005 ETH a day on each Sepolia chain ([`apps/relayer/src/core/policy.ts`](../../apps/relayer/src/core/policy.ts)); after that, payers self-submit until midnight UTC.
+What a relay costs the relayer (measured on an anvil fork of Monad testnet, 2026-10-07): a gasless payment has a limit of about 275,000 gas, all of it charged on Monad, so about **0.028 MON** at the 100-gwei minimum base fee; an onboarding drip about 0.015 MON. The daily gas budget stops the relayer at **1 MON a day** on Monad and 0.005 ETH a day on each Sepolia chain ([`apps/relayer/src/core/policy.ts`](../../apps/relayer/src/core/policy.ts)), split so that no single party can spend it: on Monad 0.6 MON for payments (about 21), 0.1 MON for gasless cancellations (7 to 11) and 0.3 MON for onboarding (15 drips); one requester (an IPv4 address or an IPv6 /64) may use at most a fifth of each share a day, 10 relays a day, and a payee receives at most 20 relayed payments and makes 3 gasless cancellations a day. After a share is spent, payers self-submit until midnight UTC (a 0-MON passkey payer waits).
 
 ## 6. Smoke test
 
@@ -187,7 +187,7 @@ Already done (2026-10-08, [ADR 0015](../adr/0015-editions-t1-passkeys-gasless-ra
 
 The app asks `GET /v1/health` before every gasless payment, cancel or onboarding, and uses the relayer for a chain only while that chain reports `ready` (with the operation enabled). Until the Worker is live, or for a chain that is `awaiting-deployment` or `unfunded`, payers see "the service that covers the network fee is not answering" and the app offers what works without it; nothing else changes, so there is nothing to commit after the smoke test. `/status/` shows the relayer lamp. To take the relayer out of the app (an incident), remove the `relayer` entry (set it to `null`), run `pnpm --filter @paylink/web run headers`, commit and push.
 
-The relayer answers browsers only from `https://paylink-mg.pages.dev` and its preview deployments `https://<branch>.paylink-mg.pages.dev`; any other page that tries gets HTTP 403 `origin-not-allowed`. Requests without an `Origin` (curl, scripts) are served and limited like any other client: CORS is a browser rule, not access control.
+The relayer answers browsers only from `https://paylink-mg.pages.dev`; any other page that tries gets HTTP 403 `origin-not-allowed`, including the deployment hosts `https://<hash>.paylink-mg.pages.dev` and branch aliases (Cloudflare keeps every deployment reachable there; see incident-response PB-2). Requests without an `Origin` (curl, scripts) are served and limited like any other client: CORS is a browser rule, not access control.
 
 ## 8. Operations: refill, update, rotate, stop, roll back
 
@@ -278,10 +278,11 @@ PART D: after I say I am done
 | Health: `unfunded` | [§5](#5-fund-the-relayer) |
 | Health: `awaiting-deployment` | PayLinkV2 is not recorded for that chain yet. Deploy it ([deploy runbook](deploy.md)); Claude records it and the next bundle switches the chain to `ready` |
 | Health: `rpc-error` or `unreachable` | The chain's public RPCs did not answer. Wait a few minutes; if it lasts, tell Claude (the RPC list is in `@paylink/chains`) |
-| The app shows 403 `origin-not-allowed` | The page is not served from `paylink-mg.pages.dev` or one of its previews |
+| The app shows 403 `origin-not-allowed` | The page is not served from `https://paylink-mg.pages.dev` itself (a deployment hash host or a branch alias is refused on purpose) |
 | Error 1101 ("Worker threw exception") or 500 `internal` | A bug: the logs show `http.error` or `request.error` with the request id; send Claude the `requestId` and the `event` names, not whole lines |
 | Error 1102, or logs showing "Exceeded CPU Limit" | A Workers Free plan limit (**L**: check the limits your plan shows in the dashboard). The front Worker does under 1 ms of work per request; the signature checks and signing (about 20 to 40 ms of CPU per payment, measured in Node) run in the Durable Object, which Cloudflare documents with its own per-request CPU allowance. If relays still hit a CPU limit, the options are the Workers Paid plan (your decision, about 5 USD a month) or self-submission only; tell Claude before changing plans |
-| 503 `budget-exhausted` | Today's gas budget is spent; it resets at 00:00 UTC. Payers self-submit meanwhile |
+| 503 `budget-exhausted` | Today's gas budget, or this kind's share of it (payments, cancellations, onboarding), is spent; it resets at 00:00 UTC. Payers self-submit meanwhile |
+| 429 `refused`, `reason: "requester-budget"` or `"daily-cap"` | This network (IPv4 address or IPv6 /64), payer or payee has used its part of today's relays; it resets at 00:00 UTC. A burst of these from one network is the drain the shares exist to stop: read `request.done` lines by `requesterTag` |
 | 503 `fees-too-high` | Network fees above the relayer's cap (500 gwei on Monad, 10 gwei on the Sepolia chains); retry later |
 | `pending` stays above 0 for minutes | Look for `tx.replaced` and `tx.voided` in the logs: a stuck transaction is re-sent with fees × 1.25 after 30 s, up to three times, then its nonce is voided. If `tx.stuck` appears, fees exceed the cap; tell Claude |
 

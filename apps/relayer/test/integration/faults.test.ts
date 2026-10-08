@@ -7,12 +7,13 @@
  */
 import { createRegistry } from "@paylink/chains";
 import type { ChainDefinition } from "@paylink/chains";
-import { authorizePayment, decodeInvoiceFragment, expiresIn, issueInvoice, payLinkV2Abi, signCancel, toCancelAuthorizationJson } from "@paylink/sdk";
+import { authorizePayment, decodeInvoiceFragment, expiresIn, gasBounds, issueInvoice, payLinkV2Abi, signCancel, toCancelAuthorizationJson } from "@paylink/sdk";
 import type { DecodedInvoiceLink, PaymentAuthorization } from "@paylink/sdk";
 import { createWalletClient, custom, encodeFunctionData, http, HttpRequestError, RpcRequestError } from "viem";
 import type { EIP1193RequestFn, Hex, PrivateKeyAccount, Transport } from "viem";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { withPolicy } from "../../src/core/policy.ts";
+import type { EngineResult } from "../../src/core/engine.ts";
+import { requesterBudgetWei, withPolicy } from "../../src/core/policy.ts";
 import type { RelayerPolicy } from "../../src/core/policy.ts";
 import type { NodeRelayer } from "../../src/node/server.ts";
 import { startNodeRelayer } from "../../src/node/server.ts";
@@ -245,6 +246,85 @@ describe.skipIf(!chainAvailable())("relayer faults on anvil (10143)", () => {
     expect(second).toMatchObject({ status: 429, body: { code: "refused", reason: "daily-cap" } });
     const bad = await post(relayer.url, `/v1/${String(CHAIN_ID)}/onboard`, { chainId: CHAIN_ID, address: "0x000000000000000000000000000000000000DEad" });
     expect(bad).toMatchObject({ status: 400, body: { code: "invalid-request", rule: "Address" } });
+  });
+
+  it("one requester relaying payments and cancellations that all succeed cannot spend the day's budget: others still pay (T-03)", async () => {
+    // Monad's price level: a 100-gwei tip, so each relay is charged about `gasLimit × 101 gwei`, as Monad charges.
+    const tip = 100n * 10n ** 9n;
+    faults.set("eth_maxPriorityFeePerGas", () => `0x${tip.toString(16)}`);
+    // Monad's shares and caps (policy.ts), on a day whose payments' share holds about twelve relays at the gas ceiling.
+    const perPay = gasBounds(chain.local, "payWithAuthorization").ceiling * (tip + 2n * 10n ** 9n);
+    const relayer = await start({
+      policy: withPolicy({
+        limits: (c) => ({
+          ...withPolicy().limits(c),
+          dailyGasBudgetWei: perPay * 20n,
+          budgetShareBps: { pay: 6_000, cancel: 1_000, onboard: 3_000 },
+          requesterShareBps: 2_000,
+          maxRelaysPerRequesterPerDay: 10,
+          maxPaysPerPayeePerDay: 20,
+          maxCancelsPerPayeePerDay: 3,
+        }),
+      }),
+    });
+    const engine = await relayer.engine(CHAIN_ID);
+    const limits = engine.policy.limits(engine.chain);
+    const attacker = "ip4:198.51.100.7";
+    let request = 0;
+    const settle = async (result: EngineResult): Promise<void> => {
+      if (result.ok) {
+        await chain.client.waitForTransactionReceipt({ hash: result.body.txHash });
+        await relayer.tick();
+      }
+    };
+    const refusal = (result: EngineResult): string | undefined => (result.ok ? undefined : (result.problem.reason ?? result.problem.code));
+
+    // Self-dealing payments: the attacker pays their own payee one cent at a time, every relay settles.
+    let paid = 0;
+    let stopped: string | undefined;
+    for (let i = 0; i < 10 && stopped === undefined; i += 1) {
+      const result = await engine.pay({ body: body(await authorize(await invoice(10_000n, 1), chain.accounts.payer3)), requester: attacker, requestId: `pay-${String((request += 1))}` });
+      stopped = refusal(result);
+      paid += result.ok ? 1 : 0;
+      await settle(result);
+    }
+    expect(stopped).toBe("requester-budget");
+    expect(paid).toBeGreaterThanOrEqual(1);
+    const charged = BigInt(engine.snapshot().counters.perRequesterGasWei[`pay|${attacker}`] ?? "0");
+    expect(charged).toBeLessThanOrEqual(requesterBudgetWei(limits, "pay"));
+
+    // Gasless cancellations of throwaway invoices, from the same requester: its part of the cancellations' share.
+    let cancelled = 0;
+    stopped = undefined;
+    for (let i = 0; i < 10 && stopped === undefined; i += 1) {
+      const link = await invoice(1_000_000n, 1);
+      const cancel = toCancelAuthorizationJson(await signCancel({ signer: chain.accounts.payee, deployment: { chainId: CHAIN_ID, verifyingContract: chain.payLink }, invoice: link.invoice, deadline: (await chain.now()) + 3_600n }));
+      const result = await engine.cancel({ body: cancel, requester: attacker, requestId: `cancel-${String((request += 1))}` });
+      stopped = refusal(result);
+      cancelled += result.ok ? 1 : 0;
+      await settle(result);
+    }
+    expect(stopped).toBe("requester-budget");
+    expect(cancelled).toBeGreaterThanOrEqual(1);
+    // From many networks, a payee's own cancellations stop at three a day.
+    stopped = undefined;
+    for (let i = 0; i < 6 && stopped === undefined; i += 1) {
+      const link = await invoice(1_000_000n, 1);
+      const cancel = toCancelAuthorizationJson(await signCancel({ signer: chain.accounts.payee, deployment: { chainId: CHAIN_ID, verifyingContract: chain.payLink }, invoice: link.invoice, deadline: (await chain.now()) + 3_600n }));
+      const result = await engine.cancel({ body: cancel, requester: `ip4:203.0.113.${String(10 + i)}`, requestId: `cancel-${String((request += 1))}` });
+      stopped = refusal(result);
+      cancelled += result.ok ? 1 : 0;
+      await settle(result);
+    }
+    expect(stopped).toBe("daily-cap");
+    expect(cancelled).toBe(3);
+
+    // The payments' share is mostly untouched: another requester's payer is relayed.
+    const budget = engine.snapshot().budget;
+    expect(BigInt(budget.byKind.pay.spentWei)).toBeLessThanOrEqual(requesterBudgetWei(limits, "pay"));
+    const other = await engine.pay({ body: body(await authorize(await invoice(2_000_000n, 1), chain.accounts.payer2)), requester: "ip4:192.0.2.44", requestId: "other" });
+    expect(other).toMatchObject({ ok: true, httpStatus: 202, body: { status: "submitted", kind: "pay" } });
+    await settle(other);
   });
 
   it("incident levers (docs/security/incident-response.md §4): no payer allowance stops payments and keeps cancellations; no budget stops both", async () => {

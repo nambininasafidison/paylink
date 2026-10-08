@@ -10,9 +10,10 @@ import { assertSendable, faucetCall, faucetOf, isRelayable, relayRegistry, SELEC
 import { parsePrivateKey } from "../../src/core/engine.ts";
 import { RequestLimiter, SerialQueue } from "../../src/core/limits.ts";
 import { createLogger, errorMessage, requesterTag, silentLogger } from "../../src/core/log.ts";
-import { DEFAULT_POLICY, oneCent, withPolicy } from "../../src/core/policy.ts";
+import { DEFAULT_POLICY, kindBudgetWei, oneCent, requesterBudgetWei, withPolicy } from "../../src/core/policy.ts";
 import { problem, PROBLEMS, problemType, secondsUntil } from "../../src/core/problem.ts";
-import { emptyState, memoryStore, prune, restoreState, secondsToMidnight, utcDay } from "../../src/core/state.ts";
+import { adjustBudget, emptyState, memoryStore, prune, restoreState, secondsToMidnight, utcDay } from "../../src/core/state.ts";
+import type { PendingTx } from "../../src/core/state.ts";
 
 const SELF: Address = "0x90F79bf6EB2c4f870365E785982E1f101E93b906";
 const CONTRACT: Address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
@@ -174,11 +175,38 @@ describe("state", () => {
   const now = 1_791_400_000n;
   it("restores only a state of the same version and chain", () => {
     const state = emptyState(10143, now);
-    expect(restoreState(state, 10143, now)).toBe(state);
+    expect(restoreState(state, 10143, now)).toEqual(state);
     expect(restoreState(state, 84532, now)).toMatchObject({ chainId: 84532, pending: [] });
     expect(restoreState({ ...state, version: 0 }, 10143, now)).not.toBe(state);
     expect(restoreState(null, 10143, now)).toMatchObject({ nextNonce: null });
     expect(restoreState("junk", 10143, now)).toMatchObject({ chainId: 10143 });
+  });
+
+  it("restores a state saved before the per-kind budget and the per-party counters, keeping its pending transactions", () => {
+    const pending = (kind: PendingTx["kind"], reservedWei: string, nonce: number): PendingTx => ({
+      kind, nonce, from: SELF, to: CONTRACT, data: "0x", ticketId: null, dedupeId: null, validThrough: null, simulatedAt: "1", reservedWei, attempts: [], missingPasses: 0, evidenceFailures: 0,
+    });
+    const day = utcDay(now);
+    const old = {
+      ...emptyState(10143, now),
+      pending: [pending("pay", "5", 1), pending("cancel", "2", 2), pending("onboard", "3", 3)],
+      budget: { day, spentWei: "40", reservedWei: "10" },
+      counters: { day, relays: 4, onboards: 1, perPayer: { "0xa": 2 }, perAddress: {}, perRequester: {} },
+    };
+    const restored = restoreState(old, 10143, now);
+    expect(restored.pending).toHaveLength(3);
+    // Today's spending so far counts against the payments' share; each reservation against its own kind.
+    expect(restored.budget.byKind).toEqual({ pay: { spentWei: "40", reservedWei: "5" }, cancel: { spentWei: "0", reservedWei: "2" }, onboard: { spentWei: "0", reservedWei: "3" } });
+    expect(restored.counters).toMatchObject({ relays: 4, perPayer: { "0xa": 2 }, perRequesterRelays: {}, perRequesterGasWei: {}, perPayeePays: {}, perPayeeCancels: {} });
+  });
+
+  it("adjusts the total and one kind's share together, never below zero", () => {
+    const budget = emptyState(10143, now).budget;
+    const reserved = adjustBudget(budget, "cancel", 0n, 70n);
+    expect(reserved).toMatchObject({ reservedWei: "70", byKind: { cancel: { reservedWei: "70" }, pay: { reservedWei: "0" } } });
+    const settled = adjustBudget(reserved, "cancel", 60n, -70n);
+    expect(settled).toMatchObject({ spentWei: "60", reservedWei: "0", byKind: { cancel: { spentWei: "60", reservedWei: "0" } } });
+    expect(adjustBudget(settled, "pay", 0n, -5n).byKind.pay.reservedWei).toBe("0");
   });
 
   it("prunes expired bans, windows, recent relays and yesterday's counters, keeping reservations", () => {
@@ -192,7 +220,8 @@ describe("state", () => {
         strikes: { "requester:ip4:1.1.1.1": { count: 1, since: String(now - 90_000n) }, "requester:ip4:2.2.2.2": { count: 1, since: String(now - 10n) } },
         relays: { "requester:ip4:1.1.1.1": { count: 3, since: String(now - 3_600n) }, "requester:ip4:2.2.2.2": { count: 1, since: String(now - 10n) } },
       },
-      budget: { day: utcDay(now - 90_000n), spentWei: "50", reservedWei: "7" },
+      budget: { day: utcDay(now - 90_000n), spentWei: "50", reservedWei: "7", byKind: { pay: { spentWei: "40", reservedWei: "5" }, cancel: { spentWei: "10", reservedWei: "2" }, onboard: { spentWei: "0", reservedWei: "0" } } },
+      counters: { ...emptyState(10143, now - 90_000n).counters, relays: 9, perRequesterRelays: { "ip4:1.1.1.1": 9 }, perRequesterGasWei: { "pay|ip4:1.1.1.1": "99" }, perPayeeCancels: { "0xb": 3 } },
       recent: [
         { id: "old", txHash: zeroHash, at: Number(now - 90_000n) },
         { id: "new", txHash: zeroHash, at: Number(now - 10n) },
@@ -203,8 +232,9 @@ describe("state", () => {
     expect(Object.keys(pruned.ledger.strikes)).toEqual(["requester:ip4:2.2.2.2"]);
     expect(Object.keys(pruned.ledger.relays)).toEqual(["requester:ip4:2.2.2.2"]);
     expect(pruned.recent.map((r) => r.id)).toEqual(["new"]);
-    expect(pruned.budget).toEqual({ day: utcDay(now), spentWei: "0", reservedWei: "7" });
-    expect(pruned.counters).toMatchObject({ day: utcDay(now), relays: 0 });
+    expect(pruned.budget).toEqual({ day: utcDay(now), spentWei: "0", reservedWei: "7", byKind: { pay: { spentWei: "0", reservedWei: "5" }, cancel: { spentWei: "0", reservedWei: "2" }, onboard: { spentWei: "0", reservedWei: "0" } } });
+    // Requester identities never outlive their day (THREAT_MODEL T-38).
+    expect(pruned.counters).toEqual({ day: utcDay(now), relays: 0, onboards: 0, perPayer: {}, perAddress: {}, perRequester: {}, perRequesterRelays: {}, perRequesterGasWei: {}, perPayeePays: {}, perPayeeCancels: {} });
   });
 
   it("knows the UTC day and the seconds to midnight", () => {
@@ -231,6 +261,31 @@ describe("policy and problems", () => {
     expect(DEFAULT_POLICY.limits(registry.getOrThrow(84532)).maxOnboardsPerDay).toBe(0);
     expect(DEFAULT_POLICY.limits({ ...monadTestnet, key: "monad" }).dailyGasBudgetWei).toBe(0n);
     expect(withPolicy({ maxReplacements: 1 })).toMatchObject({ maxReplacements: 1, replaceAfterSeconds: 30, feeBumpPercent: 25 });
+  });
+
+  it("splits every chain's daily budget so that no kind and no requester can spend it all (review 2026-10-08)", () => {
+    for (const chain of registry.chains) {
+      const limits = DEFAULT_POLICY.limits(chain);
+      const shares = Object.values(limits.budgetShareBps).reduce((a, b) => a + b, 0);
+      expect(shares === 10_000 || limits.dailyGasBudgetWei === 0n, chain.key).toBe(true);
+      expect(limits.requesterShareBps, chain.key).toBeLessThanOrEqual(2_000);
+      for (const kind of ["pay", "cancel", "onboard"] as const) {
+        expect(kindBudgetWei(limits, kind) < limits.dailyGasBudgetWei || limits.dailyGasBudgetWei === 0n, `${chain.key} ${kind}`).toBe(true);
+        expect(requesterBudgetWei(limits, kind) * 5n <= kindBudgetWei(limits, kind), `${chain.key} ${kind}`).toBe(true);
+      }
+      expect(limits.maxCancelsPerPayeePerDay, chain.key).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("sizes Monad's onboarding cap to fit its share: every drip at the faucet's gas ceiling and the 102-gwei price", () => {
+    const limits = DEFAULT_POLICY.limits(monadTestnet);
+    const faucet = faucetOf(monadTestnet);
+    expect(faucet).not.toBeNull();
+    const drip = (faucet?.gas.ceiling ?? 0n) * 102n * 10n ** 9n;
+    expect(BigInt(limits.maxOnboardsPerDay) * drip).toBeLessThanOrEqual(kindBudgetWei(limits, "onboard"));
+    expect(kindBudgetWei(limits, "pay")).toBe(6n * 10n ** 17n);
+    expect(requesterBudgetWei(limits, "pay")).toBe(12n * 10n ** 16n);
+    expect(requesterBudgetWei(limits, "cancel")).toBe(2n * 10n ** 16n);
   });
 
   it("gives every code a status and a documented type", () => {

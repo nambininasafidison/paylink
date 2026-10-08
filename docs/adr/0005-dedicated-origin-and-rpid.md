@@ -42,6 +42,7 @@ Chosen option: **A**, with **D** as the documented fallback if Cloudflare sign-u
 
 - `pages.dev` is on the Public Suffix List (**C**, `publicsuffix/list` fetched on 2026-10-05), so `<app>.pages.dev` is its own site and rpId.
 - **Preview deployments are disabled.** A preview at `<hash>.<app>.pages.dev` is a subdomain of the rpId and could assert it, which would let unreviewed preview code use production passkeys.
+- **Production deployments have such hosts too** (corrected 2026-10-08). Cloudflare Pages keeps every deployment, previews disabled or not, reachable at `https://<hash>.<app>.pages.dev`, and each of those hosts can assert the rpId. Honest builds run passkey ceremonies only on the exact production host, which does not bind a malicious build: after a bad deploy, the affected deployments are **deleted**, not just rolled back ([incident response PB-2](../security/incident-response.md)), the deployment hosts can be put behind Cloudflare Access, and the relayer answers only the production origin ([THREAT_MODEL T-48](../security/THREAT_MODEL.md#t-48)).
 - The rpId is **fixed before the first passkey is created**. The recommended name is `paylink-mg`; whether it is available is unknown until the owner checks.
 - Deploys run only from `main` through GitHub Actions (`wrangler pages deploy`, the action pinned by SHA), with a scoped API token.
 

@@ -10,12 +10,13 @@
  *    signature with the contract's dispatch, the recomputed binding nonce, the payer's signature with the token's
  *    dispatch, the time windows and the relay margin on every bound;
  * 4. the token is an EIP-3009 registry token and the amount at least one cent;
- * 5. per-requester and per-chain request rates, per-payer and per-chain daily caps;
+ * 5. per-requester and per-chain request rates; daily caps per chain, payer, payee and requester;
  * 6. `RelayAdmissionLedger.admit`: in-flight bounds, attribution bans, requester strikes and hourly rate, code
  *    policy, the margin again on the relayer's clock; then an `eth_call` simulation at the checked block;
  * 7. in the send section (one at a time): the margin against the pending block, `eth_call` and `eth_estimateGas`
  *    against the pending block, `gasLimit = clamp(estimate × 1.10, floor, ceiling)` from `@paylink/chains`, fee caps,
- *    the daily gas budget and the balance, the nonce, `assertSendable`, sign, persist, broadcast;
+ *    the daily gas budget, the share of it this kind of transaction may spend and the requester's part of that share,
+ *    the balance, the nonce, `assertSendable`, sign, persist, broadcast;
  * 8. return the transaction hash.
  * The tracker (`tick`) then follows each nonce to its receipt: settled, dropped, or reverted after a passing
  * simulation, in which case `attributeRelayRevert` names the cause from chain evidence and the ledger bans only
@@ -54,12 +55,12 @@ import { assertSendable, faucetCall, faucetOf, isRelayable } from "./chains.ts";
 import { RequestLimiter, SerialQueue } from "./limits.ts";
 import type { Logger } from "./log.ts";
 import { errorMessage, requesterTag, silentLogger } from "./log.ts";
-import { DEFAULT_POLICY } from "./policy.ts";
+import { DEFAULT_POLICY, kindBudgetWei, requesterBudgetWei } from "./policy.ts";
 import type { ChainLimits, RelayerPolicy } from "./policy.ts";
 import type { Problem } from "./problem.ts";
 import { problem, secondsUntil } from "./problem.ts";
 import type { Attempt, PendingTx, SenderState, StateStore, TxKind } from "./state.ts";
-import { MAX_RECENT, prune, restoreState, secondsToMidnight } from "./state.ts";
+import { adjustBudget, MAX_RECENT, prune, restoreState, secondsToMidnight } from "./state.ts";
 
 /** One relay request, as the HTTP layer hands it over (plain JSON: it crosses the Durable Object RPC boundary). */
 export interface RelayInput {
@@ -181,6 +182,8 @@ interface Pipeline {
   readonly dedupeId: string | null;
   readonly subject: Hex;
   readonly log: Logger;
+  /** Who asked (in memory only, never persisted with the transaction): charged its part of the kind's share. */
+  readonly requester: RequesterId;
 }
 
 type SendOutcome = { readonly ok: true; readonly body: Accepted } | { readonly ok: false; readonly problem: Problem };
@@ -279,10 +282,16 @@ export class ChainEngine {
         return problem("rejected", `the relayer does not relay payments below ${minimum.toString()} base units of ${checked.token.symbol}`, { rule: "BelowMinimumAmount", fallback: "self-submit" });
       }
       const payerKey = checked.payer.toLowerCase();
+      const payeeKey = checked.payee.toLowerCase();
       const counters = this.state.counters;
-      if (counters.relays >= this.limits.maxRelaysPerDay || (counters.perPayer[payerKey] ?? 0) >= this.limits.maxRelaysPerPayerPerDay) {
+      if (
+        counters.relays >= this.limits.maxRelaysPerDay ||
+        (counters.perPayer[payerKey] ?? 0) >= this.limits.maxRelaysPerPayerPerDay ||
+        (counters.perPayeePays[payeeKey] ?? 0) >= this.limits.maxPaysPerPayeePerDay ||
+        (counters.perRequesterRelays[requester] ?? 0) >= this.limits.maxRelaysPerRequesterPerDay
+      ) {
         const until = secondsToMidnight(this.now());
-        return problem("refused", "the daily relay cap for this chain or this payer is reached", { reason: "daily-cap", retryAfter: until, fallback: "self-submit" });
+        return problem("refused", "the daily relay cap for this chain, this payer, this payee or this network is reached", { reason: "daily-cap", retryAfter: until, fallback: "self-submit" });
       }
       return await this.admitAndSend(log, requester, checked, block.number, {
         kind: "pay",
@@ -291,7 +300,17 @@ export class ChainEngine {
         dedupeId,
         subject: checked.key,
         onSent: () => {
-          this.state = { ...this.state, counters: { ...this.state.counters, relays: this.state.counters.relays + 1, perPayer: { ...this.state.counters.perPayer, [payerKey]: (this.state.counters.perPayer[payerKey] ?? 0) + 1 } } };
+          const now = this.state.counters;
+          this.state = {
+            ...this.state,
+            counters: {
+              ...now,
+              relays: now.relays + 1,
+              perPayer: { ...now.perPayer, [payerKey]: (now.perPayer[payerKey] ?? 0) + 1 },
+              perPayeePays: { ...now.perPayeePays, [payeeKey]: (now.perPayeePays[payeeKey] ?? 0) + 1 },
+              perRequesterRelays: { ...now.perRequesterRelays, [requester]: (now.perRequesterRelays[requester] ?? 0) + 1 },
+            },
+          };
         },
         explain: async (error) => await this.explainPayFailure(error, checked),
       });
@@ -324,8 +343,14 @@ export class ChainEngine {
       } catch (error) {
         return payLinkProblem(error);
       }
-      if (this.state.counters.relays >= this.limits.maxRelaysPerDay) {
-        return problem("refused", "the daily relay cap for this chain is reached", { reason: "daily-cap", retryAfter: secondsToMidnight(this.now()), fallback: "self-submit" });
+      const payeeKey = checked.payee.toLowerCase();
+      const counters = this.state.counters;
+      if (
+        counters.relays >= this.limits.maxRelaysPerDay ||
+        (counters.perPayeeCancels[payeeKey] ?? 0) >= this.limits.maxCancelsPerPayeePerDay ||
+        (counters.perRequesterRelays[requester] ?? 0) >= this.limits.maxRelaysPerRequesterPerDay
+      ) {
+        return problem("refused", "the daily cancellation cap for this chain, this payee or this network is reached", { reason: "daily-cap", retryAfter: secondsToMidnight(this.now()), fallback: "self-submit" });
       }
       return await this.admitAndSend(log, requester, checked, block.number, {
         kind: "cancel",
@@ -334,7 +359,16 @@ export class ChainEngine {
         dedupeId,
         subject: checked.key,
         onSent: () => {
-          this.state = { ...this.state, counters: { ...this.state.counters, relays: this.state.counters.relays + 1 } };
+          const now = this.state.counters;
+          this.state = {
+            ...this.state,
+            counters: {
+              ...now,
+              relays: now.relays + 1,
+              perPayeeCancels: { ...now.perPayeeCancels, [payeeKey]: (now.perPayeeCancels[payeeKey] ?? 0) + 1 },
+              perRequesterRelays: { ...now.perRequesterRelays, [requester]: (now.perRequesterRelays[requester] ?? 0) + 1 },
+            },
+          };
         },
         explain: async (error) => await this.explainCancelFailure(error, checked),
       });
@@ -372,7 +406,7 @@ export class ChainEngine {
       } catch (error) {
         return this.faucetProblem(error);
       }
-      const sent = await this.queue.run(async () => await this.send({ kind: "onboard", call, bounds: faucet.gas, window: null, ticket: null, dedupeId: null, subject: recipient, log }, block.number, (error) => Promise.resolve(this.faucetProblem(error))));
+      const sent = await this.queue.run(async () => await this.send({ kind: "onboard", call, bounds: faucet.gas, window: null, ticket: null, dedupeId: null, subject: recipient, log, requester }, block.number, (error) => Promise.resolve(this.faucetProblem(error))));
       if (!sent.ok) {
         return sent.problem;
       }
@@ -509,7 +543,7 @@ export class ChainEngine {
     requester: RequesterId,
     checked: CheckedPayRequest | CheckedRelayCall,
     checkedAt: bigint,
-    plan: Omit<Pipeline, "window" | "ticket" | "log"> & { readonly onSent: () => void; readonly explain: (error: unknown) => Promise<Problem> },
+    plan: Omit<Pipeline, "window" | "ticket" | "log" | "requester"> & { readonly onSent: () => void; readonly explain: (error: unknown) => Promise<Problem> },
   ): Promise<EngineResult | Problem> {
     const admission: Admission = this.ledger.admit(checked, requester, this.now());
     if (!admission.admitted) {
@@ -525,7 +559,7 @@ export class ChainEngine {
         await this.releaseDropped(ticket, log, "simulation");
         return await plan.explain(error);
       }
-      const pipeline: Pipeline = { ...plan, window: checked, ticket, log };
+      const pipeline: Pipeline = { ...plan, window: checked, ticket, log, requester };
       const sent = await this.queue.run(async () => await this.send(pipeline, checkedAt, plan.explain));
       if (!sent.ok) {
         return sent.problem;
@@ -660,8 +694,23 @@ export class ChainEngine {
     }
     const reservation = gas * fees.maxFeePerGas;
     const budget = this.state.budget;
-    if (BigInt(budget.spentWei) + BigInt(budget.reservedWei) + reservation > this.limits.dailyGasBudgetWei) {
+    const share = budget.byKind[pipeline.kind];
+    if (
+      BigInt(budget.spentWei) + BigInt(budget.reservedWei) + reservation > this.limits.dailyGasBudgetWei ||
+      BigInt(share.spentWei) + BigInt(share.reservedWei) + reservation > kindBudgetWei(this.limits, pipeline.kind)
+    ) {
       return await fail(problem("budget-exhausted", "the relayer's gas budget for today is spent", { retryAfter: secondsToMidnight(this.now()), fallback: "self-submit" }), "budget");
+    }
+    // The requester's part of this kind's share, at the price the chain is expected to charge (Monad charges the limit).
+    const base = pending.baseFeePerGas ?? 0n;
+    const expected = gas * (base + fees.maxPriorityFeePerGas < fees.maxFeePerGas ? base + fees.maxPriorityFeePerGas : fees.maxFeePerGas);
+    const requesterKey = `${pipeline.kind}|${pipeline.requester}`;
+    const requesterSpent = BigInt(this.state.counters.perRequesterGasWei[requesterKey] ?? "0");
+    if (requesterSpent + expected > requesterBudgetWei(this.limits, pipeline.kind)) {
+      return await fail(
+        { ...problem("refused", "this network has used its part of the relayer's gas for today; submit the transaction yourself", { reason: "requester-budget", retryAfter: secondsToMidnight(this.now()), fallback: "self-submit" }), status: 429 },
+        "requester-budget",
+      );
     }
     // The balance must cover this transaction on top of everything still pending (each at its reserved worst case).
     const balance = await client.getBalance({ address: account.address, blockTag: "pending" });
@@ -694,11 +743,13 @@ export class ChainEngine {
         evidenceFailures: 0,
       };
       // Persist before broadcasting: a crash after the broadcast must not lose track of the nonce or the ticket.
+      const counters = this.state.counters;
       this.state = {
         ...this.state,
         nextNonce: nonce + 1,
         pending: [...this.state.pending, record],
-        budget: { ...this.state.budget, reservedWei: (BigInt(this.state.budget.reservedWei) + reservation).toString() },
+        budget: adjustBudget(this.state.budget, pipeline.kind, 0n, reservation),
+        counters: { ...counters, perRequesterGasWei: { ...counters.perRequesterGasWei, [requesterKey]: (requesterSpent + expected).toString() } },
       };
       try {
         await this.save();
@@ -706,7 +757,8 @@ export class ChainEngine {
         this.state = {
           ...this.state,
           pending: this.state.pending.filter((p) => p !== record),
-          budget: { ...this.state.budget, reservedWei: (BigInt(this.state.budget.reservedWei) - reservation).toString() },
+          budget: adjustBudget(this.state.budget, pipeline.kind, 0n, -reservation),
+          counters: { ...this.state.counters, perRequesterGasWei: { ...this.state.counters.perRequesterGasWei, [requesterKey]: requesterSpent.toString() } },
         };
         throw error;
       }
@@ -719,12 +771,13 @@ export class ChainEngine {
           body: { status: "submitted", kind: pipeline.kind, chainId: this.chain.chainId, txHash: hash, duplicate: false, subject: pipeline.subject, nonce, gasLimit: gas.toString() },
         };
       }
-      // Refused by the node: forget the record and the reservation.
+      // Refused by the node: forget the record, the reservation and the requester's charge.
       this.state = {
         ...this.state,
         nextNonce: broadcast === "nonce-too-low" ? null : this.state.nextNonce,
         pending: this.state.pending.filter((p) => p !== record),
-        budget: { ...this.state.budget, reservedWei: (BigInt(this.state.budget.reservedWei) - reservation).toString() },
+        budget: adjustBudget(this.state.budget, pipeline.kind, 0n, -reservation),
+        counters: { ...this.state.counters, perRequesterGasWei: { ...this.state.counters.perRequesterGasWei, [requesterKey]: requesterSpent.toString() } },
       };
       await this.save();
       if (broadcast === "nonce-too-low" && attempt === 0) {
@@ -862,7 +915,7 @@ export class ChainEngine {
     const delta = reservation - BigInt(record.reservedWei);
     this.replacePending(record, { ...record, attempts: [...record.attempts, attempt], reservedWei: (delta > 0n ? reservation : BigInt(record.reservedWei)).toString() });
     if (delta > 0n) {
-      this.state = { ...this.state, budget: { ...this.state.budget, reservedWei: (BigInt(this.state.budget.reservedWei) + delta).toString() } };
+      this.state = { ...this.state, budget: adjustBudget(this.state.budget, record.kind, 0n, delta) };
     }
     await this.save();
     const outcome = await this.broadcast(raw);
@@ -888,11 +941,10 @@ export class ChainEngine {
       receipt === null || attempt === null
         ? 0n
         : (this.chain.gasModel.chargesGasLimit && BigInt(attempt.gas) > receipt.gasUsed ? BigInt(attempt.gas) : receipt.gasUsed) * receipt.effectiveGasPrice;
-    const reserved = BigInt(this.state.budget.reservedWei) - BigInt(record.reservedWei);
     this.state = {
       ...this.state,
       pending: this.state.pending.filter((p) => p.nonce !== record.nonce || !isAddressEqual(p.from, record.from)),
-      budget: { ...this.state.budget, spentWei: (BigInt(this.state.budget.spentWei) + cost).toString(), reservedWei: (reserved > 0n ? reserved : 0n).toString() },
+      budget: adjustBudget(this.state.budget, record.kind, cost, -BigInt(record.reservedWei)),
       recent:
         outcome === "settled" && record.dedupeId !== null && receipt !== null
           ? [...this.state.recent, { id: record.dedupeId, txHash: receipt.transactionHash, at: Number(now) }].slice(-MAX_RECENT)

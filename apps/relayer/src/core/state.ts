@@ -4,8 +4,9 @@
  * (Durable Object storage in the Worker, memory in the Node adapter). It holds no secret and no request body.
  *
  * Retention (THREAT_MODEL T-38): requester identities (an IPv4 address or an IPv6 /64) appear only in the admission
- * ledger's counters and bans and in the day's onboarding counters; `prune` drops each entry when its window or ban
- * ends, so none outlives a day. Nothing in the state links a requester to a payer beyond an in-flight ticket.
+ * ledger's counters and bans and in the day's counters (onboarding, relays and gas per requester); `prune` drops each
+ * entry when its window, ban or day ends, so none outlives a day. Nothing in the state links a requester to a payer
+ * beyond an in-flight ticket.
  */
 import type { RelayAdmissionPolicy, RelayAdmissionSnapshot } from "@paylink/sdk";
 import { DEFAULT_RELAY_ADMISSION_POLICY } from "@paylink/sdk";
@@ -67,7 +68,21 @@ export interface DayCounters {
   readonly onboards: number;
   readonly perPayer: Readonly<Record<string, number>>;
   readonly perAddress: Readonly<Record<string, number>>;
+  /** Onboardings per requester. */
   readonly perRequester: Readonly<Record<string, number>>;
+  /** Relays (pay and cancel) per requester. */
+  readonly perRequesterRelays: Readonly<Record<string, number>>;
+  /** Gas per `<kind>|<requester>` at the expected price (decimal wei), against `requesterShareBps`. */
+  readonly perRequesterGasWei: Readonly<Record<string, string>>;
+  /** Relayed payments received per payee, and relayed cancellations per payee (lower-case address). */
+  readonly perPayeePays: Readonly<Record<string, number>>;
+  readonly perPayeeCancels: Readonly<Record<string, number>>;
+}
+
+/** Settled and reserved gas of one kind of transaction (decimal wei). */
+export interface KindBudget {
+  readonly spentWei: string;
+  readonly reservedWei: string;
 }
 
 export interface Budget {
@@ -76,6 +91,8 @@ export interface Budget {
   readonly spentWei: string;
   /** Reserved for transactions still pending (decimal wei); carried over midnight. */
   readonly reservedWei: string;
+  /** The same per kind of transaction, against each kind's share of the day's budget. */
+  readonly byKind: Readonly<Record<TxKind, KindBudget>>;
 }
 
 export interface SenderState {
@@ -118,6 +135,12 @@ export function secondsToMidnight(seconds: bigint): number {
   return 86_400 - Number(seconds % 86_400n);
 }
 
+const ZERO_KINDS: Readonly<Record<TxKind, KindBudget>> = { pay: { spentWei: "0", reservedWei: "0" }, cancel: { spentWei: "0", reservedWei: "0" }, onboard: { spentWei: "0", reservedWei: "0" } };
+
+export function emptyCounters(day: string): DayCounters {
+  return { day, relays: 0, onboards: 0, perPayer: {}, perAddress: {}, perRequester: {}, perRequesterRelays: {}, perRequesterGasWei: {}, perPayeePays: {}, perPayeeCancels: {} };
+}
+
 export function emptyState(chainId: number, nowSeconds: bigint): SenderState {
   const day = utcDay(nowSeconds);
   return {
@@ -126,22 +149,33 @@ export function emptyState(chainId: number, nowSeconds: bigint): SenderState {
     nextNonce: null,
     pending: [],
     ledger: { version: 2, nextId: 1, inFlight: [], bans: {}, strikes: {}, relays: {} },
-    budget: { day, spentWei: "0", reservedWei: "0" },
-    counters: { day, relays: 0, onboards: 0, perPayer: {}, perAddress: {}, perRequester: {} },
+    budget: { day, spentWei: "0", reservedWei: "0", byKind: ZERO_KINDS },
+    counters: emptyCounters(day),
     recent: [],
   };
 }
 
-/** Loads a stored state for `chainId`, or a fresh one when there is none or it is of another version or chain. */
+/**
+ * Loads a stored state for `chainId`, or a fresh one when there is none or it is of another version or chain. A
+ * state saved before the per-kind budget and the per-requester and per-payee counters (2026-10-08) keeps its pending
+ * transactions and gains those fields: the day's spending so far is counted against the payments' share, and each
+ * pending transaction's reservation against its own kind.
+ */
 export function restoreState(stored: unknown, chainId: number, nowSeconds: bigint): SenderState {
   if (typeof stored !== "object" || stored === null) {
     return emptyState(chainId, nowSeconds);
   }
   const state = stored as Partial<SenderState>;
-  if (state.version !== 1 || state.chainId !== chainId || state.ledger?.version !== 2 || !Array.isArray(state.pending)) {
+  if (state.version !== 1 || state.chainId !== chainId || state.ledger?.version !== 2 || !Array.isArray(state.pending) || state.budget === undefined || state.counters === undefined) {
     return emptyState(chainId, nowSeconds);
   }
-  return state as SenderState;
+  const reservedOf = (kind: TxKind): string => state.pending?.filter((p) => p.kind === kind).reduce((sum, p) => sum + BigInt(p.reservedWei), 0n).toString() ?? "0";
+  const budget: Budget =
+    (state.budget as Partial<Budget>).byKind === undefined
+      ? { ...state.budget, byKind: { pay: { spentWei: state.budget.spentWei, reservedWei: reservedOf("pay") }, cancel: { spentWei: "0", reservedWei: reservedOf("cancel") }, onboard: { spentWei: "0", reservedWei: reservedOf("onboard") } } }
+      : state.budget;
+  const counters: DayCounters = { ...emptyCounters(state.counters.day), ...state.counters };
+  return { ...(state as SenderState), budget, counters };
 }
 
 /** How long recent relays are remembered for duplicate answers. */
@@ -164,11 +198,24 @@ export function prune(state: SenderState, nowSeconds: bigint, admission: Partial
   };
   const day = utcDay(nowSeconds);
   const recent = state.recent.filter((relay) => BigInt(relay.at) + BigInt(RECENT_SECONDS) > nowSeconds).slice(-MAX_RECENT);
+  const carried = (kind: TxKind): KindBudget => ({ spentWei: "0", reservedWei: state.budget.byKind[kind].reservedWei });
   return {
     ...state,
     ledger,
     recent,
-    budget: state.budget.day === day ? state.budget : { day, spentWei: "0", reservedWei: state.budget.reservedWei },
-    counters: state.counters.day === day ? state.counters : { day, relays: 0, onboards: 0, perPayer: {}, perAddress: {}, perRequester: {} },
+    budget: state.budget.day === day ? state.budget : { day, spentWei: "0", reservedWei: state.budget.reservedWei, byKind: { pay: carried("pay"), cancel: carried("cancel"), onboard: carried("onboard") } },
+    counters: state.counters.day === day ? state.counters : emptyCounters(day),
+  };
+}
+
+/** `budget` with `deltaSpent` and `deltaReserved` (wei, may be negative) applied to the total and to `kind`. */
+export function adjustBudget(budget: Budget, kind: TxKind, deltaSpent: bigint, deltaReserved: bigint): Budget {
+  const floor = (value: bigint): string => (value > 0n ? value : 0n).toString();
+  const own = budget.byKind[kind];
+  return {
+    ...budget,
+    spentWei: floor(BigInt(budget.spentWei) + deltaSpent),
+    reservedWei: floor(BigInt(budget.reservedWei) + deltaReserved),
+    byKind: { ...budget.byKind, [kind]: { spentWei: floor(BigInt(own.spentWei) + deltaSpent), reservedWei: floor(BigInt(own.reservedWei) + deltaReserved) } },
   };
 }

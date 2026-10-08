@@ -47,14 +47,16 @@ Each relay goes through, in order (spec §3.7):
 
 - `RELAYER_PK` comes **only** from the Worker secret of that name, set by the owner in the dashboard. It is the relayer's own throwaway testnet key, never the owner's MetaMask key; [`deploy/wrangler.toml`](deploy/wrangler.toml) has no variables and [`test/unit/deploy.test.ts`](test/unit/deploy.test.ts) keeps it so. A missing or malformed key leaves the relayer up with every chain `not-configured`.
 - Logs are JSON lines in Workers Logs. The logger scrubs every known secret from each line whatever field carries it, drops fields named like key material or signatures, never logs bodies, and logs requesters only as `requesterTag`, a truncated SHA-256 under a per-isolate random salt that is never stored ([`src/core/log.ts`](src/core/log.ts); THREAT_MODEL T-38).
-- CORS allows `https://paylink-mg.pages.dev` and its preview deployments `https://<label>.paylink-mg.pages.dev` (one DNS label), nothing else; a request with any other `Origin` is refused before it is processed. CORS is not access control: scripts that send no `Origin` are served like browsers, and are bounded by everything above.
+- CORS allows `https://paylink-mg.pages.dev` only, not the deployment hosts `https://<hash>.paylink-mg.pages.dev` or branch aliases (a withdrawn build stays reachable there; incident-response PB-2); a request with any other `Origin` is refused before it is processed. CORS is not access control: scripts that send no `Origin` are served like browsers, and are bounded by everything above.
 
 ## Limits (code, not configuration: [`src/core/policy.ts`](src/core/policy.ts))
 
-| Chain | Daily gas budget | Fee cap | Relays per day (per payer) | Onboarding per day (per address, per requester) |
-|---|---|---|---|---|
-| Monad testnet | 1 MON (about 35 payments: one costs about 0.028 MON, its whole limit) | 500 gwei | 300 (30) | 100 (1, 3) |
-| Base Sepolia, Arbitrum Sepolia | 0.005 ETH | 10 gwei | 300 (30) | none |
+| Chain | Daily gas budget: payments / cancellations / onboarding | Fee cap | Relays per day (per payer, per requester) | Per payee per day (payments, cancellations) | Onboarding per day (per address, per requester) |
+|---|---|---|---|---|---|
+| Monad testnet | 1 MON: 0.6 / 0.1 / 0.3 (about 21 payments at 0.028 MON each, their whole limit; 7 to 11 cancellations; 15 drips) | 500 gwei | 300 (10, 10) | 20, 3 | 15 (1, 3) |
+| Base Sepolia, Arbitrum Sepolia | 0.005 ETH: 80 % / 20 % / none | 10 gwei | 300 (10, 10) | 20, 3 | none |
+
+No single party can spend the day's budget with relays that succeed (review 2026-10-08): each kind of transaction has its own share, and one requester (an IPv4 address or an IPv6 /64) may spend at most a fifth of each share per UTC day, counted at the expected price (`gasLimit × (baseFee + tip)`, what Monad charges), on top of 10 relays a day and the payee caps. Refusals are `refused` with `reason: "daily-cap"` or `"requester-budget"` (429, `Retry-After` at UTC midnight); a spent share is `budget-exhausted`. The counters live in the chain's persisted state for the UTC day only.
 
 Requests: 30 a minute per requester, 600 a minute per chain. The relayer's key should hold about two days of budget (2 MON on Monad), refilled from the faucets ([runbook](../../docs/runbooks/relayer.md#5-fund-the-relayer)).
 
@@ -78,7 +80,7 @@ Errors are RFC 9457 `application/problem+json` with a stable `code`, a `fallback
 | <a id="problem-already-settled"></a>`already-settled` | 409 | The authorisation was used on the token: the payment went through (verify its receipt). |
 | <a id="problem-already-cancelled"></a>`already-cancelled` | 409 | The invoice is already cancelled. |
 | <a id="problem-invoice-closed"></a>`invoice-closed` | 409 | The invoice no longer accepts this payment (`error.name`: `SoldOut`, `Cancelled`, `Expired`, `NotYetValid`). |
-| <a id="problem-refused"></a>`refused` | 429, 409 or 422 | The admission policy or a daily cap refuses it now; `reason` is the refusal (`in-flight-key` 409, `banned-payer` 429, `payer-has-code` 422, `daily-cap` 429, …). Self-submit the same authorisation. |
+| <a id="problem-refused"></a>`refused` | 429, 409 or 422 | The admission policy or a daily cap refuses it now; `reason` is the refusal (`in-flight-key` 409, `banned-payer` 429, `payer-has-code` 422, `daily-cap` 429, `requester-budget` 429, …). Self-submit the same authorisation. |
 | <a id="problem-rate-limited"></a>`rate-limited` | 429 | Too many requests; retry after `Retry-After`. |
 | <a id="problem-simulation-failed"></a>`simulation-failed` | 422 | The transaction would revert; `error` carries the decoded error and its i18n key. |
 | <a id="problem-gas-above-ceiling"></a>`gas-above-ceiling` | 422 | The estimate is above the registry ceiling (a hostile ERC-1271 payee, or a ceiling to re-measure). Self-submit. |
