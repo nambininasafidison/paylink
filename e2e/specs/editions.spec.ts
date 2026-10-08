@@ -23,7 +23,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { decodeFunctionData, parseAbi } from "viem";
 import type { Address, Hex } from "viem";
 import { ACCOUNTS, PAYER_FUNDS, PAYLINK, TOKEN } from "../fixtures/app.ts";
-import { addAuthenticator, BASE, buildEditionsSite, DRIP, MONAD, routeRelayer, startEditionChains, startRelayer } from "../fixtures/editions.ts";
+import { addAuthenticator, BASE, buildEditionsSite, DRIP, MONAD, RELAYER_ORIGIN, routeRelayer, startEditionChains, startRelayer } from "../fixtures/editions.ts";
 import type { EditionChains, LocalRelayer } from "../fixtures/editions.ts";
 import { servePages } from "../fixtures/pages.ts";
 import type { StaticServer } from "../fixtures/pages.ts";
@@ -33,7 +33,10 @@ import type { MockWallet } from "../fixtures/wallet.ts";
 
 const axeSource = readFileSync(join(REPO, "e2e/node_modules/axe-core/axe.min.js"), "utf8");
 const erc20 = parseAbi(["function approve(address spender, uint256 value) returns (bool)"]);
-const payLinkAbi = parseAbi(["function pay((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef)"]);
+const payLinkAbi = parseAbi([
+  "function pay((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef)",
+  "function payWithAuthorization((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, (address,uint128,bytes32,uint256,uint256,bytes32,uint8,bytes32,bytes32) auth)",
+]);
 
 let chains: EditionChains;
 let server: StaticServer;
@@ -347,6 +350,84 @@ test("Base: gasless USDC for an EOA (one signature, no transaction), and Pay wit
   expect(seller.problems).toEqual([]);
   expect(eoa.problems).toEqual([]);
   expect(smart.problems).toEqual([]);
+});
+
+test("all: the relayer fails after the signature; the payer sends the same authorisation with their own fee, also after a reload", async ({ browser }) => {
+  const seller = await person(browser, { wallet: { account: ACCOUNTS.payee, chainId: MONAD } });
+  const invoice = async (amount: string, memo: string): Promise<string> => {
+    await seller.page.goto(`${origin}/`);
+    await seller.page.locator("#amount").fill(amount);
+    await seller.page.locator("#memo").fill(memo);
+    await seller.page.locator(".view-create > .key-primary").click();
+    await seller.page.locator(".signing + .key-row .key-primary").click();
+    await expect(seller.page.locator(".ticket")).toBeVisible();
+    return await seller.page.locator(".share input").inputValue();
+  };
+  const first = await invoice("1.25", "Relayer drops it");
+  expect(first).toMatch(new RegExp(`^${origin}/pay/#2\\.${String(MONAD)}\\.`));
+
+  const payer = await person(browser, { wallet: { account: ACCOUNTS.payer, chainId: MONAD } });
+  // The fee service reports itself ready, but the payment never reaches it: the connection is refused after the signature.
+  let refused = 0;
+  await payer.context.route(`${RELAYER_ORIGIN}/v1/${String(MONAD)}/pay`, async (route) => {
+    if (route.request().method() === "POST") {
+      refused += 1;
+      await route.abort("connectionrefused");
+    } else {
+      await route.fallback();
+    }
+  });
+  const signatures = (): number => payer.wallet?.requests.filter((r) => r.method === "eth_signTypedData_v4").length ?? 0;
+  const settlements = (): string[] => (payer.wallet?.sent() ?? []).map((r) => {
+    const tx = r.params[0] as { to: string; data: Hex };
+    expect(tx.to.toLowerCase()).toBe(PAYLINK.toLowerCase());
+    return decodeFunctionData({ abi: payLinkAbi, data: tx.data }).functionName;
+  });
+  const payeeStart = await balance(chains.monad, ACCOUNTS.payee);
+  const payerStart = await balance(chains.monad, ACCOUNTS.payer);
+
+  await payer.page.goto(first);
+  const key = payer.page.locator(".payform .key-primary");
+  await key.click(); // connect
+  await expect(key).toHaveText("Pay 1.25 AUSD");
+  await expect(payer.page.locator(".route-note")).toHaveText("One signature; the fee is covered.");
+  await key.click();
+  await expect(payer.page.locator(".bill > .status")).toContainText("The service that covers the network fee did not answer.");
+  expect(refused).toBe(1);
+  expect(signatures()).toBe(1);
+  const own = payer.page.locator(".fallback-slot button");
+  await expect(own).toHaveText("Pay with my own MON fee");
+  await own.click();
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
+  // The very authorisation signed for the relayer, sent by the payer: no second signature, one payWithAuthorization.
+  expect(signatures()).toBe(1);
+  expect(settlements()).toEqual(["payWithAuthorization"]);
+  expect(await balance(chains.monad, ACCOUNTS.payee)).toBe(payeeStart + 1_250_000n);
+  expect(await balance(chains.monad, ACCOUNTS.payer)).toBe(payerStart - 1_250_000n);
+
+  // Signed again for another invoice, refused again, and then the fee service is gone altogether; the payer reloads.
+  const second = await invoice("2.40", "Relayer gone");
+  await payer.page.goto(second);
+  await expect(key).toHaveText("Pay 2.40 AUSD");
+  await key.click();
+  await expect(payer.page.locator(".bill > .status")).toContainText("did not answer");
+  expect(signatures()).toBe(2);
+  await payer.context.route(`${RELAYER_ORIGIN}/**`, async (route) => {
+    await route.abort("connectionrefused");
+  });
+  await payer.page.reload();
+  // The stored authorisation is still live (invoice spec §8.6): it is the only way to pay, and the payer can send it.
+  await expect(key).toHaveText("Pay 2.40 AUSD");
+  await expect(payer.page.locator(".route-note")).toHaveText("Your signature from a moment ago is still valid: it is sent again, nothing new is signed.");
+  await key.click();
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
+  expect(signatures()).toBe(2);
+  expect(settlements()).toEqual(["payWithAuthorization", "payWithAuthorization"]);
+  expect(await balance(chains.monad, ACCOUNTS.payee)).toBe(payeeStart + 3_650_000n);
+  expect(refused).toBe(2);
+
+  expect(seller.problems).toEqual([]);
+  expect(payer.problems).toEqual([]);
 });
 
 test("Monad: the KeyCard and the pay view in dark mode on a phone, without axe violations or horizontal scroll", async ({ browser }) => {

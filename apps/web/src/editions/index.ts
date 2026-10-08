@@ -7,7 +7,7 @@
  * |---------|------------------------------------|----------------------------------------------------------------|
  * | monad   | Mera passkeys only (spec §2.1 T1)   | relayed authorisation, own-gas authorisation, wallet           |
  * | base    | EIP-6963 wallets (EIP-5792 batches) | relayed authorisation (EOAs), EIP-5792 batch, own-gas, wallet  |
- * | all     | EIP-6963 wallets                    | relayed authorisation, wallet (permit, approve-pay)            |
+ * | all     | EIP-6963 wallets                    | relayed authorisation, own-gas authorisation, wallet           |
  *
  * The PaymentRouter (`selectPaymentPath`) decides the path from the token, the payer's account and the relayer's
  * health; a rail only executes what it is handed.
@@ -83,8 +83,11 @@ export function allProfile(): EditionProfile {
     tag: "v2",
     tabs: ["create", "ledger", "send", "till"],
     accountLayers: [eip6963Layer()],
-    // Gasless where the relayer serves the chain; otherwise the payer's wallet, exactly as at T0 (permit, approve-pay).
-    rails: [relayedAuthorizationRail(), walletRail()],
+    // Gasless where the relayer serves the chain. Once a payer has signed an authorisation, invoice spec §8.6 allows
+    // only that authorisation until it is used, cancelled or expired, so the own-gas rail must be here too: without
+    // it a relayer failure after the signature would leave the payer nothing to pay with (spec §3.5, §3.7). Otherwise
+    // the payer's wallet, exactly as at T0 (permit, approve-pay).
+    rails: [relayedAuthorizationRail(), selfAuthorizationRail(), walletRail()],
     fx: "MGA",
     testFunds: null,
   };

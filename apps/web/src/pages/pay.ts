@@ -257,6 +257,10 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   let busy = false;
   let paid = false;
   let choice: PathChoice | null = null;
+  /** The account the own-gas offer on screen was made for, or `null` when none is shown. */
+  let offerFor: Address | null = null;
+  /** The rail that sends the payer's own authorisation with their own gas, when this edition has one. */
+  const ownGasRail = app.edition.rails.find((r) => r.paths.includes("self-authorization"));
 
   void payeeIdentity(app, invoice.payee).then((who) => {
     payeeLabel = who.label;
@@ -352,8 +356,12 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (busy || paid) {
       return;
     }
-    replace(fallbackSlot);
     const account = app.session.account();
+    if (offerFor !== null && offerFor.toLowerCase() !== account?.address.toLowerCase()) {
+      // The own-gas offer belongs to the account that signed: another account (or none) has nothing to resend.
+      offerFor = null;
+      replace(fallbackSlot);
+    }
     if (checks === null) {
       lockKey(t("pay.checking"));
       return;
@@ -432,11 +440,12 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     busy = true;
     key.disabled = true;
     key.setAttribute("aria-busy", "true");
+    offerFor = null;
     replace(fallbackSlot);
     pay(app, { link, chain, token, client, account, now: checks.payable.now, amountInput, fixed, status, forced, onDone: done })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
         if (error instanceof RelayFallbackError) {
-          offerFallback(error, account);
+          await offerFallback(error, account);
           return;
         }
         const decoded = decodeUiError(app, error);
@@ -446,36 +455,43 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
         busy = false;
         key.removeAttribute("aria-busy");
         if (!paid) {
-          // Keep any fallback offer on screen: refresh() would clear it.
-          const offer = [...fallbackSlot.childNodes];
-          void refresh().then(() => {
-            fallbackSlot.append(...offer);
-          });
+          void refresh();
         }
       });
   };
 
-  /** The relayer refused or failed: the same authorisation, sent by the payer with their own gas, when they have some. */
-  const offerFallback = (error: RelayFallbackError, account: AccountProvider): void => {
+  /**
+   * The relayer refused or failed: the same authorisation, sent by the payer with their own gas, when they have some
+   * and the edition has a rail that sends it (spec §3.5, §3.7). The key is offered only when pressing it can pay.
+   */
+  const offerFallback = async (error: RelayFallbackError, account: AccountProvider): Promise<void> => {
     const problem = error.problem;
     const reason = relayerReason(app, problem.code, problem.retryAfter);
     setStatus(status, problem.fallback === "retry" ? "warn" : "err", reason, t("common.errorCode", { code: problem.reason ?? problem.rule ?? problem.code }));
-    void (async () => {
-      const balance = await client.getBalance(account.address).catch(() => 0n);
-      if (problem.fallback === "none" || balance === 0n) {
-        replace(fallbackSlot, h("p", { class: "field-hint" }, problem.fallback === "retry" ? t("pay.fallback.retry") : t("pay.fallback.noGas", { coin: chain.nativeCurrency.symbol })));
+    const balance = await client.getBalance(account.address).catch(() => 0n);
+    if (problem.fallback === "none") {
+      // Nobody can send it (the invoice closed, for one): the status line says why, there is nothing to offer.
+      return;
+    }
+    offerFor = account.address;
+    if (ownGasRail === undefined) {
+      replace(fallbackSlot, h("p", { class: "field-hint" }, t("pay.fallback.retry")));
+      return;
+    }
+    if (balance === 0n) {
+      replace(fallbackSlot, h("p", { class: "field-hint" }, problem.fallback === "retry" ? t("pay.fallback.retry") : t("pay.fallback.noGas", { coin: chain.nativeCurrency.symbol })));
+      return;
+    }
+    const own = h("button", { class: "key key-line", attrs: { type: "button", "data-path": "self-authorization" } }, t("pay.fallback.own", { coin: chain.nativeCurrency.symbol }));
+    own.addEventListener("click", () => {
+      const facts = choice?.facts;
+      if (facts === undefined) {
+        setStatus(status, "err", t("pay.fallback.retry"));
         return;
       }
-      const own = h("button", { class: "key key-line", attrs: { type: "button", "data-path": "self-authorization" } }, t("pay.fallback.own", { coin: chain.nativeCurrency.symbol }));
-      own.addEventListener("click", () => {
-        const rail = app.edition.rails.find((r) => r.paths.includes("self-authorization"));
-        if (rail === undefined || choice === null) {
-          return;
-        }
-        startPayment({ ok: true, path: "self-authorization", rail, fallbacks: [], payerPaysGas: true, resubmit: true, facts: choice.facts });
-      });
-      replace(fallbackSlot, h("p", { class: "field-hint" }, t("pay.fallback.text")), own);
-    })();
+      startPayment({ ok: true, path: "self-authorization", rail: ownGasRail, fallbacks: [], payerPaysGas: true, resubmit: true, facts });
+    });
+    replace(fallbackSlot, h("p", { class: "field-hint" }, t("pay.fallback.text")), own);
   };
 
   key.addEventListener("click", () => {

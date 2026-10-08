@@ -9,7 +9,7 @@ import { bandOptions, initialChain, plateText } from "../src/app/chains.ts";
 import type { App } from "../src/app/context.ts";
 import { appRegistry, editionChains } from "../src/core/registry.ts";
 import { applyTheme, prefs } from "../src/core/prefs.ts";
-import { baseProfile, edition, editionBase, monadProfile, registryDefaultToken } from "../src/editions/index.ts";
+import { allProfile, baseProfile, edition, editionBase, mezoProfile, monadProfile, registryDefaultToken } from "../src/editions/index.ts";
 import { createTranslator, EN } from "@paylink/i18n";
 import { SCRIPT_URL } from "./helpers.ts";
 
@@ -41,7 +41,9 @@ describe("edition profile", () => {
     expect(profile.id).toBe("all");
     expect(profile.base).toBe("/");
     expect(profile.accountLayers.map((l) => l.id)).toEqual(["eip6963"]);
-    expect(profile.rails.map((r) => r.id)).toEqual(["relayer", "wallet"]);
+    expect(profile.rails.map((r) => r.id)).toEqual(["relayer", "self-authorization", "wallet"]);
+    // Every edition with a relayed rail can also send the same authorisation with the payer's own gas (spec §3.5).
+    expect(profile.rails.flatMap((r) => r.paths)).toContain("self-authorization");
     expect(profile.tabs).toEqual(["create", "ledger", "send", "till"]);
     expect(edition()).toBe(profile);
   });
@@ -67,6 +69,18 @@ describe("edition profile", () => {
     expect(base.testFunds).toEqual({ kind: "link", url: "https://faucet.circle.com", name: "Circle Faucet" });
     expect(base.fx).toBeNull();
     expect(registryDefaultToken(appRegistry("base").getOrThrow(84532))?.symbol).toBe("USDC");
+  });
+
+  it("never relays without the own-gas way out: a signed authorisation must stay payable when the relayer fails (spec §3.5, §3.7)", () => {
+    for (const profile of [allProfile(), monadProfile(null), baseProfile(), mezoProfile()]) {
+      const paths = profile.rails.flatMap((r) => r.paths);
+      if (paths.includes("relayed-authorization")) {
+        expect(paths, profile.id).toContain("self-authorization");
+        // Tried after the relayer, before the wallet's permit and approve (which §8.6 holds back while it is live).
+        expect(paths.indexOf("self-authorization"), profile.id).toBeGreaterThan(paths.indexOf("relayed-authorization"));
+        expect(paths.indexOf("self-authorization"), profile.id).toBeLessThan(paths.indexOf("permit"));
+      }
+    }
   });
 
   it("serves each edition under its own path", () => {
