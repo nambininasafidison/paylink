@@ -4,13 +4,15 @@
  * browser refuses storage (private windows, blocked site data): it then falls back to memory and says so.
  *
  * Holds what only the device knows: signed invoices with their memos (the chain sees only `memoHash`), saved receive
- * cards, the address book and receipts. Every record is validated when it is read back, because storage is input too:
- * wrappers with zod, signed invoices with the SDK's strict parser against the registry (`parseStoredInvoice`).
+ * cards, the address book, receipts, and the payer's outstanding EIP-3009 authorisations (invoice spec §8.6: persisted
+ * before they are sent anywhere, so a retry resubmits the same signature and never signs a second payment). Every
+ * record is validated when it is read back, because storage is input too: wrappers with zod, signed invoices with the
+ * SDK's strict parser against the registry (`parseStoredInvoice`), authorisations with `parseOutstandingAuthorization`.
  * Nothing here is ever shown as "paid" without a chain check.
  */
 import type { Registry } from "@paylink/chains";
 import { parseSignedInvoiceJson } from "@paylink/sdk";
-import type { DecodedInvoiceLink, SignedInvoiceJson } from "@paylink/sdk";
+import type { DecodedInvoiceLink, OutstandingAuthorization, OutstandingAuthorizationStore, SignedInvoiceJson } from "@paylink/sdk";
 import { openDB } from "idb";
 import type { DBSchema, IDBPDatabase } from "idb";
 import { getAddress, isAddress } from "viem";
@@ -18,7 +20,8 @@ import type { Address, Hex } from "viem";
 import * as z from "zod/mini";
 
 export const DB_NAME = "paylink";
-export const DB_VERSION = 1;
+/** 1: invoices, receipts, contacts. 2: + authorizations (outstanding EIP-3009 authorisations, tier T1). */
+export const DB_VERSION = 2;
 
 export type InvoiceRole = "issued" | "card";
 export type ReceiptRole = "paid" | "received";
@@ -69,6 +72,8 @@ interface Schema extends DBSchema {
   invoices: { key: string; value: InvoiceRecord; indexes: { byCreated: number } };
   receipts: { key: string; value: ReceiptRecord; indexes: { bySaved: number } };
   contacts: { key: string; value: ContactRecord };
+  /** Keyed by the SDK's `outstandingAuthorizationId(chainId, key, payer)`; values are re-parsed on every read. */
+  authorizations: { key: string; value: OutstandingAuthorization };
 }
 
 // ---------------------------------------------------------------------------------------------------- validation
@@ -149,6 +154,8 @@ export function parseStoredContact(value: unknown): ContactRecord | null {
 export interface DeviceStore {
   /** False when the browser refused IndexedDB: records live in memory until the page closes. */
   readonly persistent: boolean;
+  /** Outstanding EIP-3009 authorisations (SDK `OutstandingAuthorizationStore`): raw values, parse before use. */
+  readonly authorizations: OutstandingAuthorizationStore;
   putInvoice(record: InvoiceRecord): Promise<void>;
   listInvoices(): Promise<readonly unknown[]>;
   getInvoice(id: string): Promise<unknown>;
@@ -165,8 +172,14 @@ export function memoryStore(): DeviceStore {
   const invoices = new Map<string, InvoiceRecord>();
   const receipts = new Map<string, ReceiptRecord>();
   const contacts = new Map<string, ContactRecord>();
+  const authorizations = new Map<string, OutstandingAuthorization>();
   return {
     persistent: false,
+    authorizations: {
+      get: (id) => Promise.resolve(authorizations.has(id) ? structuredClone(authorizations.get(id)) : undefined),
+      put: (id, record) => Promise.resolve(void authorizations.set(id, structuredClone(record))),
+      delete: (id) => Promise.resolve(void authorizations.delete(id)),
+    },
     putInvoice: (r) => Promise.resolve(void invoices.set(r.id, structuredClone(r))),
     // Same order as the IndexedDB indexes: oldest first, by creation or saving time.
     listInvoices: () => Promise.resolve([...invoices.values()].sort((a, b) => a.createdAt - b.createdAt).map((r) => structuredClone(r))),
@@ -183,6 +196,15 @@ export function memoryStore(): DeviceStore {
 function indexedStore(db: IDBPDatabase<Schema>): DeviceStore {
   return {
     persistent: true,
+    authorizations: {
+      get: async (id) => await db.get("authorizations", id),
+      put: async (id, record) => {
+        await db.put("authorizations", record, id);
+      },
+      delete: async (id) => {
+        await db.delete("authorizations", id);
+      },
+    },
     putInvoice: async (r) => {
       await db.put("invoices", r);
     },
@@ -212,12 +234,18 @@ export async function openDeviceStore(available: boolean = "indexedDB" in global
   }
   try {
     const db = await openDB<Schema>(DB_NAME, DB_VERSION, {
-      upgrade(database) {
-        const invoices = database.createObjectStore("invoices", { keyPath: "id" });
-        invoices.createIndex("byCreated", "createdAt");
-        const receipts = database.createObjectStore("receipts", { keyPath: "id" });
-        receipts.createIndex("bySaved", "savedAt");
-        database.createObjectStore("contacts", { keyPath: "address" });
+      upgrade(database, oldVersion) {
+        if (oldVersion < 1) {
+          const invoices = database.createObjectStore("invoices", { keyPath: "id" });
+          invoices.createIndex("byCreated", "createdAt");
+          const receipts = database.createObjectStore("receipts", { keyPath: "id" });
+          receipts.createIndex("bySaved", "savedAt");
+          database.createObjectStore("contacts", { keyPath: "address" });
+        }
+        if (oldVersion < 2) {
+          // Out-of-line keys: the SDK's record carries no id of its own.
+          database.createObjectStore("authorizations");
+        }
       },
       blocked() {
         // Another tab holds an older version open; the upgrade proceeds when it closes.

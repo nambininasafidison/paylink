@@ -20,10 +20,11 @@ import { plateText } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, notes, routeHref } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
-import { pickWallet } from "../app/wallet-ui.ts";
+import { connectLabel, pickWallet } from "../app/wallet-ui.ts";
 import { decodeUiError } from "../core/errors.ts";
 import { prefs } from "../core/prefs.ts";
 import { displayAmount, shortHex } from "../core/format.ts";
+import { ariaryLabel } from "../core/fx.ts";
 import { num, setStatus, statusLine } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce } from "../ui/live.ts";
@@ -118,7 +119,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
     replace(
       section,
       head,
-      h("div", { class: "empty-state" }, h("p", null, t("till.connect")), h("button", { class: "key key-primary", attrs: { type: "button" }, on: { click: () => { void pickWallet(app).then(() => { renderTill(app, ui, section); }); } } }, t("app.connect"))),
+      h("div", { class: "empty-state" }, h("p", null, t("till.connect")), h("button", { class: "key key-primary", attrs: { type: "button" }, on: { click: () => { void pickWallet(app).then(() => { renderTill(app, ui, section); }); } } }, connectLabel(app))),
       h("p", { class: "field-hint" }, t("till.armHint"), " ", h("a", { attrs: { href: routeHref(app, "ledger") } }, t("till.fromLedger"))),
     );
     return;
@@ -147,10 +148,11 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
   const expected = armed !== null && armed.invoice.amount !== 0n ? displayAmount(armed.invoice.amount, armed.token, app.locale) : null;
   const ledText = h("span", { class: "till-led" }, t("till.idle"));
   const figure = h("div", { class: "till-figure" }, expected === null ? num(t("ticket.any"), "any") : num(expected), h("span", { class: "unit" }, token?.symbol ?? ""));
+  const fxLine = h("p", { class: "till-fx" }, armed !== null && armed.invoice.amount !== 0n ? ariaryLabel(armed.invoice.amount, armed.token, app.fx, app.locale, (p) => t("fx.estimate", p)) : null);
   const caption = h("p", { class: "till-caption" }, armed?.memo === null || armed === null ? t("till.watching", { address: shortHex(payee) }) : sanitizeMemoForDisplay(armed.memo));
   const settled = h("p", { class: "till-settled", attrs: { "aria-live": "polite" } });
   const log = h("ul", { class: "till-log", attrs: { "aria-label": t("till.log") } }, h("li", null, t("till.noPayments")));
-  const display = h("div", { class: "screen till", attrs: { "data-state": "idle", role: "region", "aria-label": t("till.display") } }, h("div", { class: "till-top" }, ledText, h("span", null, `${chain.label} · ${String(chain.chainId)}`)), figure, caption, settled, log);
+  const display = h("div", { class: "screen till", attrs: { "data-state": "idle", role: "region", "aria-label": t("till.display") } }, h("div", { class: "till-top" }, ledText, h("span", null, `${chain.label} · ${String(chain.chainId)}`)), figure, fxLine, caption, settled, log);
   const status = statusLine();
   const chime = new Chime();
   let running = false;
@@ -175,6 +177,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
       return;
     }
     replace(figure, num(amount), h("span", { class: "unit" }, proof.tokenInfo.symbol));
+    fxLine.textContent = ariaryLabel(proof.amount, proof.tokenInfo, app.fx, app.locale, (p) => t("fx.estimate", p)) ?? "";
     light("paid", t("till.paid"));
     settled.textContent = t("till.settled", { seconds: formatSeconds(app.locale, delay) });
     if (watch.armed !== null && watch.armed.invoice.amount === 0n) {

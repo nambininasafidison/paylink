@@ -15,9 +15,12 @@ const valid = {
 };
 
 describe("parseConfig", () => {
-  it("accepts the shipped public/config.json", () => {
+  it("accepts the shipped public/config.json: the production relayer for the relayed testnets, nothing else", () => {
     const shipped: unknown = JSON.parse(readFileSync(join(import.meta.dirname, "../public/config.json"), "utf8"));
-    expect(parseConfig(shipped)).toEqual({ ok: true, config: DEFAULT_CONFIG });
+    expect(parseConfig(shipped)).toEqual({
+      ok: true,
+      config: { ...DEFAULT_CONFIG, relayer: { url: "https://paylink-relayer.raherizonambinina.workers.dev", chains: [10143, 84532, 421614] } },
+    });
   });
 
   it("accepts a complete configuration", () => {

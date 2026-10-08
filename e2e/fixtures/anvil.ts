@@ -55,7 +55,7 @@ export interface Anvil {
   stop(): Promise<void>;
 }
 
-async function freePort(): Promise<number> {
+export async function freePort(): Promise<number> {
   return await new Promise((resolve, reject) => {
     const server = createServer();
     server.once("error", reject);

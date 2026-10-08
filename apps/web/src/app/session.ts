@@ -12,8 +12,8 @@ export interface Session {
   connectors(): readonly Connector[];
   /** Called on every change of account, network or discovered wallets. Returns the unsubscribe function. */
   subscribe(listener: () => void): () => void;
-  /** Connects with a prompt and remembers the choice. */
-  connect(connectorId: string): Promise<AccountProvider>;
+  /** Connects with a prompt and remembers the choice. `label` names a new passkey. */
+  connect(connectorId: string, options?: { readonly label?: string }): Promise<AccountProvider>;
   /** Forgets the choice (the wallet itself keeps its own permission; the user revokes it there). */
   disconnect(): void;
   /** Resolves once discovery has settled and any remembered wallet was restored. */
@@ -95,12 +95,12 @@ export function createSession(layers: readonly AccountLayer[], discoveryMs = 450
         listeners.delete(listener);
       };
     },
-    async connect(connectorId) {
+    async connect(connectorId, options = {}) {
       const layer = layerOf(connectorId);
       if (layer === undefined) {
         throw new Error(`no wallet ${connectorId}`);
       }
-      const connected = await layer.connect(connectorId, { silent: false });
+      const connected = await layer.connect(connectorId, { silent: false, ...(options.label === undefined ? {} : { label: options.label }) });
       if (connected === null) {
         throw new Error("the wallet shared no account");
       }

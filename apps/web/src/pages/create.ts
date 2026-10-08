@@ -20,6 +20,7 @@ import { pickWallet } from "../app/wallet-ui.ts";
 import { chainTime } from "../core/clients.ts";
 import { AppError, decodeUiError } from "../core/errors.ts";
 import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
+import { ariaryLabel } from "../core/fx.ts";
 import { payUrl, tillUrl, whatsappUrl } from "../core/links.ts";
 import { invoiceId } from "../store/db.ts";
 import { addr, fact, setStatus, statusLine } from "../ui/atoms.ts";
@@ -99,6 +100,17 @@ function renderTerminal(app: App, ui: PageUi): void {
     attrs: { id: "amount", inputmode: "decimal", placeholder: app.locale === "en" ? "0.00" : "0,00", autocomplete: "off", spellcheck: "false", "aria-describedby": "amount-hint" },
   });
   const amountHint = h("p", { class: "readout-hint", attrs: { id: "amount-hint" } }, t("create.amountHint"));
+  const amountFx = h("p", { class: "readout-hint readout-fx", attrs: { "aria-live": "polite", title: app.fx === null ? null : t("fx.source", { source: app.fx.source }) } });
+  const passkeys = app.edition.accountLayers.some((layer) => layer.kind === "passkey");
+  const refreshFx = (): void => {
+    let typed: bigint;
+    try {
+      typed = token === undefined || amountInput.value.trim() === "" ? 0n : parseTypedAmount(amountInput.value, token);
+    } catch {
+      typed = 0n;
+    }
+    amountFx.textContent = token === undefined ? "" : (ariaryLabel(typed, token, app.fx, app.locale, (p) => t("fx.estimate", p)) ?? "");
+  };
   const memoCount = h("span", { class: "count", attrs: { "aria-hidden": "true" } });
   const memoInput = h("input", { attrs: { id: "memo", autocomplete: "off", placeholder: t("create.memoPlaceholder"), "aria-describedby": "memo-hint" } });
   const seatsInput = h("input", { attrs: { id: "seats", type: "number", inputmode: "numeric", min: "2", max: String(MAX_SEATS), value: "2", "aria-describedby": "seats-hint" } });
@@ -123,7 +135,7 @@ function renderTerminal(app: App, ui: PageUi): void {
     setStatus(status, "", "");
   };
   const refreshKey = (): void => {
-    key.textContent = app.session.account() === null ? t("create.connectFirst") : t("create.review");
+    key.textContent = app.session.account() === null ? (passkeys ? t("create.keyFirst") : t("create.connectFirst")) : t("create.review");
     const account = app.session.account();
     meta.textContent = account === null ? "" : shortHex(account.address);
   };
@@ -152,7 +164,7 @@ function renderTerminal(app: App, ui: PageUi): void {
     if (tokens.length > 1) {
       const select = h(
         "select",
-        { attrs: { "aria-label": t("create.token") }, on: { change: () => { token = tokens.find((x) => x.address === select.value); clearOutput(); } } },
+        { attrs: { "aria-label": t("create.token") }, on: { change: () => { token = tokens.find((x) => x.address === select.value); refreshFx(); clearOutput(); } } },
         tokens.map((x) => h("option", { attrs: { value: x.address, selected: x.address === token?.address } }, x.symbol)),
       );
       replace(unitSlot, select);
@@ -205,7 +217,10 @@ function renderTerminal(app: App, ui: PageUi): void {
       clearOutput();
     },
   );
-  amountInput.addEventListener("input", clearOutput);
+  amountInput.addEventListener("input", () => {
+    refreshFx();
+    clearOutput();
+  });
   memoInput.addEventListener("input", () => {
     refreshMemo();
     clearOutput();
@@ -273,7 +288,7 @@ function renderTerminal(app: App, ui: PageUi): void {
       now = BigInt(Math.floor(Date.now() / 1000));
     }
     const expiryValue: Expiry = draft.expiry === "never" ? { kind: "never", confirmed: true } : expiresIn(now, EXPIRY_SECONDS[draft.expiry]);
-    setStatus(status, "", t("create.status.signing"));
+    setStatus(status, "", account.kind === "passkey" ? t("create.status.fingerprint") : t("create.status.signing"));
     let result: IssuedInvoice;
     const params = { registry: app.registry, chainId: draft.chain.chainId, signer: account, draft: { payee: account.address, token: draft.token.address, amount: draft.amount, maxPayments: draft.maxPayments, expiry: expiryValue, memo: draft.memo } };
     try {
@@ -339,7 +354,7 @@ function renderTerminal(app: App, ui: PageUi): void {
           fact(t("create.sign.network"), `${networkName(draft.chain)} · ${draft.chain.chainId}`),
           fact(t("create.sign.contract"), target === undefined ? "—" : h("span", { class: "nowrap" }, shortHex(target.deployment.address, 8, 6))),
         ),
-        h("p", { class: "signing-note" }, t("create.sign.note")),
+        h("p", { class: "signing-note" }, account.kind === "passkey" ? t("create.sign.noteKey") : t("create.sign.note")),
       ),
       h("div", { class: "key-row" }, confirm, edit),
     );
@@ -352,6 +367,7 @@ function renderTerminal(app: App, ui: PageUi): void {
       issued = null;
       try {
         const draft = readDraft();
+        await app.session.ready;
         const account = app.session.account() ?? (await pickWallet(app));
         if (account === null) {
           return;
@@ -387,6 +403,7 @@ function renderTerminal(app: App, ui: PageUi): void {
         { class: "readout" },
         h("div", { class: "readout-top" }, h("label", { attrs: { for: "amount" } }, t("create.amount")), unitSlot),
         amountInput,
+        amountFx,
         amountHint,
       ),
       h(

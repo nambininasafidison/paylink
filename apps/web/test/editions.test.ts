@@ -9,7 +9,7 @@ import { bandOptions, initialChain, plateText } from "../src/app/chains.ts";
 import type { App } from "../src/app/context.ts";
 import { appRegistry, editionChains } from "../src/core/registry.ts";
 import { applyTheme, prefs } from "../src/core/prefs.ts";
-import { edition, editionBase, registryDefaultToken } from "../src/editions/index.ts";
+import { baseProfile, edition, editionBase, monadProfile, registryDefaultToken } from "../src/editions/index.ts";
 import { createTranslator, EN } from "@paylink/i18n";
 import { SCRIPT_URL } from "./helpers.ts";
 
@@ -41,9 +41,32 @@ describe("edition profile", () => {
     expect(profile.id).toBe("all");
     expect(profile.base).toBe("/");
     expect(profile.accountLayers.map((l) => l.id)).toEqual(["eip6963"]);
-    expect(profile.rails.map((r) => r.id)).toEqual(["wallet"]);
+    expect(profile.rails.map((r) => r.id)).toEqual(["relayer", "wallet"]);
     expect(profile.tabs).toEqual(["create", "ledger", "send", "till"]);
     expect(edition()).toBe(profile);
+  });
+
+  it("gives the Monad edition Mera passkeys as its only account layer, gasless rails, onboarding and MGA estimates", () => {
+    const monad = monadProfile("paylink-mg.pages.dev");
+    expect(monad.accountLayers.map((l) => [l.id, l.kind])).toEqual([["passkey", "passkey"]]);
+    expect(monad.rails.map((r) => r.id)).toEqual(["relayer", "self-authorization", "wallet"]);
+    expect(monad.rails.flatMap((r) => r.paths)).toEqual(["relayed-authorization", "self-authorization", "permit", "approve-pay", "native"]);
+    expect(monad.tabs).toEqual(["create", "ledger", "send", "till"]);
+    expect(monad.testFunds).toEqual({ kind: "relayer" });
+    expect(monad.fx).toBe("MGA");
+    expect(monad.payWithBase).toBe(false);
+    expect(registryDefaultToken(appRegistry("monad").getOrThrow(10143))?.symbol).toBe("AUSD");
+  });
+
+  it("gives the Base edition injected wallets, gasless USDC for EOAs and Pay with Base for smart accounts", () => {
+    const base = baseProfile();
+    expect(base.accountLayers.map((l) => [l.id, l.kind])).toEqual([["eip6963", "injected"]]);
+    expect(base.rails.map((r) => r.id)).toEqual(["relayer", "batch", "self-authorization", "wallet"]);
+    expect(base.rails.find((r) => r.id === "batch")?.paths).toEqual(["batched-approve-pay"]);
+    expect(base.payWithBase).toBe(true);
+    expect(base.testFunds).toEqual({ kind: "link", url: "https://faucet.circle.com", name: "Circle Faucet" });
+    expect(base.fx).toBeNull();
+    expect(registryDefaultToken(appRegistry("base").getOrThrow(84532))?.symbol).toBe("USDC");
   });
 
   it("serves each edition under its own path", () => {

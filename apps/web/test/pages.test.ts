@@ -108,6 +108,43 @@ describe("create terminal", () => {
     expect(document.querySelector(".band[aria-checked=true] .band-label")?.textContent).toBe("ARB");
   });
 
+  it("says plainly when the chosen network has no PayLink deployment yet, and links to the deploy kit", async () => {
+    // Arbitrum Sepolia has no record in protocol/deployments yet; Monad testnet and Base Sepolia have one.
+    await render(createPage, "/?chain=arb", "en");
+    expect(document.querySelector(".band[aria-checked=true] .band-id")?.textContent).toBe("Not deployed");
+    const notice = document.querySelector(".view-create .warn-note");
+    expect(notice?.textContent).toContain("Not deployed yet");
+    expect(notice?.querySelector("a")?.getAttribute("href")).toBe("/deploy/?chain=arb");
+    expect(document.querySelector("#plate")?.closest(".plate")?.getAttribute("data-led")).toBe("wait");
+    await render(createPage, "/?chain=monad", "en");
+    expect(document.querySelector(".band[aria-checked=true] .band-id")?.textContent).toBe("Testnet · 10143");
+    expect(document.querySelector(".view-create .warn-note")).toBeNull();
+  });
+
+  it("shows the ariary estimate under the amount as it is typed (display only)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.endsWith("/fx.json")) {
+          return Promise.resolve(new Response(JSON.stringify({ version: 1, base: "USD", date: "2026-10-08", rates: { MGA: "4453.66921254", EUR: "0.89" }, source: { name: "fawazahmed0/exchange-api", license: "CC0-1.0" } })));
+        }
+        if (url.endsWith("/config.json")) {
+          return Promise.resolve(new Response(JSON.stringify({ version: 1, banner: null, relayer: null, indexer: null, rpc: {} })));
+        }
+        return Promise.reject(new TypeError("network disabled in unit tests"));
+      }),
+    );
+    await render(createPage, "/?chain=monad", "en");
+    const input = document.querySelector<HTMLInputElement>("#amount");
+    if (input === null) {
+      throw new Error("no amount input");
+    }
+    input.value = "25.50";
+    input.dispatchEvent(new Event("input"));
+    expect(document.querySelector(".readout-fx")?.textContent).toBe("≈ 113\u202f569\u00a0Ar · estimate · rate of Oct 8, 2026");
+  });
+
   it("presets a receive card: unlimited payments, no expiry, which must be confirmed", async () => {
     await render(createPage, "/?preset=card", "en");
     expect(document.querySelector<HTMLInputElement>("input[name=payments][value=unlimited]")?.checked).toBe(true);

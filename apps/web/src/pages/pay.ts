@@ -15,14 +15,13 @@
 import type { ChainDefinition, Token } from "@paylink/chains";
 import { formatDateTime, formatSeconds } from "@paylink/i18n";
 import {
+  DEFAULT_AUTHORIZATION_TTL_SECONDS,
   decodeInvoiceFragment,
   encodeReceiptFragment,
   fragmentOf,
-  payerAccountKind,
   predictPayment,
   readLinkState,
   sanitizeMemoForDisplay,
-  selectPaymentPath,
   verifyReceipt,
   ZERO_HASH,
 } from "@paylink/sdk";
@@ -34,12 +33,18 @@ import { networkName, plateText } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, steps } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
+import { showFundsIfShort } from "../app/funds.ts";
+import { choosePath } from "../app/payer.ts";
+import type { PathChoice } from "../app/payer.ts";
 import { pickWallet } from "../app/wallet-ui.ts";
+import { chainTime } from "../core/clients.ts";
 import type { ChainClient } from "../core/clients.ts";
 import { AppError, decodeUiError } from "../core/errors.ts";
 import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
+import { ariaryLabel } from "../core/fx.ts";
 import { receiptUrl } from "../core/links.ts";
-import type { PaymentRail, PaymentStep } from "../rails/types.ts";
+import { RelayFallbackError } from "../rails/authorization.ts";
+import type { PaymentStep } from "../rails/types.ts";
 import { checkLink } from "../read/checks.ts";
 import type { LinkChecks } from "../read/checks.ts";
 import { parseStoredContact, parseStoredReceipt, receiptId } from "../store/db.ts";
@@ -48,6 +53,7 @@ import type { LampKind } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce, copyText } from "../ui/live.ts";
 import { receiptSlip } from "../ui/receipt.ts";
+import { signingDisplay } from "../ui/signing.ts";
 
 const SETTLEMENT_FN: Readonly<Partial<Record<PaymentPath, SettlementFunction>>> = {
   permit: "payWithPermit",
@@ -174,18 +180,22 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const invoice = link.invoice;
   const fixed = invoice.amount !== 0n;
   const amountText = fixed ? displayAmount(invoice.amount, token, app.locale) : null;
+  const passkeys = app.edition.accountLayers.some((layer) => layer.kind === "passkey");
   ui.plate(plateText(chain), "wait");
   ui.voice(fixed ? null : "open-amount");
 
   const pill = lamp("busy", t("pay.pill.checking"), true);
   const due = h("span", null, fixed ? t("pay.due") : t("pay.openAmount"));
   const memo = link.memo === null ? null : sanitizeMemoForDisplay(link.memo);
+  const estimate = (amount: bigint): string | null => ariaryLabel(amount, token, app.fx, app.locale, (p) => t("fx.estimate", p));
+  const fxLine = h("p", { class: "screen-fx", attrs: { title: app.fx === null ? null : t("fx.source", { source: app.fx.source }) } }, fixed ? estimate(invoice.amount) : null);
   const screen = h(
     "div",
     { class: "screen" },
     h("div", { class: "screen-top" }, pill, h("span", null, `${invoice.maxPayments === 0 ? t("ticket.card") : t("ticket.invoice")} · ${chain.label}`)),
     h("div", { class: "screen-label" }, due),
     h("div", { class: "amount" }, fixed && amountText !== null ? [num(amountText), " ", unit(token.symbol)] : num(t("ticket.any"), "any")),
+    fxLine,
     memo === null || memo.trim() === "" ? null : h("p", { class: "screen-memo" }, h("span", { class: "from" }, t("pay.note")), h("q", null, memo)),
   );
 
@@ -199,6 +209,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const strip = h("ul", { class: "vstrip", attrs: { "aria-label": t("verify.label") } }, sig.element, net.element, genuine.element, payable.element);
 
   const identity = h("span", { class: "saved" });
+  let payeeLabel: string | null = null;
   const firstWarning = h("p", { class: "warn-note", attrs: { hidden: true } }, h("b", null, t("pay.firstPayment")), " ", t("pay.firstPaymentText"));
   const expiresFact = fact(t("pay.expires"), invoice.validUntil === 0n ? t("pay.noExpiry") : formatDateTime(app.locale, invoice.validUntil));
   const progress = h("dd", null, "…");
@@ -212,8 +223,12 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   );
 
   const amountInput = h("input", { class: "readout-input", attrs: { id: "pay-amount", inputmode: "decimal", placeholder: app.locale === "en" ? "0.00" : "0,00", autocomplete: "off" } });
+  const typedFx = h("p", { class: "readout-hint readout-fx", attrs: { "aria-live": "polite" } });
   const routeNote = h("p", { class: "route-note" });
   const key = h("button", { class: "key key-primary", attrs: { type: "button", disabled: true } }, t("pay.checking"));
+  const signSlot = h("div", { class: "sign-slot" });
+  const fundsSlot = h("div", { class: "funds-slot" });
+  const fallbackSlot = h("div", { class: "fallback-slot" });
   const status = statusLine();
   const slot = h("div", { class: "receipt-slot" });
   const payform = h(
@@ -221,10 +236,19 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     { class: "payform" },
     fixed
       ? null
-      : h("div", { class: "readout" }, h("div", { class: "readout-top" }, h("label", { attrs: { for: "pay-amount" } }, t("pay.yourAmount")), h("span", { attrs: { "aria-hidden": "true" } }, token.symbol)), amountInput),
+      : h(
+          "div",
+          { class: "readout" },
+          h("div", { class: "readout-top" }, h("label", { attrs: { for: "pay-amount" } }, t("pay.yourAmount")), h("span", { attrs: { "aria-hidden": "true" } }, token.symbol)),
+          amountInput,
+          typedFx,
+        ),
+    signSlot,
     key,
     routeNote,
-    h("p", { class: "assure" }, t("pay.assure")),
+    fundsSlot,
+    fallbackSlot,
+    h("p", { class: "assure" }, passkeys ? t("pay.assureKey") : t("pay.assure")),
   );
   const stateNote = h("p", { class: "state-note", attrs: { hidden: true } });
   const billEl = h("div", { class: "bill" }, screen, strip, facts, firstWarning, payform, stateNote, status, slot, details(app, link));
@@ -232,8 +256,10 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   let checks: LinkChecks | null = null;
   let busy = false;
   let paid = false;
+  let choice: PathChoice | null = null;
 
   void payeeIdentity(app, invoice.payee).then((who) => {
+    payeeLabel = who.label;
     identity.textContent = who.label === null ? "" : t("pay.saved", { label: who.label });
     firstWarning.hidden = who.label !== null || who.paidBefore;
   });
@@ -241,6 +267,84 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const lockKey = (label: string): void => {
     key.textContent = label;
     key.disabled = true;
+    replace(signSlot);
+  };
+
+  /** The amount the payer is about to pay, or `null` while an open amount is empty or malformed. */
+  const typedAmount = (): bigint | null => {
+    if (fixed) {
+      return invoice.amount;
+    }
+    try {
+      const value = parseTypedAmount(amountInput.value, token);
+      return value > 0n ? value : null;
+    } catch {
+      return null;
+    }
+  };
+
+  /** The signing display: what the next signature approves (a fingerprint shows no wallet popup to say it). */
+  const showSigning = (account: AccountProvider, path: PaymentPath): void => {
+    if (account.kind !== "passkey" || (path !== "relayed-authorization" && path !== "self-authorization")) {
+      replace(signSlot);
+      return;
+    }
+    const amount = typedAmount();
+    const minutes = Number(DEFAULT_AUTHORIZATION_TTL_SECONDS / 60n);
+    replace(
+      signSlot,
+      signingDisplay({
+        kicker: t("sign.kicker"),
+        band: chain.label,
+        title: t("sign.payTitle"),
+        amount: { label: t("sign.amount"), value: amount === null ? t("ticket.any") : displayAmount(amount, token, app.locale), unit: amount === null ? null : token.symbol },
+        rows: [
+          [t("sign.to"), h("span", null, payeeLabel === null ? null : h("span", { class: "sub" }, payeeLabel), addr(invoice.payee))],
+          [t("sign.network"), `${networkName(chain)} · ${String(chain.chainId)}`],
+          [t("sign.valid"), t("sign.validValue", { minutes })],
+          [t("sign.fee"), path === "relayed-authorization" ? t("sign.feeCovered") : t("sign.feeOwn", { coin: chain.nativeCurrency.symbol })],
+        ],
+        note: t("sign.payNote"),
+      }),
+    );
+  };
+
+  /** The route for this payer, in plain words, with the funds row when the account holds too little. */
+  const describe = async (account: AccountProvider): Promise<void> => {
+    const now = await chainTime(client).catch(() => checks?.payable.state === "unknown" ? BigInt(Math.floor(Date.now() / 1000)) : (checks?.payable.now ?? BigInt(Math.floor(Date.now() / 1000))));
+    try {
+      choice = await choosePath(app, client, account, link, now);
+    } catch {
+      choice = null;
+      routeNote.textContent = "";
+      return;
+    }
+    routeNote.textContent = routeText(app, choice);
+    if (choice.ok && choice.path === "batched-approve-pay" && app.edition.payWithBase) {
+      key.textContent = t("pay.payWithBase");
+    }
+    if (choice.ok) {
+      showSigning(account, choice.path);
+    } else {
+      lockKey(choice.reason === "authorization-consumed" ? t("pay.locked") : t("pay.waitRelayer"));
+      key.dataset["action"] = "recheck";
+      key.disabled = choice.reason === "authorization-consumed";
+      if (!key.disabled) {
+        key.textContent = t("pay.retryRelayer");
+      }
+    }
+    const needed = typedAmount() ?? 0n;
+    await showFundsIfShort(app, fundsSlot, {
+      chain,
+      token,
+      owner: account.address,
+      needed,
+      onFunded: () => {
+        // The row goes once the balance covers the payment; the confirmation stays on the status line.
+        setStatus(status, "ok", t("funds.done", { symbol: token.symbol }));
+        void refresh();
+      },
+    });
   };
 
   /** Re-evaluates the key from the checks, the session and the wallet's network. */
@@ -248,6 +352,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (busy || paid) {
       return;
     }
+    replace(fallbackSlot);
     const account = app.session.account();
     if (checks === null) {
       lockKey(t("pay.checking"));
@@ -270,8 +375,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       return;
     }
     if (account === null) {
-      net.set("wait", t("verify.network.connect"));
-      key.textContent = t("pay.connect");
+      net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
+      key.textContent = passkeys ? t("pay.useKey") : t("pay.connect");
       key.disabled = false;
       key.dataset["action"] = "connect";
       return;
@@ -282,6 +387,10 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       stateNote.hidden = false;
       stateNote.textContent = t("pay.note.self");
       return;
+    }
+    if (account.kind === "passkey") {
+      // A PayLink key signs for any network: nothing to switch, nothing to ask.
+      await account.switchChain(chain);
     }
     let walletChain: number;
     try {
@@ -296,11 +405,11 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       key.dataset["action"] = "switch";
       return;
     }
-    net.set("ok", t("verify.network.ok", { network: networkName(chain) }));
+    net.set("ok", account.kind === "passkey" ? t("verify.network.keyOk", { network: networkName(chain) }) : t("verify.network.ok", { network: networkName(chain) }));
     key.textContent = fixed && amountText !== null ? t("pay.payKey", { amount: amountText, symbol: token.symbol }) : t("pay.sendKey", { symbol: token.symbol });
     key.disabled = false;
     key.dataset["action"] = "pay";
-    void describeRoute(app, client, account, link, routeNote);
+    await describe(account);
   };
 
   const runChecks = async (): Promise<void> => {
@@ -315,9 +424,64 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     void refresh();
   };
 
+  const startPayment = (forced: PathChoice | null): void => {
+    const account = app.session.account();
+    if (account === null || checks === null || checks.payable.state === "unknown") {
+      return;
+    }
+    busy = true;
+    key.disabled = true;
+    key.setAttribute("aria-busy", "true");
+    replace(fallbackSlot);
+    pay(app, { link, chain, token, client, account, now: checks.payable.now, amountInput, fixed, status, forced, onDone: done })
+      .catch((error: unknown) => {
+        if (error instanceof RelayFallbackError) {
+          offerFallback(error, account);
+          return;
+        }
+        const decoded = decodeUiError(app, error);
+        setStatus(status, "err", decoded.message, decoded.code);
+      })
+      .finally(() => {
+        busy = false;
+        key.removeAttribute("aria-busy");
+        if (!paid) {
+          // Keep any fallback offer on screen: refresh() would clear it.
+          const offer = [...fallbackSlot.childNodes];
+          void refresh().then(() => {
+            fallbackSlot.append(...offer);
+          });
+        }
+      });
+  };
+
+  /** The relayer refused or failed: the same authorisation, sent by the payer with their own gas, when they have some. */
+  const offerFallback = (error: RelayFallbackError, account: AccountProvider): void => {
+    const problem = error.problem;
+    const reason = relayerReason(app, problem.code, problem.retryAfter);
+    setStatus(status, problem.fallback === "retry" ? "warn" : "err", reason, t("common.errorCode", { code: problem.reason ?? problem.rule ?? problem.code }));
+    void (async () => {
+      const balance = await client.getBalance(account.address).catch(() => 0n);
+      if (problem.fallback === "none" || balance === 0n) {
+        replace(fallbackSlot, h("p", { class: "field-hint" }, problem.fallback === "retry" ? t("pay.fallback.retry") : t("pay.fallback.noGas", { coin: chain.nativeCurrency.symbol })));
+        return;
+      }
+      const own = h("button", { class: "key key-line", attrs: { type: "button", "data-path": "self-authorization" } }, t("pay.fallback.own", { coin: chain.nativeCurrency.symbol }));
+      own.addEventListener("click", () => {
+        const rail = app.edition.rails.find((r) => r.paths.includes("self-authorization"));
+        if (rail === undefined || choice === null) {
+          return;
+        }
+        startPayment({ ok: true, path: "self-authorization", rail, fallbacks: [], payerPaysGas: true, resubmit: true, facts: choice.facts });
+      });
+      replace(fallbackSlot, h("p", { class: "field-hint" }, t("pay.fallback.text")), own);
+    })();
+  };
+
   key.addEventListener("click", () => {
     const action = key.dataset["action"];
     if (action === "recheck") {
+      app.relayer.invalidate();
       void runChecks();
     } else if (action === "connect") {
       void pickWallet(app).then(() => refresh());
@@ -337,28 +501,15 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
           .finally(() => refresh());
       }
     } else if (action === "pay") {
-      const account = app.session.account();
-      if (account === null || checks === null || checks.payable.state === "unknown") {
-        return;
-      }
-      busy = true;
-      key.disabled = true;
-      key.setAttribute("aria-busy", "true");
-      pay(app, { link, chain, token, client, account, now: checks.payable.now, amountInput, fixed, status, onDone: done })
-        .catch((error: unknown) => {
-          const decoded = decodeUiError(app, error);
-          setStatus(status, "err", decoded.message, decoded.code);
-        })
-        .finally(() => {
-          busy = false;
-          key.removeAttribute("aria-busy");
-          void refresh();
-        });
+      startPayment(null);
     }
   });
 
   const done = (outcome: { amount: bigint; txHash: `0x${string}`; logIndex: number; elapsedMs: number; slip: HTMLElement; receiptLink: string }): void => {
     paid = true;
+    replace(signSlot);
+    replace(fundsSlot);
+    replace(fallbackSlot);
     const shown = displayAmount(outcome.amount, token, app.locale);
     billEl.classList.add("is-done");
     // This payer has now paid this address: the first-payment warning no longer applies.
@@ -376,10 +527,19 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
         })
         .catch(() => undefined);
     }
-    screen.append(h("div", { class: "verdict", attrs: { role: "status" } }, h("b", null, t("pay.verdict.approved")), h("span", null, fixed ? t("pay.verdict.paidInFull") : t("pay.verdict.sent", { amount: shown, symbol: token.symbol }))));
+    const seconds = formatSeconds(app.locale, outcome.elapsedMs / 1000);
+    screen.append(
+      h(
+        "div",
+        { class: "verdict", attrs: { role: "status" } },
+        h("b", null, t("pay.verdict.approved")),
+        h("span", null, fixed ? t("pay.verdict.paidInFull") : t("pay.verdict.sent", { amount: shown, symbol: token.symbol })),
+        h("span", { class: "verdict-time" }, t("pay.verdict.settled", { seconds })),
+      ),
+    );
     ui.voice("paid");
     ui.plate(plateText(chain), "ok");
-    setStatus(status, "ok", t("pay.status.done", { amount: shown, symbol: token.symbol, seconds: formatSeconds(app.locale, outcome.elapsedMs / 1000) }));
+    setStatus(status, "ok", t("pay.status.done", { amount: shown, symbol: token.symbol, seconds }));
     const copy = h("button", { class: "key key-line", attrs: { type: "button" } }, t("receipt.copy"));
     copy.addEventListener("click", () => {
       void copyText(outcome.receiptLink, copy, { idle: t("receipt.copy"), done: t("share.copied"), said: t("receipt.copiedSaid") });
@@ -398,9 +558,70 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   });
   amountInput.addEventListener("input", () => {
     setStatus(status, "", "");
+    const amount = typedAmount();
+    typedFx.textContent = amount === null ? "" : (estimate(amount) ?? "");
+    const account = app.session.account();
+    if (account !== null && choice?.ok === true) {
+      showSigning(account, choice.path);
+    }
   });
   void runChecks();
   return billEl;
+}
+
+/** Why the relayer did not take the payment, in the payer's words. */
+function relayerReason(app: App, code: string, retryAfter: number | null): string {
+  const { t } = app.i18n;
+  switch (code) {
+    case "offline":
+    case "upstream-error":
+    case "relayer-unavailable":
+    case "invalid-response":
+      return t("pay.relayer.offline");
+    case "rate-limited":
+    case "refused":
+      return t("pay.relayer.busy", { seconds: Math.max(1, Math.ceil(retryAfter ?? 60)) });
+    case "budget-exhausted":
+    case "fees-too-high":
+      return t("pay.relayer.budget");
+    case "invoice-closed":
+    case "already-cancelled":
+      return t("pay.relayer.closed");
+    default:
+      return t("pay.relayer.refused");
+  }
+}
+
+/** The route in plain words: who signs, who pays the network fee. */
+function routeText(app: App, choice: PathChoice): string {
+  const { t } = app.i18n;
+  if (!choice.ok) {
+    switch (choice.reason) {
+      case "needs-gas":
+        return t("pay.route.needsGas");
+      case "authorization-consumed":
+        return t("pay.route.consumed");
+      case "none":
+        return t("pay.route.none");
+    }
+  }
+  if (choice.resubmit) {
+    return t("pay.route.resubmit");
+  }
+  switch (choice.path) {
+    case "permit":
+      return t("pay.route.permit");
+    case "approve-pay":
+      return t("pay.route.approve");
+    case "batched-approve-pay":
+      return app.edition.payWithBase ? t("pay.route.base") : t("pay.route.batch");
+    case "native":
+      return t("pay.route.native");
+    case "relayed-authorization":
+      return t("pay.route.signature");
+    case "self-authorization":
+      return t("pay.route.ownGas");
+  }
 }
 
 /** "3 payments received" (receive card) or "3 of 10 seats taken". */
@@ -495,54 +716,6 @@ function paintChecks(
   ui.plate(plateText(chain), red ? "err" : allGreen ? "ok" : "wait");
 }
 
-/** The path the router picks for this payer, and how many approvals it costs, in plain words. */
-async function choosePath(app: App, client: ChainClient, account: AccountProvider, link: DecodedInvoiceLink): Promise<{ path: PaymentPath; rail: PaymentRail } | null> {
-  const code = await client.getCode({ address: account.address });
-  // T0 never signs an EIP-3009 authorisation, so no outstanding one can exist on this device (invoice spec §8.6);
-  // the self-authorisation rail that arrives with the relayer must pass the stored assessment here instead of null.
-  const route = selectPaymentPath({ capabilities: link.token.capabilities, account: payerAccountKind(code), relayerHealthy: false, outstanding: null });
-  if (!route.available) {
-    return null;
-  }
-  for (const path of [route.path, ...route.fallbacks]) {
-    for (const rail of app.edition.rails) {
-      if (rail.paths.includes(path) && (await rail.ready(link.target.chain))) {
-        return { path, rail };
-      }
-    }
-  }
-  return null;
-}
-
-async function describeRoute(app: App, client: ChainClient, account: AccountProvider, link: DecodedInvoiceLink, note: HTMLElement): Promise<void> {
-  const { t } = app.i18n;
-  try {
-    const choice = await choosePath(app, client, account, link);
-    if (choice === null) {
-      note.textContent = t("pay.route.none");
-      return;
-    }
-    switch (choice.path) {
-      case "permit":
-        note.textContent = t("pay.route.permit");
-        break;
-      case "approve-pay":
-      case "batched-approve-pay":
-        note.textContent = t("pay.route.approve");
-        break;
-      case "native":
-        note.textContent = t("pay.route.native");
-        break;
-      case "relayed-authorization":
-      case "self-authorization":
-        note.textContent = t("pay.route.signature");
-        break;
-    }
-  } catch {
-    note.textContent = "";
-  }
-}
-
 interface PayInput {
   readonly link: DecodedInvoiceLink;
   readonly chain: ChainDefinition;
@@ -553,6 +726,8 @@ interface PayInput {
   readonly amountInput: HTMLInputElement;
   readonly fixed: boolean;
   readonly status: HTMLElement;
+  /** A path the payer chose explicitly (the own-gas fallback after a relayer refusal); the router's choice otherwise. */
+  readonly forced: PathChoice | null;
   readonly onDone: (outcome: { amount: bigint; txHash: `0x${string}`; logIndex: number; elapsedMs: number; slip: HTMLElement; receiptLink: string }) => void;
 }
 
@@ -573,9 +748,9 @@ async function pay(app: App, input: PayInput): Promise<void> {
     }
   }
   const shown = displayAmount(amount, token, app.locale);
-  const choice = await choosePath(app, client, account, link);
-  if (choice === null) {
-    throw new AppError("pay.route.none", {});
+  const choice = input.forced ?? (await choosePath(app, client, account, link, input.now));
+  if (!choice.ok) {
+    throw new AppError(choice.reason === "authorization-consumed" ? "pay.route.consumed" : choice.reason === "needs-gas" ? "pay.route.needsGas" : "pay.route.none", {});
   }
   // The contract's own checks, predicted in its order, before any prompt (invoice spec §7.2).
   const fn = SETTLEMENT_FN[choice.path] ?? "pay";
@@ -584,14 +759,14 @@ async function pay(app: App, input: PayInput): Promise<void> {
   if (predicted !== null) {
     throw new AppError("pay.error.predicted", { reason: app.i18n.lookup(predicted.i18nKey, predicted.params) ?? predicted.name });
   }
-  // Funds: the token amount, and gas for the payer's own transaction.
+  // Funds: the token amount, and gas only when the payer sends the transaction.
   if (token.kind === "erc20") {
     const balance = await client.erc20(token.address, "balanceOf", [account.address]);
     if (balance < amount) {
-      throw new AppError("pay.error.balance", { balance: displayAmount(balance, token, app.locale), symbol: token.symbol });
+      throw new AppError(account.kind === "passkey" ? "pay.error.balanceKey" : "pay.error.balance", { balance: displayAmount(balance, token, app.locale), symbol: token.symbol });
     }
   }
-  if ((await client.getBalance(account.address)) === 0n) {
+  if (choice.payerPaysGas && (await client.getBalance(account.address)) === 0n) {
     throw new AppError("pay.error.gas", { coin: chain.nativeCurrency.symbol });
   }
   const onStep = (step: PaymentStep): void => {
@@ -617,9 +792,33 @@ async function pay(app: App, input: PayInput): Promise<void> {
       case "mined":
         setStatus(status, "", t("pay.status.verifying"));
         break;
+      case "sign-authorization":
+        setStatus(status, "", account.kind === "passkey" ? t("pay.status.fingerprint", { amount: shown, symbol: token.symbol }) : t("pay.status.authorize", { amount: shown, symbol: token.symbol }));
+        break;
+      case "resubmit":
+        setStatus(status, "", t("pay.status.resubmit"));
+        break;
+      case "relayed":
+        setStatus(status, "", t("pay.status.relayed"));
+        break;
+      case "batch":
+        setStatus(status, "", t("pay.status.batch", { amount: shown, symbol: token.symbol }));
+        break;
     }
   };
-  const outcome = await choice.rail.execute(choice.path, { link, chain, account, client, amount, payerRef: ZERO_HASH, now: input.now, onStep });
+  const outcome = await choice.rail.execute(choice.path, {
+    link,
+    chain,
+    account,
+    client,
+    amount,
+    payerRef: ZERO_HASH,
+    now: input.now,
+    onStep,
+    registry: app.registry,
+    relayer: app.relayer,
+    authorizations: app.store.authorizations,
+  });
   const reference = { chainId: chain.chainId, txHash: outcome.txHash, logIndex: outcome.logIndex };
   const verification = await verifyReceipt({ registry: app.registry, client, reference, paid: link });
   if (!verification.valid) {

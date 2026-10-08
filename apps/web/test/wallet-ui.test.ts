@@ -35,7 +35,7 @@ function session(connectors: Connector[], refuse = new Set<string>()): Session &
   };
 }
 
-const appWith = (s: Session): App => ({ session: s, i18n: createTranslator("en", EN, { fallback: EN }) }) as unknown as App;
+const appWith = (s: Session): App => ({ session: s, edition: { accountLayers: [{ id: "eip6963", kind: "injected" }] }, i18n: createTranslator("en", EN, { fallback: EN }) }) as unknown as App;
 const wallet = (id: string, name: string, icon: string | null = ICON): Connector => ({ id, name, icon, layer: "eip6963" });
 
 afterEach(() => {

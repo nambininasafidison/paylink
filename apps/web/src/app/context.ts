@@ -4,6 +4,8 @@ import type { ChainDefinition, Registry } from "@paylink/chains";
 import type { Locale, Translator } from "@paylink/i18n";
 import type { ChainClient } from "../core/clients.ts";
 import type { RuntimeConfig } from "../core/config.ts";
+import type { FxSnapshot } from "../core/fx.ts";
+import type { RelayerClient } from "../core/relayer.ts";
 import type { SiteLocation } from "../core/links.ts";
 import type { EditionProfile } from "../editions/types.ts";
 import type { DeviceStore } from "../store/db.ts";
@@ -23,4 +25,8 @@ export interface App {
   /** True when the page is inside a frame: payments stay locked (threat T-06). */
   readonly framed: boolean;
   client(chain: ChainDefinition): ChainClient;
+  /** The gasless relayer named by `/config.json` (`endpoint()` is `null` for chains it does not serve). */
+  readonly relayer: RelayerClient;
+  /** The display-only exchange-rate snapshot (`/fx.json`) when the edition shows estimates, else `null`. */
+  readonly fx: FxSnapshot | null;
 }

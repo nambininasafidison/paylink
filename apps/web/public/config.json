@@ -1,7 +1,10 @@
 {
   "version": 1,
   "banner": null,
-  "relayer": null,
+  "relayer": {
+    "url": "https://paylink-relayer.raherizonambinina.workers.dev",
+    "chains": [10143, 84532, 421614]
+  },
   "indexer": null,
   "rpc": {}
 }

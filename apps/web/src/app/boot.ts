@@ -8,6 +8,8 @@ import { createTranslator, EN, LOCALE_INFO, loadMessages, negotiateLocale } from
 import type { PlainMessageKey } from "@paylink/i18n";
 import { chainClient } from "../core/clients.ts";
 import { loadConfig } from "../core/config.ts";
+import { loadFx } from "../core/fx.ts";
+import { relayerClient } from "../core/relayer.ts";
 import { decodeUiError } from "../core/errors.ts";
 import { applyTheme, prefs } from "../core/prefs.ts";
 import { appRegistry } from "../core/registry.ts";
@@ -32,12 +34,16 @@ export interface PageDefinition {
 export async function boot(page: PageDefinition): Promise<void> {
   applyTheme(prefs.theme.get());
   const locale = prefs.locale.get() ?? negotiateLocale(navigator.languages);
-  const [messages, configLoad, store] = await Promise.all([loadMessages(locale), loadConfig("/"), openDeviceStore()]);
+  const profile = edition();
+  const [messages, configLoad, store, fx] = await Promise.all([loadMessages(locale), loadConfig("/"), openDeviceStore(), profile.fx === null ? Promise.resolve(null) : loadFx()]);
   const i18n = createTranslator(locale, messages, { fallback: EN });
   document.documentElement.lang = LOCALE_INFO[locale].tag;
   document.title = `${i18n.t(page.title)} · PayLink`;
-  const profile = edition();
   const registry = appRegistry(profile.id);
+  const client = (chain: Parameters<App["client"]>[0]): ReturnType<App["client"]> => chainClient(chain, configLoad.config);
+  for (const layer of profile.accountLayers) {
+    layer.bind?.({ registry, client });
+  }
   const session = createSession(profile.accountLayers);
   const app: App = {
     edition: profile,
@@ -50,7 +56,9 @@ export async function boot(page: PageDefinition): Promise<void> {
     session,
     site: { origin: location.origin, base: profile.base },
     framed: window.top !== window.self,
-    client: (chain) => chainClient(chain, configLoad.config),
+    client,
+    relayer: relayerClient(configLoad.config),
+    fx,
   };
   const ui = renderShell(app, page.route, page.payer);
   try {

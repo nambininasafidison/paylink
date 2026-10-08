@@ -12,6 +12,7 @@ import { bandSelector, confirmBox, segmented } from "../src/ui/controls.ts";
 import { announce, copyText, download, toast } from "../src/ui/live.ts";
 import { correctionFor, qrMatrix, qrPath, qrSvg } from "../src/ui/qr.ts";
 import { receiptSlip } from "../src/ui/receipt.ts";
+import { signingDisplay } from "../src/ui/signing.ts";
 import { ticket } from "../src/ui/ticket.ts";
 
 const ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
@@ -207,5 +208,28 @@ describe("service worker URL under Trusted Types", () => {
     };
     expect(workerUrl("/")).toBe("/sw.js");
     expect(() => rule?.("https://evil.example/sw.js")).toThrow(/only the edition's own service worker/);
+  });
+});
+
+describe("signing display", () => {
+  it("states what the signature approves in a labelled region, amount first, readable as a description list", () => {
+    const display = signingDisplay({
+      kicker: "Your key will sign",
+      band: "MONAD",
+      title: "Pay exactly this, once",
+      amount: { label: "Amount", value: "25.50", unit: "AUSD" },
+      rows: [["To", addr("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")], ["Valid for", "10 minutes, then void"]],
+      note: "This signature can only pay this invoice.",
+    });
+    document.body.append(display);
+    const title = display.querySelector("h3");
+    expect(display.getAttribute("aria-labelledby")).toBe(title?.id);
+    expect([...display.querySelectorAll(".readings dt")].map((dt) => dt.textContent)).toEqual(["Amount", "To", "Valid for"]);
+    expect(display.querySelector(".is-amount dd")?.textContent).toBe("25.50AUSD");
+    expect(display.querySelector(".signing-note")?.textContent).toBe("This signature can only pay this invoice.");
+    const open = signingDisplay({ kicker: "k", band: "B", title: "t", amount: null, rows: [], note: "n" });
+    expect(open.querySelector(".is-amount")).toBeNull();
+    expect(open.querySelector("h3")?.id).not.toBe(title?.id);
+    display.remove();
   });
 });

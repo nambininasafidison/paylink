@@ -58,6 +58,11 @@ catalog:
   qrcode-generator: 2.0.4 # the MIT QR library v1 vendors as web/qrcode.js, now from npm with types
   happy-dom: 20.14.5 # DOM for the web app's unit tests (dev only)
   fake-indexeddb: 6.2.5 # IndexedDB for the device-store unit tests (dev only)
+  # Monad edition passkeys (apps/web, spec §3.6 "Mera"), added on 2026-10-08. The derivation follows Mera's documented
+  # recipe (BIP-39 seed from the PRF output, BIP-32/BIP-44 m/44'/60'/0'/0/0); both are the versions viem 2.57.3 already
+  # resolves, so they add no package to the lockfile.
+  '@scure/bip32': 1.7.0
+  '@scure/bip39': 1.6.0
 
 # ------------------------------------------------------------------ supply chain (spec §4.5, threat #17)
 

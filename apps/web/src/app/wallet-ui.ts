@@ -10,6 +10,7 @@ import { addr, setStatus, statusLine } from "../ui/atoms.ts";
 import { openModal } from "../ui/dialog.ts";
 import { h, replace } from "../ui/h.ts";
 import type { App } from "./context.ts";
+import { passkeyLayerOf } from "./passkey-layer.ts";
 
 function walletKey(connector: Connector, onPick: () => void): HTMLButtonElement {
   const glyph = connector.icon === null
@@ -23,11 +24,22 @@ function walletKey(connector: Connector, onPick: () => void): HTMLButtonElement 
   );
 }
 
+/** "Connect wallet", or "Use my PayLink key" in an edition whose only account layer is a passkey. */
+export function connectLabel(app: App): string {
+  return passkeyLayerOf(app) === null ? app.i18n.t("app.connect") : app.i18n.t("app.connectKey");
+}
+
 /**
  * Opens the wallet picker and resolves with the connected account, or `null` when the user closes it.
  * `manage`: the account panel (switch or disconnect) instead of connecting right away.
  */
 export async function pickWallet(app: App, manage = false): Promise<AccountProvider | null> {
+  const passkeys = passkeyLayerOf(app);
+  if (passkeys !== null) {
+    // The Monad edition: a PayLink key (passkey) is the only account layer. The KeyCard loads with it.
+    const { keyCard } = await import("./key-ui.ts");
+    return await keyCard(app, passkeys, manage);
+  }
   await app.session.ready;
   const connectors = app.session.connectors();
   if (!manage && connectors.length === 1 && connectors[0] !== undefined) {

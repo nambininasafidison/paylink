@@ -630,6 +630,33 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .empty-state p { color: var(--ink-2); margin-bottom: 4px; text-wrap: pretty; }
 .empty-state .key-primary { margin-top: 16px; }
 
+/* ---------- KeyCard: a PayLink key (passkey) in the Monad edition ---------- */
+.keycard-face { margin-top: 2px; }
+.keycard-head { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.keycard-head h3 { margin: 0; font-size: 18px; font-weight: 600; color: var(--screen-ink); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.keycard-glyph { flex: none; width: 44px; height: 44px; }
+.keycard-glyph .ring { fill: none; stroke: var(--screen-dim); stroke-width: 2.2; stroke-linecap: round; }
+.keycard-glyph .ring.is-signal { stroke: var(--signal); filter: drop-shadow(0 0 4px rgba(255,90,31,var(--glow))); }
+.modal-key .field { margin-top: 18px; }
+.modal-key .key-primary { width: 100%; margin-top: 16px; }
+.modal-key .key-row .key { width: 100%; }
+
+/* ---------- Estimates and test funds ---------- */
+/* "≈ 113 568 Ar · estimate · rate of 8 Oct 2026": a dim engraved line under an amount, never a second price. */
+.screen-fx, .till-fx { margin-top: 8px; font: 400 11px/1.5 var(--mono); letter-spacing: .02em; word-spacing: 0; color: var(--screen-dim); }
+.screen-fx:empty, .till-fx:empty, .readout-fx:empty { display: none; }
+.readout-fx { font-family: var(--mono); font-size: 11px; letter-spacing: .02em; word-spacing: 0; }
+.funds-slot:empty, .fallback-slot:empty, .sign-slot:empty { display: none; }
+.funds { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--rule-2); border-radius: 10px; display: grid; gap: 6px; }
+.funds-held { font: 600 12px/1.45 var(--mono); word-spacing: 0; color: var(--ink); }
+.funds-how { font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.funds .funds-key { margin-top: 6px; width: 100%; }
+.fallback-slot { margin-top: 12px; display: grid; gap: 8px; }
+.sign-slot .signing { margin-top: 18px; }
+.readings dd .sub { margin-bottom: 2px; }
+.verdict .verdict-time { display: block; margin-top: 6px; color: var(--lcd-ok); font-variant-numeric: tabular-nums; }
+.my-card .field-hint { margin-top: 10px; }
+
 /* ---------- Till display: one big instrument window ---------- */
 .till { margin-top: 18px; padding: 16px 18px 18px; min-height: 340px; display: flex; flex-direction: column; }
 .till-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--screen-dim); font: 400 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; }

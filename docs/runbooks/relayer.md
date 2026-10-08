@@ -175,20 +175,17 @@ Open `https://testnet.monadvision.com/tx/<txHash>`: the transaction is from the 
 
 Then look at the logs: Worker → **"Logs"** (Workers Logs; "Observability" on some layouts). Each line is one JSON event. You should see `http`, `request.done` with `"outcome":"submitted"`, `tx.sent`, then about a second later `tx.final` with `"outcome":"settled"`. The logs never contain a key, a signature, a request body or an IP address; requesters appear only as a short `requesterTag`. If a line ever shows something that looks like a key, delete the secret at once ([§8](#8-operations-refill-update-rotate-stop-roll-back)) and tell Claude.
 
-The first gasless **payment** can only be tested once PayLinkV2 is deployed on Monad and the relayer reports `ready`: Claude then runs one end to end from the app ([§7](#7-turn-the-relayer-on-in-the-app)).
+PayLinkV2 is deployed on Monad testnet (2026-10-08), so once the relayer reports `ready` the first gasless **payment** can be made from `https://paylink-mg.pages.dev/monad/` with two PayLink keys ([§7](#7-turn-the-relayer-on-in-the-app)).
 
 ## 7. Turn the relayer on in the app
 
-Claude does this in a commit once your smoke test passed; you only push it.
+Already done (2026-10-08, [ADR 0015](../adr/0015-editions-t1-passkeys-gasless-rails.md)): the app's runtime config `apps/web/public/config.json` names the Worker for the three relayed testnets, and the app's Content-Security-Policy (`apps/web/public/_headers`) allows it:
 
-1. The web app's runtime config `apps/web/public/config.json` gets the relayer, for the chains that report `ready`:
+```json
+"relayer": { "url": "https://paylink-relayer.raherizonambinina.workers.dev", "chains": [10143, 84532, 421614] }
+```
 
-   ```json
-   "relayer": { "url": "https://paylink-relayer.raherizonambinina.workers.dev", "chains": [10143] }
-   ```
-
-2. The `connect-src` of the app's Content-Security-Policy (`apps/web/public/_headers`) gets `https://paylink-relayer.raherizonambinina.workers.dev`; the app's header test fails if the two disagree.
-3. `/status/` then shows the relayer lamp, fed by `GET /v1/health`.
+The app asks `GET /v1/health` before every gasless payment, cancel or onboarding, and uses the relayer for a chain only while that chain reports `ready` (with the operation enabled). Until the Worker is live, or for a chain that is `awaiting-deployment` or `unfunded`, payers see "the service that covers the network fee is not answering" and the app offers what works without it; nothing else changes, so there is nothing to commit after the smoke test. `/status/` shows the relayer lamp. To take the relayer out of the app (an incident), remove the `relayer` entry (set it to `null`), run `pnpm --filter @paylink/web run headers`, commit and push.
 
 The relayer answers browsers only from `https://paylink-mg.pages.dev` and its preview deployments `https://<branch>.paylink-mg.pages.dev`; any other page that tries gets HTTP 403 `origin-not-allowed`. Requests without an `Origin` (curl, scripts) are served and limited like any other client: CORS is a browser rule, not access control.
 

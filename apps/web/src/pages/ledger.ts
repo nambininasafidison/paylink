@@ -2,12 +2,14 @@
 /**
  * `/ledger/`: the payee's books (ADR 0009). Invoices signed on this device by the connected wallet, each state read from
  * the chain (`statesOf`, chain time), a tally of what they brought in per token, filters, CSV export, and the actions
- * v1 had: copy the link, open it, put it on the till, cancel it (one `cancel` transaction from the payee, with the
- * registry's clamped gas limit). Receipts of payments made from this device follow.
+ * v1 had: copy the link, open it, put it on the till, and cancel it: gaslessly when the relayer serves the chain (the
+ * payee signs `Cancel`, the relayer submits `cancelBySig`), else with one `cancel` transaction from the payee and the
+ * registry's clamped gas limit (`app/cancel.ts`). Receipts of payments made from this device follow.
  */
-import { cancelCall, gasLimitFor, invoiceKind } from "@paylink/sdk";
+import { invoiceKind } from "@paylink/sdk";
 import { formatDateTime } from "@paylink/i18n";
 import type { PageDefinition } from "../app/boot.ts";
+import { cancelInvoice } from "../app/cancel.ts";
 import { networkName } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, notes, routeHref } from "../app/shell.ts";
@@ -247,7 +249,7 @@ function ledgerRow(app: App, row: LedgerRow, status: HTMLElement, reload: () => 
   );
 }
 
-/** Cancel in two presses (the first arms it for five seconds), then one `cancel` transaction from the payee. */
+/** Cancel in two presses (the first arms it for five seconds), then gasless `cancelBySig` or the payee's `cancel`. */
 function cancelButton(app: App, row: LedgerRow, status: HTMLElement, reload: () => void): HTMLButtonElement {
   const { t } = app.i18n;
   let armed = 0;
@@ -270,19 +272,22 @@ function cancelButton(app: App, row: LedgerRow, status: HTMLElement, reload: () 
         if (account === null) {
           return;
         }
-        const chain = row.chain;
-        const client = app.client(chain);
-        setStatus(status, "", t("wallet.switching"));
-        await account.switchChain(chain);
-        const call = cancelCall(row.link.target.deployment.address, row.link.invoice);
-        const estimate = await client.estimateGas({ from: account.address, to: call.to, data: call.data, value: 0n });
-        setStatus(status, "", t("ledger.cancel.confirm"));
-        const txHash = await account.sendTransaction({ chainId: chain.chainId, to: call.to, data: call.data, value: 0n, gas: gasLimitFor(chain, "cancel", estimate) });
-        setStatus(status, "", t("ledger.cancel.sent"));
-        const receipt = await client.waitForReceipt(txHash);
-        if (receipt.status !== "success") {
-          throw new Error("cancel reverted");
-        }
+        await cancelInvoice(app, row.link, account, (step) => {
+          switch (step) {
+            case "sign":
+              setStatus(status, "", account.kind === "passkey" ? t("ledger.cancel.fingerprint") : t("ledger.cancel.sign"));
+              break;
+            case "relayed":
+              setStatus(status, "", t("ledger.cancel.relayed"));
+              break;
+            case "confirm":
+              setStatus(status, "", t("ledger.cancel.confirm"));
+              break;
+            case "sent":
+              setStatus(status, "", t("ledger.cancel.sent"));
+              break;
+          }
+        });
         setStatus(status, "ok", t("ledger.cancel.done"));
         // The books are re-read from the chain and redrawn: say it through the live region too, since the redraw
         // replaces this status line.

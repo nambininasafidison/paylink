@@ -27,6 +27,13 @@ export interface MockWalletOptions {
   readonly endpoints: ReadonlyMap<number, string | null>;
   /** Chains the wallet has configured already; others answer 4902 until added. */
   readonly known: readonly number[];
+  /**
+   * EIP-5792: the wallet reports `atomic: supported` (a smart account such as Base Account) and executes
+   * `wallet_sendCalls` batches. The calls are sent one after the other from the unlocked account (anvil has no smart
+   * account), which is what the app sees of a batch: one approval, then the receipts. Without it the wallet answers
+   * the EIP-5792 methods with 4200 (unsupported), like most EOA wallets.
+   */
+  readonly batch?: boolean;
 }
 
 export interface MockWallet {
@@ -46,6 +53,7 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
   const known = new Set(options.known);
   const failures = new Map<string, { code: number; message: string }>();
   const requests: WalletRequest[] = [];
+  const batches = new Map<string, { chainId: string; receipts: unknown[] }>();
 
   const answer = async (method: string, params: readonly unknown[]): Promise<Answer> => {
     requests.push({ method, params });
@@ -68,6 +76,44 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
         const changed = target !== current;
         current = target;
         return { result: null, ...(changed ? { events: [["chainChanged", hex(target)]] } : {}) };
+      }
+      case "wallet_getCapabilities": {
+        if (options.batch !== true) {
+          return { error: { code: 4200, message: "wallet_getCapabilities is not supported" } };
+        }
+        return { result: Object.fromEntries([...options.endpoints.keys()].map((id) => [hex(id), { atomic: { status: "supported" } }])) };
+      }
+      case "wallet_sendCalls": {
+        if (options.batch !== true) {
+          return { error: { code: 4200, message: "wallet_sendCalls is not supported" } };
+        }
+        const request = params[0] as { from: string; chainId: string; atomicRequired: boolean; calls: { to: string; data: string; value: string }[] };
+        const url = options.endpoints.get(Number.parseInt(request.chainId, 16)) ?? null;
+        if (url === null || request.from.toLowerCase() !== options.account.toLowerCase()) {
+          return { error: { code: 4100, message: "unauthorized" } };
+        }
+        const receipts: unknown[] = [];
+        for (const c of request.calls) {
+          const hash = await jsonRpc<string>(url, "eth_sendTransaction", [{ from: options.account, to: c.to, data: c.data, value: c.value }]);
+          let receipt: { status: string } | null = null;
+          for (let i = 0; i < 200 && receipt === null; i += 1) {
+            receipt = await jsonRpc<{ status: string } | null>(url, "eth_getTransactionReceipt", [hash]);
+            if (receipt === null) {
+              await new Promise((r) => setTimeout(r, 25));
+            }
+          }
+          receipts.push(receipt);
+        }
+        const id = `0x${(batches.size + 1).toString(16).padStart(64, "0")}`;
+        batches.set(id, { chainId: request.chainId, receipts });
+        return { result: { id } };
+      }
+      case "wallet_getCallsStatus": {
+        const batch = batches.get(params[0] as string);
+        if (batch === undefined) {
+          return { error: { code: 5730, message: "unknown bundle id" } };
+        }
+        return { result: { version: "2.0.0", id: params[0], chainId: batch.chainId, status: 200, atomic: true, receipts: batch.receipts } };
       }
       case "wallet_addEthereumChain": {
         const target = Number.parseInt((params[0] as { chainId: string }).chainId, 16);

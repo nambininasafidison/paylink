@@ -22,6 +22,9 @@ interface FakeWallet extends Eip1193Provider {
   accounts: string[];
   fail: Map<string, { code: number; message: string }>;
   emit(event: string, value: unknown): void;
+  /** Refuses the EIP-5792 2.0.0 shape as invalid parameters (an earlier-draft wallet). */
+  legacyBatch: boolean;
+  polls: number;
 }
 
 function fakeWallet(): FakeWallet {
@@ -57,6 +60,19 @@ function fakeWallet(): FakeWallet {
         return `0x${"AB".repeat(65)}`;
       case "eth_sendTransaction":
         return `0x${"CD".repeat(32)}`;
+      case "wallet_getCapabilities":
+        return { [`0x${wallet.chain.toString(16)}`]: { atomic: { status: "supported" } } };
+      case "wallet_sendCalls": {
+        const version = (params[0] as { version: string }).version;
+        if (version === "2.0.0" && wallet.legacyBatch) {
+          throw Object.assign(new Error("invalid params"), { code: -32602 });
+        }
+        return version === "1.0" ? "0xbatch" : { id: "0xbatch" };
+      }
+      case "wallet_getCallsStatus": {
+        wallet.polls += 1;
+        return wallet.polls < 2 ? { status: 100 } : { status: 200, receipts: [{ transactionHash: `0x${"EF".repeat(32)}` }] };
+      }
       default:
         throw Object.assign(new Error(`unsupported ${method}`), { code: 4200 });
     }
@@ -67,6 +83,8 @@ function fakeWallet(): FakeWallet {
     known: new Set([1]),
     accounts: [payee.address.toLowerCase()],
     fail: new Map(),
+    legacyBatch: false,
+    polls: 0,
     emit(event, value) {
       for (const fn of listeners.get(event) ?? []) {
         fn(value);
@@ -155,6 +173,33 @@ describe("injected accounts", () => {
     }
     return { wallet, account, layer };
   }
+
+  it("reads EIP-5792 capabilities and sends an atomic batch, polling its status until final", async () => {
+    const { wallet, account } = await connected();
+    expect(await account.atomicCapability?.(1)).toBe("supported");
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    try {
+      const pending = account.sendCalls?.({ chainId: 1, calls: [{ to: CONTRACT, data: "0x1234", value: 0n }] });
+      await vi.advanceTimersByTimeAsync(1_100);
+      expect(await pending).toEqual({ status: "confirmed", txHashes: [`0x${"ef".repeat(32)}`] });
+    } finally {
+      vi.useRealTimers();
+    }
+    const sent = wallet.requests.find((r) => r.method === "wallet_sendCalls")?.params[0] as Record<string, unknown>;
+    expect(sent).toMatchObject({ version: "2.0.0", chainId: "0x1", atomicRequired: true, calls: [{ to: CONTRACT, data: "0x1234", value: "0x0" }] });
+    expect(String(sent["from"]).toLowerCase()).toBe(payee.address.toLowerCase());
+    // A wallet on the earlier draft: the same batch in its shape.
+    const legacy = fakeWallet();
+    legacy.legacyBatch = true;
+    legacy.polls = 5;
+    const old = await connected(legacy);
+    expect(await old.account.sendCalls?.({ chainId: 1, calls: [] })).toMatchObject({ status: "confirmed" });
+    expect(legacy.requests.filter((r) => r.method === "wallet_sendCalls").map((r) => (r.params[0] as { version: string }).version)).toEqual(["2.0.0", "1.0"]);
+    // Another network: refused before any prompt; a wallet without EIP-5792: "unsupported".
+    await expect(account.sendCalls?.({ chainId: 10143, calls: [] })).rejects.toMatchObject({ code: 4901 });
+    wallet.fail.set("wallet_getCapabilities", { code: 4200, message: "unsupported" });
+    expect(await account.atomicCapability?.(1)).toBe("unsupported");
+  });
 
   it("connects with a prompt, or silently without one", async () => {
     const { wallet, layer } = await connected();

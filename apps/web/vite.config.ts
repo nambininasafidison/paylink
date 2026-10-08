@@ -92,12 +92,20 @@ function fontPreload(): Plugin {
   };
 }
 
-export default defineConfig({
+/**
+ * The passkey relying party ID (PAYLINK-V2-SPEC §3.11, FACTS 2026-10-07): fixed for production builds, so a PayLink key
+ * is created and used only on https://paylink-mg.pages.dev itself; the page's own host for `vite dev` and end-to-end
+ * builds (127.0.0.1 under Playwright's virtual authenticator).
+ */
+export const PRODUCTION_RP_ID = "paylink-mg.pages.dev";
+
+export default defineConfig(({ command }) => ({
   base,
   resolve: { conditions: ["@paylink/source", ...defaultClientConditions] },
   define: {
     __PAYLINK_EDITION__: JSON.stringify(edition),
     __PAYLINK_E2E_CHAINS__: JSON.stringify(e2eChains),
+    __PAYLINK_RP_ID__: JSON.stringify(command === "build" && e2eChains === null ? PRODUCTION_RP_ID : null),
     __PAYLINK_BUILD__: JSON.stringify({ version, commit: gitCommit() }),
   },
   build: {
@@ -162,4 +170,4 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
-});
+}));

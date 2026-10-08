@@ -166,6 +166,9 @@ export function fakeChain(chain: ChainDefinition = localChain()): FakeChain {
     erc20: (_token: Address, functionName: "balanceOf" | "allowance", args: readonly Address[]) =>
       read(() => (functionName === "balanceOf" ? (fake.balances.get((args[0] ?? "").toLowerCase()) ?? 0n) : allowance(args[0] ?? "", args[1] ?? ""))),
     getLogs: (): Promise<RpcLog[]> => read(() => []),
+    getTransactionCount: () => read(() => 0),
+    estimateFees: () => read(() => ({ maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n })),
+    sendRawTransaction: (): Promise<Hex> => read(() => { throw new Error("no broadcast in the fake chain"); }),
   };
   (fake as { client: ChainClient }).client = client;
   return fake;

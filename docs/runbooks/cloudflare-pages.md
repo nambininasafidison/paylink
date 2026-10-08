@@ -35,7 +35,8 @@ One build writes one folder, `apps/web/dist`, that holds everything:
 | Path | What | Source | Content-Security-Policy |
 |---|---|---|---|
 | `/`, `/pay/`, `/r/`, `/ledger/`, `/send/`, `/till/`, `/status/` | the v2 app, edition `all` (Monad testnet, Base Sepolia, Arbitrum Sepolia; injected wallets) | `apps/web` | the app's: `script-src 'self'`, `style-src 'self'`, Trusted Types (`paylink-sw`), `connect-src` = the registry RPCs and `/config.json` endpoints, `frame-ancestors 'none'` |
-| `/monad/…`, `/base/…` | the same routes for the Monad and Base editions ([ADR 0008](../adr/0008-editions.md)) | `apps/web` built with `VITE_EDITION` | the app's |
+| `/monad/…`, `/base/…` | the same routes for the Monad edition (PayLink keys, Mera passkeys only; gasless AUSD) and the Base edition (injected wallets; gasless USDC, "Pay with Base") ([ADR 0008](../adr/0008-editions.md), [ADR 0015](../adr/0015-editions-t1-passkeys-gasless-rails.md)) | `apps/web` built with `VITE_EDITION` | the app's |
+| `/fx.json` | display-only exchange-rate snapshot (USD → MGA) for the ariary estimate, never cached | `apps/web/public/fx.json` (`node apps/web/scripts/fx.ts`) | — |
 | `/arc/` | the frozen v1 app (Arc mainnet), **byte for byte** | `web/` without `web/v2/` and `web/_headers` | v1's own: its scripts plus the SHA-256 of `deploy.html`'s inline script, inline styles, `connect-src` = Arc mainnet's RPC |
 | `/deploy/` and `/v2/deploy/` | the browser deploy kit ([ADR 0013](../adr/0013-browser-deploy-page.md)), at its new and its first URL | `web/v2/deploy/` (only the two links to v1's stylesheet and fonts point at `/arc/`) | the kit's own meta policy, plus `frame-ancestors 'none'` |
 | `/config.json` | runtime configuration (banner, relayer, indexer, preferred RPCs), never cached | `apps/web/public/config.json` | — |
@@ -66,7 +67,7 @@ Environment variables, type **Text**, for **Production** (and Preview, should pr
 Branch control (Settings → Build → Branch control):
 
 - **Production branch:** `main`, automatic deployments on.
-- **Preview branch:** **None**. A preview at `<branch>.paylink-mg.pages.dev` is a subdomain of the passkey rpId `paylink-mg.pages.dev` and could ask for its passkeys ([ADR 0005](../adr/0005-dedicated-origin-and-rpid.md), threat T-05). The relayer's CORS list also names the production origin.
+- **Preview branch:** **None**. A preview at `<branch>.paylink-mg.pages.dev` is a subdomain of the passkey rpId `paylink-mg.pages.dev` and could ask for its passkeys ([ADR 0005](../adr/0005-dedicated-origin-and-rpid.md), threats T-05 and T-49). This code refuses passkey ceremonies anywhere but `paylink-mg.pages.dev` itself, but a preview of a modified branch would not: the setting is the control. The relayer's CORS list also names the production origin.
 
 What the build command does (`apps/web/scripts/cloudflare-pages.sh`, about 15 s in the sandbox with an empty store):
 

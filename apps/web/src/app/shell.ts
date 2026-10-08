@@ -15,7 +15,7 @@ import { h, replace, svg } from "../ui/h.ts";
 import type { Child } from "../ui/h.ts";
 import { rich } from "../ui/rich.ts";
 import type { App } from "./context.ts";
-import { pickWallet } from "./wallet-ui.ts";
+import { connectLabel, pickWallet } from "./wallet-ui.ts";
 
 export type LedState = "ok" | "wait" | "err" | "off";
 
@@ -119,13 +119,13 @@ function connectKey(app: App): HTMLButtonElement {
     const account = app.session.account();
     key.classList.toggle("is-on", account !== null);
     if (account === null) {
-      key.textContent = t("app.connect");
+      key.textContent = connectLabel(app);
       key.removeAttribute("title");
       key.removeAttribute("aria-label");
     } else {
       key.textContent = shortHex(account.address);
       key.setAttribute("title", account.address);
-      key.setAttribute("aria-label", t("app.account", { address: account.address }));
+      key.setAttribute("aria-label", account.kind === "passkey" ? t("app.accountKey", { address: account.address }) : t("app.account", { address: account.address }));
     }
   };
   key.addEventListener("click", () => {

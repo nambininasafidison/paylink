@@ -25,10 +25,13 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@category-labs/mera": "catalog:",
     "@paylink/chains": "workspace:*",
     "@paylink/design": "workspace:*",
     "@paylink/i18n": "workspace:*",
     "@paylink/sdk": "workspace:*",
+    "@scure/bip32": "catalog:",
+    "@scure/bip39": "catalog:",
     "idb": "catalog:",
     "qrcode-generator": "catalog:",
     "viem": "catalog:",

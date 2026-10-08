@@ -85,7 +85,7 @@ export function buildE2eSite(): string {
   return join(app, "dist-e2e");
 }
 
-function artifact(path: string): { abi: Abi; bytecode: Hex } {
+export function artifact(path: string): { abi: Abi; bytecode: Hex } {
   const file = join(REPO, "protocol/out", path);
   if (!existsSync(file)) {
     throw new Error(`${path} missing: run \`forge build\` in protocol/ first`);
@@ -108,7 +108,7 @@ async function mined(chain: Anvil, hash: Hex): Promise<{ status: string; contrac
   throw new Error(`transaction ${hash} was not mined`);
 }
 
-async function send(chain: Anvil, from: Address, to: Address | null, data: Hex): Promise<{ status: string; contractAddress: Address | null }> {
+export async function send(chain: Anvil, from: Address, to: Address | null, data: Hex): Promise<{ status: string; contractAddress: Address | null }> {
   const hash = await chain.rpc<Hex>("eth_sendTransaction", [{ from, ...(to === null ? {} : { to }), data }]);
   return await mined(chain, hash);
 }
@@ -121,9 +121,9 @@ export interface AppChain {
 }
 
 /** Deploys the token (the first transaction of its owner, so at TOKEN.address on every chain) and funds the payer. */
-async function deployToken(anvil: Anvil): Promise<{ abi: Abi; bytecode: Hex }> {
+async function deployToken(anvil: Anvil, domain: { readonly name: string; readonly version: string } = TOKEN.domain, symbol: string = TOKEN.symbol): Promise<{ abi: Abi; bytecode: Hex }> {
   const mock = artifact("Mock3009.sol/Mock3009.json");
-  const deployed = await send(anvil, ACCOUNTS.tokenOwner, null, encodeDeployData({ abi: mock.abi, bytecode: mock.bytecode, args: [TOKEN.domain.name, TOKEN.symbol, TOKEN.domain.version, TOKEN.decimals] }));
+  const deployed = await send(anvil, ACCOUNTS.tokenOwner, null, encodeDeployData({ abi: mock.abi, bytecode: mock.bytecode, args: [domain.name, symbol, domain.version, TOKEN.decimals] }));
   if (deployed.contractAddress?.toLowerCase() !== TOKEN.address.toLowerCase()) {
     throw new Error(`the token landed at ${String(deployed.contractAddress)}, not ${TOKEN.address}`);
   }
@@ -131,15 +131,18 @@ async function deployToken(anvil: Anvil): Promise<{ abi: Abi; bytecode: Hex }> {
   return mock;
 }
 
-/** anvil on 10143 with the release deployed through the CREATE2 proxy and the payer funded. */
-export async function startAppChain(): Promise<AppChain> {
-  const anvil = await startAnvil({ chainId: CHAIN_ID, factory: "default" });
+/**
+ * anvil on 10143 (or `chainId`) with the release deployed through the CREATE2 proxy and the payer funded; the token's
+ * EIP-712 domain and symbol default to the AUSD stand-in.
+ */
+export async function startAppChain(chainId: number = CHAIN_ID, domain: { readonly name: string; readonly version: string } = TOKEN.domain, symbol: string = TOKEN.symbol): Promise<AppChain> {
+  const anvil = await startAnvil({ chainId, factory: "default" });
   const { create2 } = release.release;
   await send(anvil, ACCOUNTS.deployer, create2.factory, concat([create2.salt, release.initCode]));
   if ((await anvil.rpc<Hex>("eth_getCode", [PAYLINK, "latest"])) === "0x") {
     throw new Error("PayLinkV2 is not at the release address");
   }
-  const mock = await deployToken(anvil);
+  const mock = await deployToken(anvil, domain, symbol);
   return {
     anvil,
     advance: async (seconds) => {

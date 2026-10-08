@@ -37,8 +37,9 @@ The page links v1's `web/paylink.css` and fonts above. Its one library is a vend
 |---|---|---|---|
 | viem | 2.57.3 | MIT | SDK, chain registry, web, relayer |
 | viem's runtime dependencies: ox, abitype, @noble/curves, @noble/hashes, @scure/bip32, @scure/bip39, isows, ws | as resolved in `pnpm-lock.yaml` | MIT | SDK, chain registry, web, relayer |
-| @category-labs/mera (preview) | 0.2.0 | MIT OR Apache-2.0 | web, Monad edition (lazy chunk) |
-| @base-org/account | 2.5.13 | Apache-2.0 | web, Base edition (lazy chunk) |
+| @category-labs/mera (preview) | 0.2.0 | MIT OR Apache-2.0, © Category Labs | web, Monad edition (lazy chunk): passkey ceremonies and signing sessions |
+| Mera's dependencies: @noble/curves, @noble/hashes, @scure/base | 2.2.0 each | MIT, © Paul Miller | web, Monad edition (lazy chunk) |
+| @scure/bip39, @scure/bip32 (direct, the versions viem resolves) | 1.6.0, 1.7.0 | MIT, © Paul Miller | web, Monad edition (lazy chunk): the BIP-39/BIP-44 derivation of Mera's recipe |
 | qrcode-generator | 2.0.4 | MIT, © Kazuhiko Arase | web: the same library as v1's `web/qrcode.js` |
 | idb | 8.0.3 | ISC, © Jake Archibald | web: the device store |
 | vite-plugin-pwa (Workbox runtime) | 2.0.0 (Workbox 7.4.1 as resolved in `pnpm-lock.yaml`) | MIT | web: the generated service worker inlines the Workbox runtime |
@@ -68,7 +69,11 @@ The site Cloudflare Pages serves holds the v2 app, the frozen v1 app under `/arc
 | Archivo (variable, Latin subset), Martian Mono (400 and 600, Latin subset) | v1's files, byte for byte | SIL Open Font License 1.1 | `packages/design/fonts/` with `OFL-Archivo.txt` and `OFL-MartianMono.txt`; hashed copies in `assets/` |
 | viem and its runtime dependencies (the functions the app imports) | 2.57.3 | MIT | `assets/*.js` |
 | qrcode-generator, idb, zod (`zod/mini`) | 2.0.4, 8.0.3, 4.6.5 | MIT, ISC, MIT | `assets/*.js` |
+| @category-labs/mera, @noble/curves 2.2.0, @noble/hashes 2.2.0, @scure/base 2.2.0, @scure/bip39 1.6.0 (English wordlist), @scure/bip32 1.7.0 | as above | MIT OR Apache-2.0; MIT | `monad/assets/mera-*.js` and its chunks, loaded only when a PayLink key signs |
+| Exchange-rate snapshot (USD → MGA, EUR) from fawazahmed0/exchange-api, as published on npm (`@fawazahmed0/currency-api`) | the day in `fx.json` | CC0-1.0 (public domain dedication) | `fx.json`: display-only estimates, labelled with their source and date |
 | Workbox runtime | 7.4.1 | MIT | `sw.js` |
+
+The Base edition's "Pay with Base" uses the standard EIP-5792 wallet calls on the payer's own wallet; `@base-org/account` (pinned in the workspace catalogue, Apache-2.0) is **not** shipped ([ADR 0015](docs/adr/0015-editions-t1-passkeys-gasless-rails.md)).
 
 ## 4. Indexer: Envio HyperIndex (not open source)
 

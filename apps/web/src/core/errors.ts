@@ -7,8 +7,10 @@
 import { decodeError, decodeRevertData } from "@paylink/sdk";
 import type { MessageKey, ParamsOf } from "@paylink/i18n";
 import type { App } from "../app/context.ts";
+import { PasskeyUseError } from "../accounts/passkey-error.ts";
 import { WalletError } from "../accounts/types.ts";
 import { TransactionRevertedError } from "../rails/wallet.ts";
+import { RelayerProblem } from "./relayer.ts";
 
 /** An error the app raises itself, already phrased as an i18n key. */
 export class AppError<K extends MessageKey = MessageKey> extends Error {
@@ -38,6 +40,13 @@ export function decodeUiError(app: Pick<App, "i18n">, error: unknown): UiError {
     const appError = error as AppError;
     const message = lookup(appError.key, appError.params) ?? t("error.unknown");
     return { message, code: code(appError.key), name: appError.key };
+  }
+  if (error instanceof PasskeyUseError) {
+    const key = { cancelled: "error.passkey.cancelled", "prf-unavailable": "error.passkey.prf", "other-key": "error.passkey.otherKey", unsupported: "error.passkey.unsupported", failed: "error.passkey.failed" } as const;
+    return { message: t(key[error.failure]), code: code(`passkey ${error.failure}`), name: "PasskeyError" };
+  }
+  if (error instanceof RelayerProblem) {
+    return { message: t("pay.relayer.refused"), code: code(error.reason ?? error.rule ?? error.code), name: "RelayerProblem" };
   }
   if (error instanceof WalletError && (error.code === 4902 || error.code === 4901)) {
     return { message: t("error.wallet.wrongNetwork"), code: code(`EIP1193 ${String(error.code)}`), name: "WrongNetwork" };

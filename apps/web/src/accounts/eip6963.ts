@@ -4,11 +4,16 @@
  * chains from the registry. A legacy `window.ethereum` with no EIP-6963 announcement is offered as "Browser wallet"
  * (some in-app browsers still inject only that). The provider is called directly over EIP-1193; typed data is
  * serialised exactly as viem's wallet client does it, and every signature is verified by the SDK before use.
+ *
+ * EIP-5792 (wallet call API): `wallet_getCapabilities` tells whether the account executes atomic batches on a chain
+ * (a smart account such as Base Account reports `atomic: supported`), and `wallet_sendCalls` with `atomicRequired`
+ * plus `wallet_getCallsStatus` carry the Base edition's "Pay with Base" batch. Both the final 2.0.0 shapes and the
+ * earlier ones some wallets still answer with (`atomicBatch`, string statuses) are understood.
  */
 import type { ChainDefinition } from "@paylink/chains";
 import { getAddress, getTypesForEIP712Domain, isAddress, numberToHex, serializeTypedData, validateTypedData } from "viem";
 import type { Address, Hex, TypedDataDefinition } from "viem";
-import type { AccountEvent, AccountLayer, AccountProvider, Connector, TransactionRequest } from "./types.ts";
+import type { AccountEvent, AccountLayer, AccountProvider, AtomicCapability, BatchCall, BatchOutcome, Connector, TransactionRequest } from "./types.ts";
 import { WalletError } from "./types.ts";
 
 /** The EIP-1193 surface PayLink uses. */
@@ -79,6 +84,50 @@ export function addChainParameters(chain: ChainDefinition): Record<string, unkno
     rpcUrls: chain.rpc.map((rpc) => rpc.url),
     ...(chain.explorers.length > 0 ? { blockExplorerUrls: chain.explorers.map((explorer) => explorer.url) } : {}),
   };
+}
+
+/** Reads EIP-5792 capabilities for one chain: the 2.0.0 `atomic.status`, or the earlier `atomicBatch.supported`. */
+export function parseAtomicCapability(value: unknown, chainId: number): AtomicCapability {
+  if (typeof value !== "object" || value === null) {
+    return "unsupported";
+  }
+  const all = value as Record<string, unknown>;
+  const forChain = all[numberToHex(chainId)] ?? all["0x0"];
+  if (typeof forChain !== "object" || forChain === null) {
+    return "unsupported";
+  }
+  const caps = forChain as Record<string, unknown>;
+  const atomic = caps["atomic"];
+  if (typeof atomic === "object" && atomic !== null) {
+    const status = (atomic as { status?: unknown }).status;
+    return status === "supported" || status === "ready" ? status : "unsupported";
+  }
+  const legacy = caps["atomicBatch"];
+  return typeof legacy === "object" && legacy !== null && (legacy as { supported?: unknown }).supported === true ? "supported" : "unsupported";
+}
+
+/** Reads `wallet_getCallsStatus`: `null` while pending, else the final outcome with the receipts' transaction hashes. */
+export function parseCallsStatus(value: unknown): BatchOutcome | null {
+  if (typeof value !== "object" || value === null) {
+    throw new WalletError(-32603, "the wallet returned no call status");
+  }
+  const body = value as { status?: unknown; receipts?: unknown };
+  const status = body.status;
+  const receipts = Array.isArray(body.receipts) ? body.receipts : [];
+  const hashes = receipts
+    .map((r: unknown) => (typeof r === "object" && r !== null ? (r as { transactionHash?: unknown }).transactionHash : null))
+    .filter((h): h is string => typeof h === "string" && /^0x[0-9a-fA-F]{64}$/.test(h))
+    .map((h) => h.toLowerCase() as Hex);
+  if (status === 100 || status === "PENDING" || status === "pending") {
+    return null;
+  }
+  if (status === 200 || status === "CONFIRMED" || status === "confirmed") {
+    return { status: "confirmed", txHashes: hashes };
+  }
+  if (status === 500 || status === 600) {
+    return { status: "reverted", txHashes: hashes };
+  }
+  return { status: "failed", txHashes: hashes };
 }
 
 class InjectedAccount implements AccountProvider {
@@ -155,6 +204,47 @@ class InjectedAccount implements AccountProvider {
     return hash.toLowerCase() as Hex;
   }
 
+  async atomicCapability(chainId: number): Promise<AtomicCapability> {
+    try {
+      return parseAtomicCapability(await call(this.provider, "wallet_getCapabilities", [this.address, [numberToHex(chainId)]]), chainId);
+    } catch {
+      return "unsupported";
+    }
+  }
+
+  async sendCalls(request: { readonly chainId: number; readonly calls: readonly BatchCall[] }): Promise<BatchOutcome> {
+    if ((await this.chainId()) !== request.chainId) {
+      throw new WalletError(4901, "the wallet is on another network");
+    }
+    const calls = request.calls.map((c) => ({ to: c.to, data: c.data, value: numberToHex(c.value) }));
+    const params = (version: string): unknown[] => [{ version, from: this.address, chainId: numberToHex(request.chainId), atomicRequired: true, calls, capabilities: {} }];
+    let answer: unknown;
+    try {
+      answer = await call(this.provider, "wallet_sendCalls", params("2.0.0"));
+    } catch (error) {
+      // Wallets that implement the earlier draft refuse the 2.0.0 shape as invalid parameters.
+      if (!(error instanceof WalletError) || error.code !== -32602) {
+        throw error;
+      }
+      answer = await call(this.provider, "wallet_sendCalls", params("1.0"));
+    }
+    const id = typeof answer === "string" ? answer : typeof answer === "object" && answer !== null ? (answer as { id?: unknown }).id : undefined;
+    if (typeof id !== "string" || id.length === 0 || id.length > 512) {
+      throw new WalletError(-32603, "the wallet returned no batch identifier");
+    }
+    const deadline = Date.now() + 180_000;
+    for (;;) {
+      const outcome = parseCallsStatus(await call(this.provider, "wallet_getCallsStatus", [id]));
+      if (outcome !== null) {
+        return outcome;
+      }
+      if (Date.now() > deadline) {
+        throw new WalletError(-32603, "the batch is still pending");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
   onChange(listener: (event: AccountEvent) => void): () => void {
     const onAccounts = (): void => {
       listener("accounts");
@@ -223,6 +313,7 @@ export function eip6963Layer(target: Window = window, legacyDelayMs = 400): Acco
 
   return {
     id: LAYER,
+    kind: "injected",
     watch(listener) {
       listeners.add(listener);
       start();

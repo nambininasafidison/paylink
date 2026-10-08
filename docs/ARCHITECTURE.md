@@ -298,7 +298,7 @@ Rules that follow:
 | Signed invoices, memos, receive cards, address book, receipts, settings | the device's IndexedDB | JSON export and import, with a plaintext warning (T1). A passkey-encrypted backup is planned for T2: a second PRF evaluation with salt `"paylink.books.v1"`, then HKDF-SHA-256 to an AES-256-GCM key; it never reuses the signing-key PRF output |
 | Invoice terms (minus the memo text) and `payerRef` | public chain, once paid or cancelled | `memoHash` is unsalted; see [spec §15](spec/paylink-invoice-v2.md#15-privacy-considerations) |
 | Aggregates | Envio Cloud | derived from public events only |
-| FX rates (display only) | `fx.json`, refreshed by a daily Actions job | always labelled "estimate · source · date"; never used in amount calculations |
+| FX rates (display only) | `apps/web/public/fx.json`, a snapshot of fawazahmed0/exchange-api (CC0-1.0) refreshed by `apps/web/scripts/fx.ts` (a daily Actions job once CI exists) | always labelled "estimate · source · date"; never used in amount calculations |
 | Server-side personal data | none | no server database and no analytics |
 
 ## 8. Editions
@@ -307,13 +307,13 @@ One codebase is built as several editions, selected at build time with `VITE_EDI
 
 | Edition | Chains | Default token | Accounts | Flags |
 |---|---|---|---|---|
-| `monad` | 10143 (143 ready) | AUSD | Mera passkeys only | gasless, onboarding, till, send, indexer |
-| `base` | 84532 (+ 421614) | USDC | EIP-6963 wallets; Base Account for payers | gasless for EOAs, EIP-5792 batching |
-| `all` | every registry chain | per chain | EIP-6963 wallets | — |
+| `monad` | 10143 (143 ready) | AUSD | Mera passkeys only (one fingerprint per signature) | gasless pay and cancel, onboarding, till, send, MGA estimate, indexer |
+| `base` | 84532 (+ 421614) | USDC | EIP-6963 wallets; smart-account payers through EIP-5792 ("Pay with Base") | gasless for EOAs, EIP-5792 batching |
+| `all` | every registry chain | per chain | EIP-6963 wallets | gasless where the relayer serves the chain, else the wallet paths |
 | `mezo` (later) | 31611 | MUSD | EIP-6963 wallets | permit path |
 | `paypal` (later) | per edition | — | — | PayPal sandbox rail |
 
-`?chain=` switches only among an edition's own chains.
+`?chain=` switches only among an edition's own chains. How the T1 pieces fit the three extension points (passkey layer, authorisation and batch rails, gasless cancel, onboarding, the estimate) is [ADR 0015](adr/0015-editions-t1-passkeys-gasless-rails.md).
 
 ## 9. Client security architecture
 
@@ -325,7 +325,7 @@ The `public/_headers` file of the Cloudflare Pages project (`apps/web/public/_he
 
 The design behind these headers:
 
-- **Dedicated origin, fixed rpId.** The rpId is `<app>.pages.dev`, fixed before the first passkey is created. `pages.dev` is on the Public Suffix List, so the project host is its own site. Preview deployments are disabled, because `*.<app>.pages.dev` previews could claim the same rpId ([ADR 0005](adr/0005-dedicated-origin-and-rpid.md)).
+- **Dedicated origin, fixed rpId.** The rpId is `<app>.pages.dev`, fixed before the first passkey is created. `pages.dev` is on the Public Suffix List, so the project host is its own site. Preview deployments are disabled, because `*.<app>.pages.dev` previews could claim the same rpId ([ADR 0005](adr/0005-dedicated-origin-and-rpid.md)); production builds also pin the rpId (`paylink-mg.pages.dev`) and run passkey ceremonies only on that exact host ([ADR 0015](adr/0015-editions-t1-passkeys-gasless-rails.md)).
 - **No DOM injection sinks.** The typed `h()` DOM builder only ever sets `textContent`. ESLint bans `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` and `new Function`.
 - **No third-party code at runtime.** No CDNs, no analytics, no Turnstile.
 - **Frame lock in JavaScript** in addition to `frame-ancestors`: the Pay key stays disabled when `top !== self`.
@@ -376,3 +376,4 @@ The blocking gates, the nightly evidence jobs and the commit conventions are sum
 | [0012](adr/0012-toolchain-pinning-and-vendoring.md) | Toolchain pinning, sandbox bootstrap and vendored forge-std |
 | [0013](adr/0013-browser-deploy-page.md) | Browser deploy page on the current Pages root, sharing one verifier with a CLI |
 | [0014](adr/0014-web-app-and-single-pages-site.md) | The v2 web app, and one Pages site for v2, its editions, v1 and the deploy kit |
+| [0015](adr/0015-editions-t1-passkeys-gasless-rails.md) | Editions at T1: Mera passkeys, gasless rails and "Pay with Base" |

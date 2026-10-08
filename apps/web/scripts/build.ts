@@ -10,6 +10,7 @@
  * Usage (from apps/web):  node --conditions=@paylink/source scripts/build.ts
  *   PAYLINK_EDITIONS=all,monad   editions to build (default all,monad,base)
  *   PAYLINK_E2E_CHAINS=<json>    end-to-end builds only: requires --e2e and writes dist-e2e/ instead
+ *   PAYLINK_E2E_OUT=dist-e2e-x   end-to-end builds only: the output folder (default dist-e2e)
  */
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -69,7 +70,12 @@ async function main(argv: readonly string[]): Promise<void> {
   if (readFileSync(join(PUBLIC, "_headers"), "utf8") !== headers && editions.join() === DEFAULT_EDITIONS.join()) {
     throw new Error("apps/web/public/_headers is stale: run `pnpm --filter @paylink/web run headers` and commit it");
   }
-  const outName = e2e ? "dist-e2e" : "dist";
+  // End-to-end builds may name their own folder (dist-e2e-<suite>), so suites with different chain overrides coexist.
+  const e2eOut = process.env["PAYLINK_E2E_OUT"] ?? "dist-e2e";
+  if (e2e && !/^dist-e2e(-[a-z]+)?$/.test(e2eOut)) {
+    throw new Error("PAYLINK_E2E_OUT must be dist-e2e or dist-e2e-<name>");
+  }
+  const outName = e2e ? e2eOut : "dist";
   const DIST = join(APP_DIR, outName);
   process.env["PAYLINK_OUT"] = outName;
   for (const edition of editions) {

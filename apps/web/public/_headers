@@ -2,7 +2,7 @@
 # Cloudflare Pages applies every matching rule in order; `! Name` detaches a header set by an earlier rule.
 # Areas: the v2 app and its editions (default), /arc/ (frozen v1), /deploy/ and /v2/deploy/ (deploy kit).
 /*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://rpc-testnet.monadinfra.com https://sepolia-rollup.arbitrum.io https://sepolia.base.org https://testnet-rpc.monad.xyz; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types paylink-sw
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://paylink-relayer.raherizonambinina.workers.dev https://rpc-testnet.monadinfra.com https://sepolia-rollup.arbitrum.io https://sepolia.base.org https://testnet-rpc.monad.xyz; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types paylink-sw
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer
@@ -32,4 +32,6 @@
 /base/sw.js
   Cache-Control: no-cache
 /config.json
+  Cache-Control: no-cache
+/fx.json
   Cache-Control: no-cache

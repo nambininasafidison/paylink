@@ -178,6 +178,8 @@ export function renderHeaders(editions: readonly Edition[] = DEFAULT_EDITIONS): 
     ...editions.flatMap((edition) => [`${editionBase(edition)}sw.js`, "  Cache-Control: no-cache"]),
     "/config.json",
     "  Cache-Control: no-cache",
+    "/fx.json",
+    "  Cache-Control: no-cache",
     "",
   ];
   return lines.join("\n");
@@ -252,7 +254,7 @@ export function assemble(dist: string = DIST, editions: readonly Edition[] = DEF
     writeFileSync(join(target, "index.html"), kitIndexHtml());
   }
   for (const edition of editions.filter((e) => e !== "all")) {
-    for (const rootOnly of ["_headers", "_redirects", "config.json", "robots.txt"]) {
+    for (const rootOnly of ["_headers", "_redirects", "config.json", "fx.json", "robots.txt"]) {
       rmSync(join(dist, edition, rootOnly), { force: true });
     }
   }

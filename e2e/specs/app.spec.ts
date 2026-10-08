@@ -63,6 +63,11 @@ async function actor(browser: Browser, account: string, options: { chainId?: num
   const context = await browser.newContext({ viewport: { width: options.width ?? 1280, height: 900 }, colorScheme: options.scheme ?? "light" });
   contexts.push(context);
   await routeRegistry(context, new Map([[CHAIN_ID, chain.anvil.url], [FOREIGN_CHAIN_ID, foreign.url]]));
+  // The T0 suite runs without the gasless relayer (e2e/specs/editions.spec.ts runs with it): its origin refuses
+  // connections, so payers take the wallet paths, as when the relayer is down.
+  await context.route("https://paylink-relayer.raherizonambinina.workers.dev/**", async (route) => {
+    await route.abort("connectionrefused");
+  });
   const page = await context.newPage();
   const problems: string[] = [];
   page.on("console", (message) => {

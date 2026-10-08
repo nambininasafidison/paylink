@@ -11,7 +11,9 @@ import { describe, expect, it } from "vitest";
 import type { AccountProvider, TransactionRequest } from "../src/accounts/types.ts";
 import { paidLogIndex, TransactionRevertedError, walletRail } from "../src/rails/wallet.ts";
 import type { PaymentContext, PaymentStep } from "../src/rails/types.ts";
-import { CHAIN_ID, CONTRACT, fakeChain, issue, localChain, NOW, payer, TOKEN_ADDRESS } from "./helpers.ts";
+import { memoryOutstandingAuthorizationStore } from "@paylink/sdk";
+import { relayerClient } from "../src/core/relayer.ts";
+import { CHAIN_ID, CONTRACT, fakeChain, issue, localChain, NOW, payer, registry, TOKEN_ADDRESS } from "./helpers.ts";
 
 const SOLD_OUT = encodeErrorResult({ abi: payLinkV2Abi, errorName: "SoldOut", args: [1] });
 const TX = (n: number): Hex => `0x${n.toString(16).padStart(64, "0")}`;
@@ -81,6 +83,9 @@ async function context(options: { allowance?: bigint; receipts: Map<Hex, Transac
     payerRef: `0x${"00".repeat(32)}`,
     now: NOW,
     onStep: (step) => steps.push(step.kind),
+    registry,
+    relayer: relayerClient({ relayer: null }),
+    authorizations: memoryOutstandingAuthorizationStore(),
   };
   return { ctx, sent, steps, link };
 }
@@ -132,7 +137,7 @@ describe("wallet rail", () => {
       await expect(walletRail().execute(path, ctx)).rejects.toThrow(/does not execute/);
     }
     expect(walletRail().paths).toEqual(["permit", "approve-pay", "native"]);
-    expect(await walletRail().ready(localChain())).toBe(true);
+    expect(await walletRail().ready(localChain(), ctx)).toBe(true);
   });
 
   it("finds only this payer's Paid event for this invoice on the canonical contract", async () => {

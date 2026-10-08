@@ -604,7 +604,112 @@ export type MessageKey =
   | "error.receipt.malformedLog"
   | "error.receipt.tokenNotAllowlisted"
   | "error.receipt.invoiceMismatch"
-  | "error.unknown";
+  | "error.unknown"
+  | "app.connectKey"
+  | "app.accountKey"
+  | "key.pick.title"
+  | "key.account.title"
+  | "key.kicker"
+  | "key.title"
+  | "key.signsWith"
+  | "key.signsWithValue"
+  | "key.keptBy"
+  | "key.keptByValue"
+  | "key.fees"
+  | "key.feesValue"
+  | "key.account"
+  | "key.note"
+  | "key.label"
+  | "key.labelPlaceholder"
+  | "key.labelHint"
+  | "key.create"
+  | "key.use"
+  | "key.status.creating"
+  | "key.status.using"
+  | "key.testnet"
+  | "key.testnetText"
+  | "key.unsupported"
+  | "key.unsupported.host"
+  | "key.unsupported.insecure"
+  | "key.unsupported.browser"
+  | "key.forget"
+  | "key.forgetHint"
+  | "error.passkey.cancelled"
+  | "error.passkey.prf"
+  | "error.passkey.otherKey"
+  | "error.passkey.unsupported"
+  | "error.passkey.failed"
+  | "sign.kicker"
+  | "sign.payTitle"
+  | "sign.amount"
+  | "sign.to"
+  | "sign.network"
+  | "sign.valid"
+  | "sign.validValue"
+  | "sign.fee"
+  | "sign.feeCovered"
+  | "sign.feeOwn"
+  | "sign.payNote"
+  | "pay.useKey"
+  | "pay.assureKey"
+  | "pay.payWithBase"
+  | "pay.waitRelayer"
+  | "pay.retryRelayer"
+  | "pay.route.needsGas"
+  | "pay.route.consumed"
+  | "pay.route.resubmit"
+  | "pay.route.ownGas"
+  | "pay.route.base"
+  | "pay.route.batch"
+  | "pay.status.fingerprint"
+  | "pay.status.authorize"
+  | "pay.status.resubmit"
+  | "pay.status.relayed"
+  | "pay.status.batch"
+  | "pay.verdict.settled"
+  | "pay.error.balanceKey"
+  | "pay.error.consumed"
+  | "pay.error.outstanding"
+  | "pay.error.pending"
+  | "pay.error.notSettled"
+  | "pay.error.batch"
+  | "pay.relayer.offline"
+  | "pay.relayer.busy"
+  | "pay.relayer.budget"
+  | "pay.relayer.closed"
+  | "pay.relayer.refused"
+  | "pay.fallback.text"
+  | "pay.fallback.own"
+  | "pay.fallback.retry"
+  | "pay.fallback.noGas"
+  | "verify.network.key"
+  | "verify.network.keyOk"
+  | "funds.held"
+  | "funds.relayer"
+  | "funds.get"
+  | "funds.asking"
+  | "funds.sent"
+  | "funds.done"
+  | "funds.cooldown"
+  | "funds.failed"
+  | "funds.unavailable"
+  | "funds.link"
+  | "fx.estimate"
+  | "fx.source"
+  | "create.keyFirst"
+  | "create.status.fingerprint"
+  | "create.sign.noteKey"
+  | "ledger.cancel.fingerprint"
+  | "ledger.cancel.sign"
+  | "ledger.cancel.relayed"
+  | "ledger.cancel.pending"
+  | "ledger.cancel.noGas"
+  | "ledger.cancel.failed"
+  | "ledger.cancel.relayer"
+  | "send.mineConnect"
+  | "send.mineTill"
+  | "send.mineHint"
+  | "send.payTo";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1207,6 +1312,111 @@ export interface MessageParams {
   readonly "error.receipt.tokenNotAllowlisted": never;
   readonly "error.receipt.invoiceMismatch": never;
   readonly "error.unknown": never;
+  readonly "app.connectKey": never;
+  readonly "app.accountKey": { readonly address: ParamValue };
+  readonly "key.pick.title": never;
+  readonly "key.account.title": never;
+  readonly "key.kicker": never;
+  readonly "key.title": never;
+  readonly "key.signsWith": never;
+  readonly "key.signsWithValue": never;
+  readonly "key.keptBy": never;
+  readonly "key.keptByValue": never;
+  readonly "key.fees": never;
+  readonly "key.feesValue": never;
+  readonly "key.account": never;
+  readonly "key.note": never;
+  readonly "key.label": never;
+  readonly "key.labelPlaceholder": never;
+  readonly "key.labelHint": never;
+  readonly "key.create": never;
+  readonly "key.use": never;
+  readonly "key.status.creating": never;
+  readonly "key.status.using": never;
+  readonly "key.testnet": never;
+  readonly "key.testnetText": never;
+  readonly "key.unsupported": never;
+  readonly "key.unsupported.host": { readonly host: ParamValue };
+  readonly "key.unsupported.insecure": never;
+  readonly "key.unsupported.browser": never;
+  readonly "key.forget": never;
+  readonly "key.forgetHint": never;
+  readonly "error.passkey.cancelled": never;
+  readonly "error.passkey.prf": never;
+  readonly "error.passkey.otherKey": never;
+  readonly "error.passkey.unsupported": never;
+  readonly "error.passkey.failed": never;
+  readonly "sign.kicker": never;
+  readonly "sign.payTitle": never;
+  readonly "sign.amount": never;
+  readonly "sign.to": never;
+  readonly "sign.network": never;
+  readonly "sign.valid": never;
+  readonly "sign.validValue": { readonly minutes: ParamValue };
+  readonly "sign.fee": never;
+  readonly "sign.feeCovered": never;
+  readonly "sign.feeOwn": { readonly coin: ParamValue };
+  readonly "sign.payNote": never;
+  readonly "pay.useKey": never;
+  readonly "pay.assureKey": never;
+  readonly "pay.payWithBase": never;
+  readonly "pay.waitRelayer": never;
+  readonly "pay.retryRelayer": never;
+  readonly "pay.route.needsGas": never;
+  readonly "pay.route.consumed": never;
+  readonly "pay.route.resubmit": never;
+  readonly "pay.route.ownGas": never;
+  readonly "pay.route.base": never;
+  readonly "pay.route.batch": never;
+  readonly "pay.status.fingerprint": { readonly amount: ParamValue; readonly symbol: ParamValue };
+  readonly "pay.status.authorize": { readonly amount: ParamValue; readonly symbol: ParamValue };
+  readonly "pay.status.resubmit": never;
+  readonly "pay.status.relayed": never;
+  readonly "pay.status.batch": { readonly amount: ParamValue; readonly symbol: ParamValue };
+  readonly "pay.verdict.settled": { readonly seconds: ParamValue };
+  readonly "pay.error.balanceKey": { readonly balance: ParamValue; readonly symbol: ParamValue };
+  readonly "pay.error.consumed": never;
+  readonly "pay.error.outstanding": { readonly seconds: ParamValue };
+  readonly "pay.error.pending": never;
+  readonly "pay.error.notSettled": never;
+  readonly "pay.error.batch": never;
+  readonly "pay.relayer.offline": never;
+  readonly "pay.relayer.busy": { readonly seconds: ParamValue };
+  readonly "pay.relayer.budget": never;
+  readonly "pay.relayer.closed": never;
+  readonly "pay.relayer.refused": never;
+  readonly "pay.fallback.text": never;
+  readonly "pay.fallback.own": { readonly coin: ParamValue };
+  readonly "pay.fallback.retry": never;
+  readonly "pay.fallback.noGas": { readonly coin: ParamValue };
+  readonly "verify.network.key": never;
+  readonly "verify.network.keyOk": { readonly network: ParamValue };
+  readonly "funds.held": { readonly amount: ParamValue; readonly symbol: ParamValue };
+  readonly "funds.relayer": { readonly symbol: ParamValue };
+  readonly "funds.get": { readonly symbol: ParamValue };
+  readonly "funds.asking": never;
+  readonly "funds.sent": never;
+  readonly "funds.done": { readonly symbol: ParamValue };
+  readonly "funds.cooldown": { readonly seconds: ParamValue };
+  readonly "funds.failed": never;
+  readonly "funds.unavailable": { readonly symbol: ParamValue };
+  readonly "funds.link": { readonly symbol: ParamValue };
+  readonly "fx.estimate": { readonly amount: ParamValue; readonly date: ParamValue };
+  readonly "fx.source": { readonly source: ParamValue };
+  readonly "create.keyFirst": never;
+  readonly "create.status.fingerprint": never;
+  readonly "create.sign.noteKey": never;
+  readonly "ledger.cancel.fingerprint": never;
+  readonly "ledger.cancel.sign": never;
+  readonly "ledger.cancel.relayed": never;
+  readonly "ledger.cancel.pending": never;
+  readonly "ledger.cancel.noGas": { readonly coin: ParamValue };
+  readonly "ledger.cancel.failed": never;
+  readonly "ledger.cancel.relayer": { readonly code: ParamValue };
+  readonly "send.mineConnect": never;
+  readonly "send.mineTill": never;
+  readonly "send.mineHint": never;
+  readonly "send.payTo": { readonly name: ParamValue };
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */

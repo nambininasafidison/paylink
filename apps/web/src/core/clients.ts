@@ -12,7 +12,7 @@ import type { ChainDefinition } from "@paylink/chains";
 import { rpcTransport, toViemChain } from "@paylink/chains";
 import { createClient, decodeFunctionResult, encodeFunctionData, erc20Abi, hexToBigInt, numberToHex, TransactionReceiptNotFoundError } from "viem";
 import type { Address, Hex, RpcLog, TransactionReceipt } from "viem";
-import { call, getBlock, getBlockNumber, getCode, getTransactionReceipt } from "viem/actions";
+import { call, getBlock, getBlockNumber, getCode, getTransactionReceipt, sendRawTransaction } from "viem/actions";
 import type { RuntimeConfig } from "./config.ts";
 
 export interface CallParameters {
@@ -46,6 +46,12 @@ export interface ChainClient {
   erc20(token: Address, functionName: "balanceOf", args: readonly [Address]): Promise<bigint>;
   erc20(token: Address, functionName: "allowance", args: readonly [Address, Address]): Promise<bigint>;
   getLogs(filter: LogFilter): Promise<RpcLog[]>;
+  /** The account's next nonce, counting pending transactions (local signers only: passkey accounts). */
+  getTransactionCount(address: Address): Promise<number>;
+  /** EIP-1559 fees for a transaction sent now: `2 × baseFee + tip`, the tip from `eth_maxPriorityFeePerGas`. */
+  estimateFees(): Promise<{ readonly maxFeePerGas: bigint; readonly maxPriorityFeePerGas: bigint }>;
+  /** Broadcasts a transaction signed on this device; resolves with its hash. */
+  sendRawTransaction(serialized: Hex): Promise<Hex>;
 }
 
 const cache = new Map<string, ChainClient>();
@@ -117,6 +123,16 @@ export function chainClient(chain: ChainDefinition, config: RuntimeConfig): Chai
         method: "eth_getLogs",
         params: [{ address: filter.address, fromBlock: quantity(filter.fromBlock), toBlock: quantity(filter.toBlock), topics: [...filter.topics] }],
       }),
+    getTransactionCount: async (address) => Number(hexToBigInt(await viem.request({ method: "eth_getTransactionCount", params: [address, "pending"] }))),
+    async estimateFees() {
+      const [block, tip] = await Promise.all([
+        getBlock(viem, { blockTag: "latest" }),
+        viem.request({ method: "eth_maxPriorityFeePerGas" }).then(hexToBigInt).catch(() => 1_000_000_000n),
+      ]);
+      const baseFee = block.baseFeePerGas ?? 0n;
+      return { maxFeePerGas: baseFee * 2n + tip, maxPriorityFeePerGas: tip };
+    },
+    sendRawTransaction: async (serialized) => await sendRawTransaction(viem, { serializedTransaction: serialized }),
   };
   cache.set(id, client);
   return client;

@@ -10,6 +10,7 @@ export default defineConfig({
   define: {
     __PAYLINK_EDITION__: JSON.stringify("all"),
     __PAYLINK_E2E_CHAINS__: "null",
+    __PAYLINK_RP_ID__: "null",
     __PAYLINK_BUILD__: JSON.stringify({ version: "test", commit: "0000000000000000000000000000000000000000" }),
   },
   test: {
