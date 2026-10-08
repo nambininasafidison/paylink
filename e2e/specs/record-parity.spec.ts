@@ -13,6 +13,7 @@ import type { Hex } from "viem";
 import { main as verifyCli } from "../../tools/verify-deployment/verify-deployment.mjs";
 import { ANVIL_ACCOUNTS, foundryBinary, startAnvil } from "../fixtures/anvil.ts";
 import { REPO, serveWeb, WEB_ROOT } from "../fixtures/server.ts";
+import { withoutRecord } from "../fixtures/deploy-data.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 
 const CHAIN_ID = 84532;
@@ -59,6 +60,9 @@ test("forge record(), the deploy page and tools/verify-deployment write the same
     //    the deployment transaction.
     const wallet = await installWallet(page, { account: ANVIL_ACCOUNTS.wallet, chainId: CHAIN_ID, endpoints: new Map([[CHAIN_ID, anvil.url]]), known: [CHAIN_ID] });
     await routeRegistry(context, new Map([[CHAIN_ID, anvil.url]]));
+    // Base Sepolia's own record (protocol/deployments/84532.json) names a transaction this anvil chain never saw: the
+    // page is served the chain data without it, as for a chain deployed from another route and not yet recorded.
+    await withoutRecord(context, CHAIN_ID);
     await page.goto(`${server.origin}/v2/deploy/`);
     await page.getByRole("button", { name: /PayLink Test Wallet/ }).click();
     await expect(page.locator("#review-kind")).toHaveText("Already deployed");

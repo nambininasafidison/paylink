@@ -14,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import type { BrowserContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { concat, getCreateAddress, numberToHex } from "viem";
 import type { Address, Hex } from "viem";
 import { main as verifyCli } from "../../tools/verify-deployment/verify-deployment.mjs";
@@ -22,6 +22,7 @@ import { ANVIL_ACCOUNTS, PROXY, startAnvil } from "../fixtures/anvil.ts";
 import type { Anvil } from "../fixtures/anvil.ts";
 import { REPO, serveWeb, WEB_ROOT } from "../fixtures/server.ts";
 import type { StaticServer } from "../fixtures/server.ts";
+import { withoutRecord } from "../fixtures/deploy-data.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 
 interface Bounds {
@@ -60,19 +61,6 @@ async function cli(args: string[]): Promise<{ code: number; stdout: string; stde
   let stderr = "";
   const code = await verifyCli(args, { stdout: (s: string) => (stdout += s), stderr: (s: string) => (stderr += s) });
   return { code, stdout, stderr };
-}
-
-/**
- * Serves data/chains.json as it was before a chain's deployment was recorded (protocol/deployments/<id>.json), so the
- * fresh-deployment flow stays covered on that chain's own gas model after the record ships. Only the page's data
- * changes; the page, the release and the registry RPC routing are the real ones.
- */
-async function withoutRecord(context: BrowserContext, chainId: number): Promise<void> {
-  const raw = JSON.parse(readFileSync(join(WEB_ROOT, "v2/deploy/data/chains.json"), "utf8")) as { chains: { chainId: number; deployment: unknown }[] };
-  const body = JSON.stringify({ ...raw, chains: raw.chains.map((c) => (c.chainId === chainId ? { ...c, deployment: null } : c)) });
-  await context.route("**/v2/deploy/data/chains.json", async (route) => {
-    await route.fulfill({ status: 200, headers: { "content-type": "application/json", "cache-control": "no-cache" }, body });
-  });
 }
 
 /** WCAG 2.2 AA through axe-core, injected over the DevTools protocol (the page's CSP forbids inline scripts). */
@@ -202,6 +190,7 @@ test("Base Sepolia 84532: the wallet adds the chain from the registry, then depl
   await base.rpc("anvil_setBalance", [ACCOUNT, numberToHex(2n * 10n ** 16n)]);
   // The wallet starts on Ethereum mainnet (chain 1), which is not a deployment target, and does not know Base Sepolia.
   const wallet = await installWallet(page, { account: ACCOUNT, chainId: 1, endpoints: new Map<number, string | null>([[1, null], [84532, base.url]]), known: [1] });
+  await withoutRecord(context, 84532);
   await routeRegistry(context, new Map([[84532, base.url]]));
 
   await page.goto(`${server.origin}/v2/deploy/`);
@@ -290,6 +279,7 @@ test("refuses what it must: unknown chains, tampered release data, foreign proxy
   const base = await chain({ chainId: 84532, factory: "none" });
   const wallet = await installWallet(page, { account: ACCOUNT, chainId: 84532, endpoints: new Map([[84532, base.url]]), known: [84532] });
   await routeRegistry(context, new Map([[84532, base.url]]));
+  await withoutRecord(context, 84532);
 
   await test.step("foreign code at the proxy address", async () => {
     await base.rpc("anvil_setCode", [PROXY.factory, "0x6080604052348015600f57600080fd5b50"]);
