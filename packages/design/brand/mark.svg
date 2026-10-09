@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="paylink-mark-title">
+  <title id="paylink-mark-title">PayLink</title>
+  <defs>
+    <radialGradient id="paylink-mark-glow" cx="736" cy="288" r="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0.45" stop-color="#FF5A1F" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#FF5A1F" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect class="tile" width="1024" height="1024" rx="256" fill="#161615"/>
+  <rect class="bezel" x="6" y="6" width="1012" height="1012" rx="250" fill="none" stroke="#EEECE6" stroke-opacity="0.08" stroke-width="4"/>
+  <circle class="glow" cx="736" cy="288" r="248" fill="url(#paylink-mark-glow)"/>
+  <path class="arc" d="M288 736A448 448 0 0 1 736 288" fill="none" stroke="#EEECE6" stroke-width="83.2"/>
+  <circle class="origin" cx="288" cy="736" r="83.2" fill="#161615" stroke="#EEECE6" stroke-width="64"/>
+  <circle class="dot" cx="736" cy="288" r="121.6" fill="#FF5A1F"/>
+</svg>

@@ -1,0 +1,46 @@
+{
+  "captured": "2026-10-09T02:40:16.529Z",
+  "commit": "d9662c36ca56b76a04b08f40b5fdc3700c3ad7e2",
+  "build": "apps/web/dist (production build, scripts/build.ts)",
+  "origin": "https://paylink-mg.pages.dev",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "locale": "en"
+  },
+  "forks": {
+    "10143": {
+      "rpc": "https://testnet-rpc.monad.xyz",
+      "block": "69423835"
+    },
+    "84532": {
+      "rpc": "https://sepolia.base.org",
+      "block": "47872655"
+    }
+  },
+  "note": "Transactions shown exist only on local anvil forks; on-screen timings are the fork's, not the network's.",
+  "screens": [
+    {
+      "file": "screens/screen-1-monad-create.png",
+      "what": "Monad edition, seller: an invoice for 12.50 AUSD signed with a PayLink key (Mera passkey), shown as the card with its QR code and share keys. No transaction, no gas."
+    },
+    {
+      "file": "screens/screen-2-monad-pay.png",
+      "what": "Monad edition, payer on a phone with their own PayLink key and test AUSD from the faucet: the signing display states what one fingerprint approves (this amount, this address, 10 minutes, fee covered), then the Pay key."
+    },
+    {
+      "file": "screens/screen-3-monad-receipt.png",
+      "what": "Monad edition: the receipt, re-verified against the chain on every opening (Paid event, genuine contract, matching invoice), payee and payer in full."
+    },
+    {
+      "file": "screens/screen-4-monad-till.png",
+      "what": "Monad edition, the seller's till: armed with the invoice, lit green for its verified Paid event at its exact amount."
+    },
+    {
+      "file": "screens/screen-5-base-pay.png",
+      "what": "Base edition, payer with a browser wallet (EOA): the four lamps and the gasless USDC route, one EIP-3009 signature and no transaction."
+    }
+  ]
+}

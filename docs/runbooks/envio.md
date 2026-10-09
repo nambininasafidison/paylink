@@ -108,9 +108,10 @@ URL='https://indexer.dev.hyperindex.xyz/<id>/v1/graphql'
 curl -s "$URL" -H 'content-type: application/json' \
   --data '{"query":"{ _meta { chainId progressBlock isReady } }"}'
 
-# 2. Your own wallet as a payee (any payments made to it through PayLink v2):
+# 2. One payee's record: put the merchant's address, in lowercase (the indexer stores it so), in PAYEE first.
+PAYEE='<merchant address, lowercase>'
 curl -s "$URL" -H 'content-type: application/json' \
-  --data '{"query":"{ Payee(where: {payee: {_eq: \"0x0c397c6c8f94eaa6662ee548fa140e6dfed4aea6\"}}) { chainId payments links uniquePayers firstPaidAt lastPaidAt } }"}'
+  --data '{"query":"{ Payee(where: {payee: {_eq: \"'"$PAYEE"'\"}}) { chainId payments links uniquePayers firstPaidAt lastPaidAt } }"}'
 
 # 3. The latest payments on both chains:
 curl -s "$URL" -H 'content-type: application/json' \

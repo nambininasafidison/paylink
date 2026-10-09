@@ -14,6 +14,8 @@ Timeline:
 
 Every video is **publicly accessible on YouTube**, with **no copyrighted music**.
 
+> **Final scripts:** [docs/submissions/video-scripts.md](../submissions/video-scripts.md) (2026-10-09) replaces the draft scripts of §3 to §5 below: exact clicks against the shipped app, the Agora and Monad pitch videos the Monad form asks for, preconditions, fallbacks and French translations. The honesty rules (§1), the setup checklist (§2) and the retake list (§6) still apply.
+
 ## 1. Honesty rules
 
 These are not optional. Judges and users must be able to trust what they see.

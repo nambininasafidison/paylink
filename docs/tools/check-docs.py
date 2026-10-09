@@ -36,6 +36,8 @@ every packages/*/README.md and apps/*/README.md. Checks, each reported with file
              attacker a fresh payee, payer and card (replaced by attribution by cause, spec §13.3, finding A-04).
              A line that records the change as history (it says "no longer", "claimed", "revised", "amended", ...)
              is exempt.
+9. fields    Every paste-ready field of docs/submissions/*.md (a marked ```text block) carries a count line that matches
+             its text and stays within the form's limit (docs/tools/submission_fields.py, which also rewrites the counts).
 
 The spec's literal test vectors (§7.6, §17) are checked by the contract suite instead:
 protocol/test/vectors/SpecExamples.t.sol.
@@ -426,6 +428,19 @@ def check_stale(md: Path) -> None:
                 err("stale", md, f"line {lineno}: {reason}")
 
 
+# --------------------------------------------------------------------------- 9. fields
+
+
+def check_fields() -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.dont_write_bytecode = True  # no __pycache__ in docs/tools
+    import submission_fields  # noqa: E402  (a sibling script, imported by path)
+
+    for path in submission_fields.documents():
+        for problem in submission_fields.problems(path):
+            err("fields", path, problem.split(": ", 1)[1])
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -451,6 +466,7 @@ def main(argv: list[str]) -> int:
     check_adrs()
     check_schema(strict)
     check_evidence(strict)
+    check_fields()
     for w in warnings:
         print("warning:", w)
     for e in errors:

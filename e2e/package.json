@@ -16,7 +16,8 @@
   "scripts": {
     "test": "playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint --max-warnings 0 ."
+    "lint": "eslint --max-warnings 0 .",
+    "capture": "playwright test -c capture.config.ts"
   },
   "devDependencies": {
     "@paylink/eslint-config": "workspace:*",

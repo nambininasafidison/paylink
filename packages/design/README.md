@@ -14,6 +14,8 @@ The "Precision Terminal" design system of PayLink v2: the v1 tokens of `web/payl
 | `src/print.css` | `components` | The print area at 80 mm (receipt roll) and A6 (card) |
 | `src/utilities.css` | `utilities` | Small single-purpose helpers (`.mono`, `.tabular`, `.nowrap`, `.anywhere`, …) |
 | `fonts/` | — | v1's woff2 files and their OFL licence texts, byte for byte |
+| `brand/mark.svg` | — | The master mark for logos and submissions: the app's mark (`apps/web/public/icons/mark.svg`, v1's favicon) drawn on a 1024 grid at exactly ×32, with the laterite dot's LED glow. Inert SVG (no script, no external reference) |
+| `brand/social-card.html`, `brand/frame.html` | — | The 1200 × 630 social card and the 390 px phone frame for screenshots, rendered to PNG by `e2e/capture/02-artwork.spec.ts` into `docs/submissions/assets/` |
 
 Use it from a Vite entry: `@import "@paylink/design/index.css";` (the app adds its own rules in the `components` layer).
 
@@ -23,5 +25,6 @@ Use it from a Vite entry: `@import "@paylink/design/index.css";` (the app adds i
 - **Palette:** no colour literal outside v1's palette and the tokens; laterite is the only signal colour; v1's reduced-motion and forced-colours switches kept (`test/layers.test.ts`).
 - **Contrast:** text pairs reach 4.5:1 and UI component pairs 3:1 in light and dark, and the ratios v1 documents next to its tokens still hold (`test/contrast.test.ts`, WCAG 2.2 AA).
 - **Fonts:** exactly v1's files and licence texts; one face per file (`test/fonts.test.ts`).
+- **Brand:** the master mark is the app's mark at ×32 with the same colours; every colour of the mark, the card and the frame is a v1 token; the SVG is inert; the templates load only this package's fonts, the mark and the committed screenshots (`test/brand.test.ts`).
 
 The e2e suite checks the result in a browser: axe reports zero WCAG 2.2 AA violations on every route in light and dark, and no route scrolls sideways at 390 px.

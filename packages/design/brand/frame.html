@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- A product screenshot in a 390 px phone frame with a caption burned in under it (1080 × 2160), rendered to PNG by
+     e2e/capture/02-artwork.spec.ts, which sets the picture, the title and the provenance line. The provenance line says
+     where the screenshot comes from (production build, local fork of a testnet), so it travels with the picture. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PayLink screenshot frame</title>
+<style>
+@font-face { font-family: "Archivo"; src: url("../fonts/archivo-var-latin.woff2") format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; }
+@font-face { font-family: "Martian Mono"; src: url("../fonts/martian-mono-400-latin.woff2") format("woff2"); font-weight: 400; }
+:root { --bg: #0E0E0D; --ink: #ECE9E2; --muted: #9A968D; --rule: #2A2926; --bezel: #252421; --bezel-edge: #3A3934; --signal: #FF5A1F;
+  --mono: "Martian Mono", ui-monospace, monospace; --sans: "Archivo", "Helvetica Neue", Arial, sans-serif; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 2160px; overflow: hidden; background: var(--bg); }
+body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+.head { position: absolute; left: 96px; right: 96px; top: 72px; display: flex; align-items: center; gap: 18px; }
+.head img { width: 56px; height: 56px; display: block; }
+.head .word { font-weight: 720; font-stretch: 112%; font-size: 40px; letter-spacing: -.02em; line-height: 1; }
+.head .step { margin-left: auto; font: 400 20px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.phone { position: absolute; left: 130px; top: 176px; width: 820px; height: 1728px; border-radius: 76px; padding: 20px;
+  background: var(--bezel); border: 2px solid var(--bezel-edge); box-shadow: 0 60px 120px -50px rgba(0,0,0,.95); }
+.phone .screen { width: 780px; height: 1688px; border-radius: 58px; overflow: hidden; background: #080807; }
+.phone .screen img { width: 780px; height: 1688px; display: block; }
+.cap { position: absolute; left: 96px; right: 96px; top: 1946px; }
+.cap h2 { font-weight: 640; font-size: 40px; line-height: 1.15; letter-spacing: -.02em; }
+.cap h2::before { content: ""; display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: var(--signal); margin: 0 18px 6px 0; vertical-align: middle; }
+.cap p { margin-top: 18px; font: 400 18px/1.5 var(--mono); letter-spacing: .02em; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="head"><img src="mark.svg" alt=""><span class="word">PayLink</span><span class="step" id="edition"></span></div>
+<div class="phone"><div class="screen"><img id="shot" alt=""></div></div>
+<div class="cap"><h2 id="title"></h2><p id="provenance"></p></div>
+</body>
+</html>

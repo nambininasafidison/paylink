@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- The 1200 × 630 social and thumbnail card (Open Graph size), rendered to PNG by e2e/capture/02-artwork.spec.ts.
+     Only v1 tokens (dark "graphite instrument" set), the OFL fonts of this package and the master mark. The phones show
+     real screenshots of the production build (docs/submissions/assets/screens/); the till is cut above its timing
+     line on purpose: the screenshots come from a local fork, so no time figure appears on the card. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PayLink social card</title>
+<style>
+@font-face { font-family: "Archivo"; src: url("../fonts/archivo-var-latin.woff2") format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; }
+@font-face { font-family: "Martian Mono"; src: url("../fonts/martian-mono-400-latin.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Martian Mono"; src: url("../fonts/martian-mono-600-latin.woff2") format("woff2"); font-weight: 600; }
+:root {
+  --bg: #0E0E0D; --panel: #181816; --ink: #ECE9E2; --ink-2: #C9C5BC; --muted: #9A968D; --rule: #2A2926; --rule-2: #6F6B63;
+  --bezel: #252421; --bezel-edge: #3A3934; --signal: #FF5A1F; --signal-ink: #FF7A45; --led-ok: #22C866;
+  --mono: "Martian Mono", ui-monospace, monospace; --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1200px; height: 630px; overflow: hidden; background: var(--bg); }
+body { position: relative; font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+.glow { position: absolute; right: -140px; top: -180px; width: 720px; height: 720px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 90, 31, .16), rgba(255, 90, 31, 0)); }
+.rule { position: absolute; left: 72px; width: 488px; bottom: 76px; border-top: 1px solid var(--rule); }
+.left { position: absolute; left: 72px; top: 60px; width: 520px; }
+.brand { display: flex; align-items: center; gap: 20px; }
+.brand img { width: 80px; height: 80px; display: block; }
+.word { font-weight: 720; font-stretch: 112%; font-size: 58px; letter-spacing: -.02em; line-height: 1; }
+h1 { margin-top: 52px; font-weight: 640; font-size: 50px; line-height: 1.06; letter-spacing: -.025em; }
+h1 em { font-style: normal; color: var(--signal-ink); }
+.sub { margin-top: 24px; font: 400 14px/1.75 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.url { margin-top: 18px; font: 400 13px/1 var(--mono); letter-spacing: .04em; color: var(--ink-2); }
+.tags { position: absolute; left: 72px; bottom: 30px; display: flex; gap: 10px; }
+.tag { font: 400 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2);
+  border: 1px solid var(--rule-2); border-radius: 3px; padding: 6px 8px 5px; }
+.phone { position: absolute; border-radius: 42px; padding: 12px; background: var(--bezel); border: 1px solid var(--bezel-edge);
+  box-shadow: 0 40px 80px -30px rgba(0,0,0,.9); }
+.phone .screen { height: 100%; border-radius: 31px; overflow: hidden; background: #080807; }
+.phone .screen img { width: 100%; display: block; }
+.pay { left: 836px; top: 52px; width: 300px; height: 640px; z-index: 2; }
+.till { left: 596px; top: 372px; width: 290px; height: 600px; z-index: 1; }
+/* The till is cut above its timing line: these pictures come from a local fork, so no time figure appears here. */
+.till .crop { height: 222px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="left">
+  <div class="brand"><img src="mark.svg" alt=""><span class="word">PayLink</span></div>
+  <h1>Signed dollar invoices.<br>Paid with a <em>fingerprint</em>.</h1>
+  <p class="sub">Non-custodial · zero gas to create<br>Receipts anyone can verify on chain</p>
+  <p class="url">paylink-mg.pages.dev · made in Antananarivo</p>
+</div>
+<div class="phone till"><div class="screen"><div class="crop"><img src="../../../docs/submissions/assets/screens/screen-4-monad-till.png" alt=""></div></div></div>
+<div class="phone pay"><div class="screen"><img src="../../../docs/submissions/assets/screens/screen-2-monad-pay.png" alt=""></div></div>
+<div class="rule"></div>
+<div class="tags"><span class="tag">Monad testnet</span><span class="tag">Base Sepolia</span><span class="tag">Open invoice spec</span></div>
+</body>
+</html>

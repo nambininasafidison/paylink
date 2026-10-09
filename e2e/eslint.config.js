@@ -4,6 +4,6 @@ import { paylinkConfig } from "@paylink/eslint-config";
 
 export default defineConfig(paylinkConfig({ tsconfigRootDir: import.meta.dirname, environment: "node" }), {
   name: "paylink/e2e",
-  files: ["specs/**/*.ts", "fixtures/**/*.ts"],
+  files: ["specs/**/*.ts", "fixtures/**/*.ts", "capture/**/*.ts"],
   rules: { "no-console": "off", "@typescript-eslint/explicit-module-boundary-types": "off" },
 });

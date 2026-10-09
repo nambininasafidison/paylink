@@ -20,11 +20,16 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | | [Faucets runbook](runbooks/faucets.md) | Funding the testnet wallets, with a claim log |
 | | [Demo recording runbook](runbooks/demo-recording.md) | Video scripts, honesty rules, setup and retakes |
 | | [Sandbox bootstrap runbook](runbooks/sandbox-bootstrap.md) | Restoring the pinned toolchain in the development sandbox |
-| **Submissions** | [Monad forum questions](submissions/monad-forum.md) | Paste-ready questions to the Monad Metropolis organisers, and what each answer changes |
+| **Submissions** | [Submissions checklist](submissions/README.md) | Where things stand, what is done and what the owner must still do for Monad Metropolis and Colosseum, in order; the assets (logo, social card, screenshots) and what the screenshots are |
+| | [Monad Metropolis pack](submissions/monad.md) | Every field of the Monad form, paste-ready with character counts: description, go-to-market, judge access instructions, the four bounty answers, disclosures |
+| | [Colosseum pack](submissions/colosseum.md) | Description, Base track (Arbitrum only if deployed), architecture, business plan and go-to-market as hypotheses, why now, the open invoice spec as a public good, team, prior work and other events |
+| | [Video scripts](submissions/video-scripts.md) | Shot-by-shot scripts with exact clicks, captions, preconditions and fallbacks (Monad demo and pitch, Agora demo, Colosseum pitch and demo), French translations of the narration |
+| | [Monad forum questions](submissions/monad-forum.md) | Paste-ready questions to the Monad Metropolis organisers, and what each answer changes |
 | **Research** | [Interview protocol and script](research/interview-script.md) | The demand-validation interviews: hypotheses, ethics, script, reporting rules |
 | | [Information sheet and consent](research/consent.md) | What participants are told and what they agree to (EN, FR; MG by the founder) |
-| **Tooling** | [check-docs.py](tools/check-docs.py) | Checks links and anchors, cited test names, cited repository paths, the threat model's evidence-status markers, addresses (allowlist and EIP-55), the ADR index and the JSON Schema. Run `python3 docs/tools/check-docs.py` before every documentation pull request |
+| **Tooling** | [check-docs.py](tools/check-docs.py) | Checks links and anchors, cited test names, cited repository paths, the threat model's evidence-status markers, addresses (allowlist and EIP-55), the ADR index, the JSON Schema and the submission fields' character counts. Run `python3 docs/tools/check-docs.py` before every documentation pull request |
 | | [Address allowlist](tools/address-allowlist.json) | Every EVM address the documents may contain, with its source and confidence tag |
+| | [submission_fields.py](tools/submission_fields.py) | Counts the characters of every paste-ready submission field against its form limit and rewrites the count lines (`--update`); check-docs runs it |
 | **Project** | [CONTRIBUTING.md](../CONTRIBUTING.md) | Workflow, Conventional Commits, quality gates, coding standards |
 | | [CHANGELOG.md](../CHANGELOG.md) | Notable changes |
 | | [NOTICE.md](../NOTICE.md) | Third-party components, licences and fonts (OFL) |

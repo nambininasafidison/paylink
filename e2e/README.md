@@ -19,3 +19,17 @@ pnpm --filter @paylink/e2e test                         # needs `forge build` in
 ```
 
 Screenshots of the review and done states (1280 px light, 390 px dark) are written to `e2e/test-results/` (git-ignored).
+
+## Submission captures (not part of `pnpm test`)
+
+`capture.config.ts` runs `capture/` on demand, for the submission assets in `docs/submissions/assets/` ([submissions README](../docs/submissions/README.md#3-assets)):
+
+| Spec | What it makes |
+|---|---|
+| `capture/01-screens.spec.ts` | Five product screenshots at 390 × 844 (2×, dark, English) from the **production** build (`apps/web/dist`, built by the spec) opened at its real origin through request routing, against anvil forks of Monad testnet and Base Sepolia (`capture/fork.ts`: the deployed PayLinkV2, Agora's AUSD and faucet, Circle's USDC), the relayer through its Node adapter with a key made for the run, and the virtual authenticator with PRF. Writes `capture.json` (commit, fork blocks). Needs egress to the two testnet RPCs |
+| `capture/02-artwork.spec.ts` | The logo at 1024 and 512 px, the 1200 × 630 social card, and each screenshot in a phone frame with its provenance line, from `packages/design/brand/`. Offline |
+
+```bash
+pnpm --filter @paylink/e2e capture              # both, in order
+pnpm --filter @paylink/e2e capture 02-artwork   # the artwork only, from the committed screenshots
+```
