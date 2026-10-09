@@ -62,7 +62,7 @@ catalog:
   # recipe (BIP-39 seed from the PRF output, BIP-32/BIP-44 m/44'/60'/0'/0/0); both are the versions viem 2.57.3 already
   # resolves, so they add no package to the lockfile.
   '@scure/bip32': 1.7.0
-  '@scure/bip39': 1.6.0
+  '@scure/bip39': 2.4.0
 
 # ------------------------------------------------------------------ supply chain (spec §4.5, threat #17)
 
