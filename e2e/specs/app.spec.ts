@@ -269,6 +269,19 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   expect(csv).toContain(`eip155:${String(CHAIN_ID)}:${ACCOUNTS.payee}`);
   expect(csv).toContain(",25.5,25500000,1,1,25.5,25500000,paid,");
 
+  // Payments received (ADR 0009): this build names no history service, so the ledger reads the chain's latest blocks,
+  // says so, and links the payment to a receipt that the receipt page verifies on the chain.
+  const received = payee.page.locator(".view-ledger .activity");
+  await expect(received.locator(".activity-record")).toHaveText(/^1 payment in the last \d+ (seconds|minutes)$/);
+  await expect(received).toContainText("From the network's latest blocks only");
+  const payment = received.locator(".links > li").first();
+  await expect(payment).toContainText("Logo design, invoice 042");
+  await payment.getByRole("link", { name: /^Verify receipt on / }).click();
+  await expect(payee.page).toHaveURL(new RegExp(`/r/#2\\.${String(CHAIN_ID)}\\.0x[0-9a-f]{64}\\.\\d+`));
+  await expect(payee.page.locator(".view-receipt .receipt")).toContainText("Payment found");
+  await expect(payee.page.locator(".view-receipt .receipt")).toContainText("Matches the invoice");
+  await expect(payee.page.locator(".view-receipt .receipt-who")).toHaveText("Paid to you: the To address is the account signed in here.");
+
   expect(payee.problems).toEqual([]);
   expect(payer.problems).toEqual([]);
 });

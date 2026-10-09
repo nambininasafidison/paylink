@@ -30,6 +30,11 @@
   .ledger-tools .seg { --n: 4; }
   .ledger-tools .seg label { min-height: 40px; font-size: 13px; padding: 4px 8px; }
   .receipts-block { margin-top: 10px; }
+  /* Payments received (history service, else the chain's latest blocks): the record line set like the tape's figures. */
+  .activity-record { margin-top: 12px; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .activity-volumes { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; }
+  .activity-settle { margin-top: 6px; font-size: 13px; }
+  .facts .trust-line { margin-top: 4px; }
   .view-send .row-main .addr { margin-top: 6px; }
   .view-send .links > li { grid-template-areas: "main main" "foot foot"; }
 

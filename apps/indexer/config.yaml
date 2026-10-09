@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+# SPDX-License-Identifier: MIT
+#
+# PayLink v2 history indexer (PAYLINK-V2-SPEC §3.8, ADR 0009). Envio HyperIndex 3.12.1 reads the two PayLinkV2 events
+# from HyperSync (both chains are in envio 3.12.1's HyperSync list: monad-testnet, base-sepolia) and keeps the public
+# RPC of each chain as the fallback for real-time indexing. The indexer is a cache: the web app never takes a payment
+# state, a receipt or anything that gates a payment from it.
+#
+# Every address and start block below is copied from protocol/deployments/<chainId>.json (the canonical record) and
+# test/config.test.ts fails if they drift; the event signatures are checked against the release ABI the same way.
+# Envio Cloud reads this file with Root Directory "apps/indexer" (docs/runbooks/envio.md).
+name: paylink-v2
+description: PayLink v2 payments and cancellations on Monad testnet and Base Sepolia (cache only; receipts are verified on RPC).
+# Lowercase addresses: entity ids and GraphQL filters compare as plain strings, the way the web client queries them.
+address_format: lowercase
+# Block number and timestamp are always selected; the payment's id and receipt link need the transaction hash.
+field_selection:
+  transaction_fields:
+    - hash
+contracts:
+  - name: PayLinkV2
+    events:
+      - event: Paid(bytes32 indexed key, address indexed payee, address indexed payer, address token, uint128 amount, uint32 index, bytes32 payerRef)
+      - event: InvoiceCancelled(bytes32 indexed key, address indexed payee)
+chains:
+  # Monad testnet: PayLinkV2 2.0.0, CREATE2, tx 0xb86e7536…cb4d6a.
+  - id: 10143
+    start_block: 69331735
+    rpc:
+      # Public RPC: eth_getLogs is capped at 100 blocks, so the fallback never asks for more.
+      - url: https://testnet-rpc.monad.xyz
+        interval_ceiling: 100
+    contracts:
+      - name: PayLinkV2
+        address: "0x448eCce9711860502806A3d5B021a4f9Ba715082"
+  # Base Sepolia: PayLinkV2 2.0.0, CREATE2 reached in a relayed EIP-7702 transaction, tx 0x2969321d…86b5ed.
+  - id: 84532
+    start_block: 47859253
+    rpc:
+      - url: https://sepolia.base.org
+    contracts:
+      - name: PayLinkV2
+        address: "0x448eCce9711860502806A3d5B021a4f9Ba715082"

@@ -20,7 +20,7 @@ const PACKAGE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE = resolve(PACKAGE_DIR, "src/locales/en.json");
 export const OUTPUT = resolve(PACKAGE_DIR, "src/generated/messages.ts");
 /** Feature catalogues; each key of feature `f` starts with `f.` and lives in `src/locales/f.<locale>.json`. */
-export const FEATURES = ["books"] as const;
+export const FEATURES = ["books", "history"] as const;
 export const featureSource = (feature: string, locale = "en"): string => resolve(PACKAGE_DIR, `src/locales/${feature}.${locale}.json`);
 
 const PLURAL_CATEGORIES = ["zero", "one", "two", "few", "many", "other"] as const;

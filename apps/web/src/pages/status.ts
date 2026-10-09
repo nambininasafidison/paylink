@@ -7,11 +7,13 @@
  */
 import type { ChainDefinition } from "@paylink/chains";
 import { RELEASE } from "@paylink/chains";
+import { featureTranslator } from "@paylink/i18n";
 import { verifyDeploymentCode } from "@paylink/sdk";
 import type { PageDefinition } from "../app/boot.ts";
 import { networkName } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, notes } from "../app/shell.ts";
+import { indexerFor } from "../read/indexer.ts";
 import { hexGroups } from "../ui/atoms.ts";
 import { h } from "../ui/h.ts";
 
@@ -76,7 +78,7 @@ export const statusPage: PageDefinition = {
     }
     storage.set(app.store.persistent ? "ok" : "wait", app.store.persistent ? t("status.storage.ok") : t("status.storage.memory"));
     void service(app, app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
-    void service(app, app.config.indexer === null ? null : app.config.indexer.url, indexer, "", t("status.indexer.none"));
+    void indexerHealth(app, indexer);
     if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.getRegistration(app.site.base).then((registration) => {
         const active = registration?.active ?? null;
@@ -132,6 +134,34 @@ async function checkChain(app: App, chain: ChainDefinition, rpc: ReturnType<type
   } catch {
     code.set("wait", t("status.code.unknown"));
     return false;
+  }
+}
+
+/**
+ * The history service answers its GraphQL endpoint with the block it has processed on each of the edition's chains
+ * (Envio's `_meta`): green when every chain is caught up, amber while one is still catching up or is not indexed.
+ */
+async function indexerHealth(app: App, item: ReturnType<typeof light>): Promise<void> {
+  const { t } = app.i18n;
+  const client = indexerFor(app.config);
+  if (client === null) {
+    item.set("off", t("status.indexer.none"));
+    return;
+  }
+  try {
+    // The per-chain words are in the `history` feature catalogue, loaded with the answer.
+    const [progress, history] = await Promise.all([client.progress(), featureTranslator(app.locale, "history")]);
+    const chains = app.registry.chains.filter((chain) => app.registry.v2Target(chain.chainId) !== undefined && client.serves(chain.chainId));
+    const lines = chains.map((chain) => {
+      const row = progress.find((p) => p.chainId === chain.chainId);
+      const network = networkName(chain);
+      return row === undefined
+        ? { ready: false, text: history.t("history.status.missing", { network }) }
+        : { ready: row.ready, text: history.t(row.ready ? "history.status.progress" : "history.status.syncing", { network, block: row.progressBlock.toString() }) };
+    });
+    item.set(lines.length > 0 && lines.every((l) => l.ready) ? "ok" : "wait", lines.length === 0 ? history.t("history.status.noChain") : lines.map((l) => l.text).join(" · "));
+  } catch {
+    item.set("err", t("status.service.down"));
   }
 }
 

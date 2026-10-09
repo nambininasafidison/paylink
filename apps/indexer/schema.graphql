@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: MIT
+#
+# PayLink v2 history indexer entities (PAYLINK-V2-SPEC §3.8). Everything here is derived from two public events,
+# PayLinkV2.Paid and PayLinkV2.InvoiceCancelled, and nothing else: no memo, no name, no invoice terms (invoices are
+# signed off-chain and only their EIP-712 digest, the key, reaches the chain).
+#
+# Conventions:
+# - Addresses and hashes are lowercase 0x hex strings (config.yaml address_format: lowercase).
+# - Every id starts with the chain ID, so one table serves both chains: "<chainId>-<...>".
+# - Amounts are base units of the token (BigInt); times are block timestamps in unix seconds (BigInt).
+# - Days are UTC: day = floor(timestamp / 86400), date = YYYY-MM-DD.
+#
+# Not derivable, so not here: the time from issuing an invoice to its payment ("settle time"). The issue time never
+# reaches the chain (validAfter is optional and usually 0). The web app derives it for invoices issued on the device,
+# from the device's own creation time and the first payment time (apps/web/src/read/ledger.ts).
+
+"""
+One payment link (an invoice key), as its events describe it. A cache of the contract's LinkState: the web app reads
+statesOf on the chain for anything it shows as paid, open or cancelled.
+"""
+type Invoice @index(fields: ["chainId", "payee", ["lastActivityAt", "DESC"]]) {
+  "<chainId>-<key>"
+  id: ID!
+  chainId: Int!
+  "EIP-712 digest of the signed invoice (the link id)."
+  key: String! @index
+  payee: String! @index
+  "Token of the payments, set by the first Paid; 0x0000…0000 is the native coin. Unset while only cancelled."
+  token: String
+  "Payments seen; equals LinkState.payments once the indexer has caught up (the next index the contract will assign)."
+  payments: Int!
+  "Sum of the amounts paid, in base units; equals LinkState.total once caught up."
+  total: BigInt!
+  cancelled: Boolean!
+  firstPaidAt: BigInt
+  lastPaidAt: BigInt
+  cancelledAt: BigInt
+  cancelledTx: String
+  "Latest payment or cancellation time: orders a payee's links, newest first."
+  lastActivityAt: BigInt!
+  history: [Payment!]! @derivedFrom(field: "invoice")
+}
+
+"""
+One Paid event. Keyed like a verifiable receipt (invoice spec §12): chain, transaction hash and log index. A receipt
+built from it must still be verified on RPC (eth_getTransactionReceipt) before it is shown as proof.
+"""
+type Payment @index(fields: ["chainId", "payee", ["timestamp", "DESC"]]) @index(fields: ["chainId", "payer", ["timestamp", "DESC"]]) {
+  "<chainId>-<txHash>-<logIndex>"
+  id: ID!
+  chainId: Int!
+  invoice: Invoice!
+  key: String! @index
+  payee: String!
+  payer: String!
+  token: String!
+  amount: BigInt!
+  "Zero-based sequence number of this payment within its link (Paid.index)."
+  index: Int!
+  "Payer-chosen reference (Paid.payerRef); not unique, not authenticated except for EIP-3009 payments."
+  payerRef: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+  logIndex: Int!
+}
+
+"""
+A payee on one chain, across tokens: what the trust line reads ("N payments received since <firstPaidAt>"). A soft
+signal from a third-party cache; it never gates a payment (THREAT_MODEL T-15).
+"""
+type Payee @index(fields: ["chainId", "payee"]) {
+  "<chainId>-<payee>"
+  id: ID!
+  chainId: Int!
+  payee: String!
+  payments: Int!
+  "Distinct links that received at least one payment."
+  links: Int!
+  "Distinct payer addresses."
+  uniquePayers: Int!
+  cancellations: Int!
+  "Unset while the payee has only cancelled links."
+  firstPaidAt: BigInt
+  lastPaidAt: BigInt
+  tokens: [PayeeToken!]! @derivedFrom(field: "stats")
+}
+
+"Per-token volume of a payee on one chain."
+type PayeeToken {
+  "<chainId>-<payee>-<token>"
+  id: ID!
+  chainId: Int!
+  payee: String! @index
+  token: String!
+  stats: Payee!
+  payments: Int!
+  volume: BigInt!
+  firstPaidAt: BigInt!
+  lastPaidAt: BigInt!
+}
+
+"A payer and a payee on one chain: repeat payers, and the payer's own history with an address."
+type PayerPayee @index(fields: ["chainId", "payer", "payee"]) {
+  "<chainId>-<payee>-<payer>"
+  id: ID!
+  chainId: Int!
+  payee: String! @index
+  payer: String!
+  payments: Int!
+  firstPaidAt: BigInt!
+  lastPaidAt: BigInt!
+}
+
+"Payments and volume per token per UTC day on one chain."
+type DailyVolume @index(fields: ["chainId", "token", "day"]) {
+  "<chainId>-<token>-<day>"
+  id: ID!
+  chainId: Int!
+  token: String!
+  day: Int!
+  date: String!
+  payments: Int!
+  volume: BigInt!
+}
+
+"Activity per UTC day on one chain, across tokens."
+type DailyActivity @index(fields: ["chainId", "day"]) {
+  "<chainId>-<day>"
+  id: ID!
+  chainId: Int!
+  day: Int!
+  date: String!
+  payments: Int!
+  cancellations: Int!
+  "Payees whose first payment on this chain landed this day."
+  newPayees: Int!
+}

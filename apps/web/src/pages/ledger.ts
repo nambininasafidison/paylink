@@ -18,6 +18,7 @@ import type { App } from "../app/context.ts";
 import { intro, notes, routeHref } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
 import { pickWallet } from "../app/wallet-ui.ts";
+import { activityBlock } from "./ledger-history.ts";
 import { decodeUiError } from "../core/errors.ts";
 import { displayAmount, figureWidth, shortHex } from "../core/format.ts";
 import { payUrl, receiptUrl, tillUrl } from "../core/links.ts";
@@ -123,6 +124,8 @@ async function renderLedger(app: App, ui: PageUi, section: HTMLElement): Promise
       section,
       head,
       h("div", { class: "empty-state" }, h("p", null, t("ledger.empty")), h("a", { class: "key key-primary", attrs: { href: routeHref(app, "create") } }, t("ledger.createFirst"))),
+      // Payments received through links issued elsewhere still show (history service, else the latest blocks).
+      activityBlock(app, account.address, null),
       await receiptsBlock(app),
     );
     return;
@@ -170,6 +173,7 @@ async function renderLedger(app: App, ui: PageUi, section: HTMLElement): Promise
     footing(app, snapshot),
     status,
     app.config.indexer === null ? null : h("p", { class: "field-hint" }, t("ledger.history")),
+    activityBlock(app, account.address, snapshot),
     await receiptsBlock(app),
   );
 }

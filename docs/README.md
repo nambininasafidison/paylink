@@ -16,6 +16,7 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | **Operations** | [Deploy runbook](runbooks/deploy.md) | Wallets, secrets, the contract go/no-go, testnet deployments, Arc v1 on mainnet, rollback |
 | | [Cloudflare Pages runbook](runbooks/cloudflare-pages.md) | The one Pages project that serves the v2 app, its editions, v1 under `/arc/` and the deploy kit: exact build settings, checks, rollback, and a prompt for a browser assistant |
 | | [Relayer runbook](runbooks/relayer.md) | Putting the gasless relayer online from the repository, its key and gas, checks, operations, and a prompt for a browser assistant |
+| | [Envio runbook](runbooks/envio.md) | Putting the history indexer online on Envio Cloud from the repository (free plan, branch `envio`), checking its endpoint, wiring it into `/config.json`, redeploying before judging, a prompt for a browser assistant, and the Envio bounty answer draft |
 | | [Faucets runbook](runbooks/faucets.md) | Funding the testnet wallets, with a claim log |
 | | [Demo recording runbook](runbooks/demo-recording.md) | Video scripts, honesty rules, setup and retakes |
 | | [Sandbox bootstrap runbook](runbooks/sandbox-bootstrap.md) | Restoring the pinned toolchain in the development sandbox |

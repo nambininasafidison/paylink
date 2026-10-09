@@ -127,7 +127,7 @@ Remove or reorder the endpoint in `@paylink/chains` and redeploy. viem `fallback
 | `CLOUDFLARE_API_TOKEN` | Revoke in the Cloudflare dashboard; create a token with only "Cloudflare Pages: Edit" and "Workers Scripts: Edit"; update the GitHub secret |
 | `RELAYER_PK` | PB-3 |
 | `TESTNET_DEPLOYER_PK` | Create a new deployer wallet; move the remaining testnet funds; update the `testnet` environment secret. Existing deployments are unaffected, because there is no owner. |
-| `ENVIO_API_TOKEN` | Revoke at envio.dev; create a new token; update the GitHub secret |
+| `ENVIO_API_TOKEN` | Only if one was ever set ([Envio runbook §4](../runbooks/envio.md#4-the-envio-api-token-only-if-asked)): revoke it at envio.dev; create a new one and paste it into the indexer's environment variables on Envio Cloud (never GitHub); redeploy |
 
 Then review the workflow runs since the suspected exposure, and check that no `pull_request_target` or unpinned action was introduced.
 

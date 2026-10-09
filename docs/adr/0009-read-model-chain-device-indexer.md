@@ -73,6 +73,14 @@ Rules:
 - Ledger merge unit tests check that the chain overrides the device and the indexer.
 - Code review checks that the indexer client is never imported by the payment or receipt modules.
 
+Implemented on 2026-10-09 (`apps/indexer`, `apps/web/src/read/indexer.ts`, `read/activity.ts`, [runbook](../runbooks/envio.md)):
+
+- the indexer's answers are parsed strictly (lowercase hex of the right length, exact integers; anything else is an error, never a partial answer), and its rows only add history: ledger states still come from `statesOf`, and each history row links to a receipt the receipt page verifies on RPC (`apps/web/test/indexer.test.ts`, `test/history-ui.test.ts`);
+- when the indexer is not configured, does not serve a chain or fails, history falls back to the chain's own RPC over a bounded number of log ranges (10 × the chain's cap) and says so; when both fail, the ledger says "History unavailable" and keeps working (`test/activity.test.ts`, `test/history-ui.test.ts`);
+- the code-review item is a test: `test/indexer.test.ts` fails if a payment rail, the pay view, the receipt page, the proof slip, the payability checks, the cancel or payer modules or the relayer client imports the history modules;
+- the trust line is on the ledger only (the payee's own record). The payer-side line on the pay view is not shipped: the pay route's first load is at its budget (PAYLINK-V2-SPEC §4.4: 110 kB of gzipped JavaScript; 109.9 kB in the Monad edition's e2e build on 2026-10-09), and the smallest payer-side trust line built here needs about 0.55 kB of it (0.3 kB of code that loads the history reader lazily, measured in that build, and about 0.25 kB of words, estimated);
+- end to end, the hero flow (`e2e/specs/app.spec.ts`) reads "Payments received" on a build without an indexer: the chain fallback says so, lists the payment and opens a receipt that verifies on the chain. The scenario with a configured indexer that is **down** is still to write.
+
 ## Pros and cons of the options
 
 ### A. Chain > device > indexer (chosen)

@@ -86,6 +86,14 @@ A dry-run resolution of the whole planned stack, under the policy above, on 2026
 
 `audit-workspace.py` will fail when `apps/indexer` is added. Decide then, with evidence: a scoped `overrides` entry if a patched version is compatible, or a reasoned `ignoreGhsas` entry. The indexer runs on Envio Cloud and is never authoritative (spec §3.8).
 
+**Decision (2026-10-09, when `apps/indexer` was added).** The same five advisories appeared (`pnpm audit --prod`), plus moderate and low ones under the same `express` and `tsx`. They are accepted in `scripts/toolchain/audit-workspace.py` (`ACCEPTED`), **one GHSA on one exact dependency path each, until 2026-12-31**, not in `ignoreGhsas`, which is global and would also hide the same GHSA reached through any other path. Evidence, read in the envio 3.12.1 package:
+
+- **Where the code runs.** envio is a dependency of a service hosted on Envio Cloud. Nothing from `apps/indexer` is bundled into the web app or the relayer, and PayLink's users only reach the indexer's Hasura GraphQL endpoint, never the envio process.
+- **express 4.19.2** serves envio's internal health and metrics port (`ENVIO_INDEXER_PORT`, default 9898; `src/Main.res` `startServer`): `GET /healthz`, `/console/state`, `/metrics`, `/metrics/runtime` and `POST /console/syncCache`. The routes are static, so `path-to-regexp` compiles no backtracking pattern for them, and no body parser is mounted (`express.json` is bound but never used), so `body-parser` never reads a request body.
+- **ws 8.20.1**, under envio's own viem, opens a socket only for an RPC configured with a `ws:` URL (`src/sources/EvmRpcWs.res`). `apps/indexer/config.yaml` configures HTTP RPCs and HyperSync only.
+
+Overrides were rejected: Envio Cloud may install the package on its own, outside this lockfile (`apps/indexer/README.md`), so the gate would report a fix that does not run where envio runs, and patching a vendor runtime we cannot test end to end on its host trades a reachable risk (a broken indexer) for an unreachable one. The exceptions are reviewed on every envio bump and expire on 2026-12-31: after that date the gate fails again until someone re-reads the evidence. `audit-workspace.py` also prints a note when an exception matches nothing, so stale entries get removed.
+
 ## Verification (2026-10-05, sandbox)
 
 ```bash

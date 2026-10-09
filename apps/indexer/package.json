@@ -1,0 +1,36 @@
+{
+  "name": "@paylink/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PayLink v2 history indexer (PAYLINK-V2-SPEC §3.8, ADR 0009): Envio HyperIndex over PayLinkV2 Paid and InvoiceCancelled on Monad testnet and Base Sepolia, for ledger history, payee statistics and the trust line. A cache only: the web app never takes a payment state or a receipt from it.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "apps/indexer"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "typecheck": "envio codegen && tsc -p tsconfig.json --noEmit",
+    "lint": "envio codegen && eslint --max-warnings 0 .",
+    "test": "envio codegen && vitest run",
+    "test:coverage": "envio codegen && vitest run --coverage"
+  },
+  "dependencies": {
+    "envio": "3.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.3",
+    "eslint": "10.12.0",
+    "typescript": "6.0.3",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  }
+}

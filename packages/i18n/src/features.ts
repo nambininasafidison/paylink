@@ -22,6 +22,11 @@ const FEATURE_CHUNKS: Readonly<Record<Feature, Readonly<Record<Locale, () => Pro
     fr: async () => await import("./locales/books.fr.json", { with: { type: "json" } }),
     mg: async () => await import("./locales/books.mg.json", { with: { type: "json" } }),
   },
+  history: {
+    en: async () => await import("./locales/history.en.json", { with: { type: "json" } }),
+    fr: async () => await import("./locales/history.fr.json", { with: { type: "json" } }),
+    mg: async () => await import("./locales/history.mg.json", { with: { type: "json" } }),
+  },
 };
 
 /** A feature's catalogue in one language. */

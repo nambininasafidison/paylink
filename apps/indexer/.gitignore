@@ -1,0 +1,6 @@
+# Envio codegen output (`envio codegen`, run by every script that needs it) and local runtime state.
+.envio/
+envio-env.d.ts
+generated/
+logs/
+*.db

@@ -21,7 +21,7 @@ English ships with the code and is the fallback; French and Malagasy are separat
 | File | Contents |
 |---|---|
 | `src/locales/en.json`, `fr.json`, `mg.json` | The catalogues translators edit: whole sentences with `{named}` placeholders; `*words*` is the one emphasis a message may carry |
-| `src/locales/<feature>.en.json`, `.fr.json`, `.mg.json` | Feature catalogues: keys only some pages use (today `books`, the ledger backup). Each is a chunk of its own in every language, loaded by `featureTranslator(locale, feature)` on those pages, so the catalogue every page carries, the pay route's included, does not grow with them. Same rules as the core catalogue; a feature's keys start with its name |
+| `src/locales/<feature>.en.json`, `.fr.json`, `.mg.json` | Feature catalogues: keys only some pages use (today `books`, the ledger backup, and `history`, the ledger's payments received and the status page's history-service light). Each is a chunk of its own in every language, loaded by `featureTranslator(locale, feature)` on those pages, so the catalogue every page carries, the pay route's included, does not grow with them. Same rules as the core catalogue; a feature's keys start with its name |
 | `src/features.ts` | `loadFeature`, `featureTranslator` (the core messages plus the feature's, English for anything missing) |
 | `src/locales/mg.review.json` | The Malagasy keys drafted by Claude Code and awaiting the founder's review (spec §3.9: Malagasy is written or reviewed by the founder) |
 | `src/generated/messages.ts` | Key and placeholder types derived from `en.json` and the English feature catalogues, with `Feature` and `FeatureKey` (`pnpm --filter @paylink/i18n run generate`) |

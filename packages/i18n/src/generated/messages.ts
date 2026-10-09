@@ -774,7 +774,41 @@ export type MessageKey =
   | "books.error.tampered"
   | "books.error.otherAccount"
   | "books.error.otherNetwork"
-  | "books.error.empty";
+  | "books.error.empty"
+  | "history.head"
+  | "history.reading"
+  | "history.unavailable"
+  | "history.since.one"
+  | "history.since.other"
+  | "history.payers.one"
+  | "history.payers.other"
+  | "history.none"
+  | "history.recent.one"
+  | "history.recent.other"
+  | "history.noneRecent"
+  | "history.sourceIndexer"
+  | "history.sourceChain"
+  | "history.volumes"
+  | "history.link"
+  | "history.from"
+  | "history.block"
+  | "history.units"
+  | "history.verify"
+  | "history.verifyOn"
+  | "history.settle.one"
+  | "history.settle.other"
+  | "history.duration.seconds.one"
+  | "history.duration.seconds.other"
+  | "history.duration.minutes.one"
+  | "history.duration.minutes.other"
+  | "history.duration.hours.one"
+  | "history.duration.hours.other"
+  | "history.duration.days.one"
+  | "history.duration.days.other"
+  | "history.status.progress"
+  | "history.status.syncing"
+  | "history.status.missing"
+  | "history.status.noChain";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1547,6 +1581,40 @@ export interface MessageParams {
   readonly "books.error.otherAccount": { readonly address: ParamValue };
   readonly "books.error.otherNetwork": { readonly chain: ParamValue };
   readonly "books.error.empty": never;
+  readonly "history.head": never;
+  readonly "history.reading": never;
+  readonly "history.unavailable": never;
+  readonly "history.since.one": { readonly count: ParamValue; readonly date: ParamValue };
+  readonly "history.since.other": { readonly count: ParamValue; readonly date: ParamValue };
+  readonly "history.payers.one": { readonly count: ParamValue };
+  readonly "history.payers.other": { readonly count: ParamValue };
+  readonly "history.none": never;
+  readonly "history.recent.one": { readonly count: ParamValue; readonly duration: ParamValue };
+  readonly "history.recent.other": { readonly count: ParamValue; readonly duration: ParamValue };
+  readonly "history.noneRecent": { readonly duration: ParamValue };
+  readonly "history.sourceIndexer": never;
+  readonly "history.sourceChain": never;
+  readonly "history.volumes": never;
+  readonly "history.link": { readonly key: ParamValue; readonly number: ParamValue };
+  readonly "history.from": { readonly payer: ParamValue };
+  readonly "history.block": { readonly block: ParamValue };
+  readonly "history.units": never;
+  readonly "history.verify": never;
+  readonly "history.verifyOn": { readonly network: ParamValue };
+  readonly "history.settle.one": { readonly duration: ParamValue };
+  readonly "history.settle.other": { readonly count: ParamValue; readonly duration: ParamValue };
+  readonly "history.duration.seconds.one": { readonly count: ParamValue };
+  readonly "history.duration.seconds.other": { readonly count: ParamValue };
+  readonly "history.duration.minutes.one": { readonly count: ParamValue };
+  readonly "history.duration.minutes.other": { readonly count: ParamValue };
+  readonly "history.duration.hours.one": { readonly count: ParamValue };
+  readonly "history.duration.hours.other": { readonly count: ParamValue };
+  readonly "history.duration.days.one": { readonly count: ParamValue };
+  readonly "history.duration.days.other": { readonly count: ParamValue };
+  readonly "history.status.progress": { readonly block: ParamValue; readonly network: ParamValue };
+  readonly "history.status.syncing": { readonly block: ParamValue; readonly network: ParamValue };
+  readonly "history.status.missing": { readonly network: ParamValue };
+  readonly "history.status.noChain": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1559,7 +1627,15 @@ export type PluralBase =
   | "ledger.skipped"
   | "ledger.row.payments"
   | "books.saved"
-  | "books.skipped";
+  | "books.skipped"
+  | "history.since"
+  | "history.payers"
+  | "history.recent"
+  | "history.settle"
+  | "history.duration.seconds"
+  | "history.duration.minutes"
+  | "history.duration.hours"
+  | "history.duration.days";
 
 /** The placeholders of a plural family (the union over its variants, `count` included). */
 export interface PluralParams {
@@ -1572,11 +1648,20 @@ export interface PluralParams {
   readonly "ledger.row.payments": { readonly count: ParamValue };
   readonly "books.saved": { readonly count: ParamValue };
   readonly "books.skipped": { readonly count: ParamValue };
+  readonly "history.since": { readonly count: ParamValue; readonly date: ParamValue };
+  readonly "history.payers": { readonly count: ParamValue };
+  readonly "history.recent": { readonly count: ParamValue; readonly duration: ParamValue };
+  readonly "history.settle": { readonly count: ParamValue; readonly duration: ParamValue };
+  readonly "history.duration.seconds": { readonly count: ParamValue };
+  readonly "history.duration.minutes": { readonly count: ParamValue };
+  readonly "history.duration.hours": { readonly count: ParamValue };
+  readonly "history.duration.days": { readonly count: ParamValue };
 }
 
 /** Feature catalogues, loaded on demand by the pages that use them (`loadFeature`). */
 export type Feature =
-  | "books";
+  | "books"
+  | "history";
 
 /** Keys that live in a feature catalogue, not in the catalogue every page carries. */
 export type FeatureKey =
@@ -1615,4 +1700,38 @@ export type FeatureKey =
   | "books.error.tampered"
   | "books.error.otherAccount"
   | "books.error.otherNetwork"
-  | "books.error.empty";
+  | "books.error.empty"
+  | "history.head"
+  | "history.reading"
+  | "history.unavailable"
+  | "history.since.one"
+  | "history.since.other"
+  | "history.payers.one"
+  | "history.payers.other"
+  | "history.none"
+  | "history.recent.one"
+  | "history.recent.other"
+  | "history.noneRecent"
+  | "history.sourceIndexer"
+  | "history.sourceChain"
+  | "history.volumes"
+  | "history.link"
+  | "history.from"
+  | "history.block"
+  | "history.units"
+  | "history.verify"
+  | "history.verifyOn"
+  | "history.settle.one"
+  | "history.settle.other"
+  | "history.duration.seconds.one"
+  | "history.duration.seconds.other"
+  | "history.duration.minutes.one"
+  | "history.duration.minutes.other"
+  | "history.duration.hours.one"
+  | "history.duration.hours.other"
+  | "history.duration.days.one"
+  | "history.duration.days.other"
+  | "history.status.progress"
+  | "history.status.syncing"
+  | "history.status.missing"
+  | "history.status.noChain";

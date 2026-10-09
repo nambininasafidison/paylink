@@ -67,7 +67,7 @@ Threats T-01 to T-22 keep the numbering of PAYLINK-V2-SPEC §5, so that the two 
 | A7 | Relayer hot key and gas budget (testnet only, at most about 2 MON) | Confidentiality, availability | Cloudflare Worker secret `RELAYER_PK` |
 | A8 | Deployer key (testnets) | Confidentiality | Wallet; GitHub environment secret `TESTNET_DEPLOYER_PK` (route A) |
 | A9 | Web origin integrity: code, `_headers`, `/config.json`, registry | Integrity | Cloudflare Pages project, built by Actions |
-| A10 | CI and cloud credentials: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `ENVIO_API_TOKEN` | Confidentiality | GitHub secrets |
+| A10 | CI and cloud credentials: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`; `ENVIO_API_TOKEN` only if Envio Cloud asks for one | Confidentiality | GitHub secrets; the Envio token, if any, only in the indexer's environment variables on Envio Cloud ([runbook](../runbooks/envio.md#4-the-envio-api-token-only-if-asked)) |
 | A11 | Release artefacts: bytecode, `initCodeHash`, deployment records | Integrity | Repository, tags, `protocol/deployments/` |
 | A12 | User privacy: memos, contacts, payment history linkage | Confidentiality | Device; public chain data |
 | A13 | Service availability: PWA, relayer, indexer, RPCs | Availability | Cloudflare, Envio Cloud, public RPCs |
@@ -198,7 +198,7 @@ The evidence column names the test or gate that demonstrates each mitigation. Co
 
 | ID | STRIDE | Threat | Mitigations | Evidence | Residual |
 |---|---|---|---|---|---|
-| <a id="t-15"></a>T-15 | S, T, D | Indexer spoofing, staleness or outage | Never authoritative ([ADR 0009](../adr/0009-read-model-chain-device-indexer.md)); receipts verified on RPC; URL from same-origin config only; "history unavailable" fallback | Receipt-verifier tests; e2e indexer-down *planned (T1)* | Low |
+| <a id="t-15"></a>T-15 | S, T, D | Indexer spoofing, staleness or outage | Never authoritative ([ADR 0009](../adr/0009-read-model-chain-device-indexer.md)); receipts verified on RPC; URL from same-origin config only; answers parsed strictly (`apps/web/src/read/indexer.ts`); the chain's bounded logs, then "history unavailable", as fallback; the record ("N payments received since …") is shown to the payee on the ledger, labelled as the history service's, and never gates Pay (no history module is imported by the pay view) | Receipt-verifier tests; `apps/web/test/indexer.test.ts` (malformed answers refused, failure classes, payment and receipt modules never import the history modules), `test/activity.test.ts` and `test/history-ui.test.ts` (indexer down, chain fallback, both down); e2e indexer-down *planned (T1)* | Low |
 | <a id="t-36"></a>T-36 | S | **Sybil inflation of the trust line.** A scammer pays their own payee address from many fresh addresses to fake "N payments received since …" (`SelfPayment` only blocks the same address) | The trust line shows unique payers and volume, not only a count; it is labelled as information from the history service and never gates payment; it never replaces the first-payment warning | Indexer handler tests *planned (T1)*; UI copy review | Medium: a soft signal that can be gamed cheaply on testnet |
 
 ### 6.7 Configuration and hosting

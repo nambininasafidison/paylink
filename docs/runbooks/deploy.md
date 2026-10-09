@@ -56,7 +56,7 @@ Create W-deploy and W-relay as new accounts, never as an existing wallet with hi
 
 ### 2.3 Envio
 
-Sign in at envio.dev and create an API token. Add the GitHub secret `ENVIO_API_TOKEN`. Connect the repository in Envio Cloud (development plan) for `apps/indexer`.
+Connect the repository in Envio Cloud (development plan) for `apps/indexer`, deploying from the branch `envio`: [Envio runbook](envio.md). No GitHub secret is needed (no workflow talks to Envio). An Envio API token is created and pasted by you into Envio's own environment variables, and only if a deployment asks for one ([§4 there](envio.md#4-the-envio-api-token-only-if-asked)).
 
 ## 3. Contract go/no-go and release
 
