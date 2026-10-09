@@ -482,7 +482,7 @@
   "status.h1b": "checked live",
   "status.lede": "Where PayLink v2 is deployed, whether each contract is the genuine release, and whether the networks and services answer. Read straight from the networks: *nothing here is cached*.",
   "status.notes.title": "Release identity",
-  "status.notes.release": "One audited bytecode.",
+  "status.notes.release": "One release bytecode.",
   "status.notes.releaseText": "Every deployment comes from the same init code, hash {initCodeHash}.",
   "status.notes.address": "Same address everywhere.",
   "status.notes.addressText": "Deployed through the CREATE2 factory, the contract lives at {address} on every network.",

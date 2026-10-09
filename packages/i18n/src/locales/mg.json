@@ -482,7 +482,7 @@
   "status.h1b": "voamarina mivantana",
   "status.lede": "Aiza no napetraka ny PayLink v2, tena ilay dikan-teny marina ve ny fifanarahana tsirairay, ary mamaly ve ny tambajotra sy ny serivisy. Vakiana mivantana amin'ny tambajotra: *tsy misy voatahiry vonjimaika eto*.",
   "status.notes.title": "Mombamomba ny dikan-teny",
-  "status.notes.release": "Bytecode iray voamarina.",
+  "status.notes.release": "Bytecode iray navoaka.",
   "status.notes.releaseText": "Avy amin'ny kaody fanombohana iray ihany ny fametrahana rehetra, hash {initCodeHash}.",
   "status.notes.address": "Adiresy iray ihany na aiza na aiza.",
   "status.notes.addressText": "Napetraka tamin'ny alalan'ny CREATE2, ao amin'ny {address} ny fifanarahana amin'ny tambajotra rehetra.",

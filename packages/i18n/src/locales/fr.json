@@ -482,7 +482,7 @@
   "status.h1b": "vérifié en direct",
   "status.lede": "Où PayLink v2 est déployé, si chaque contrat est la version authentique, et si les réseaux et services répondent. Lu directement sur les réseaux : *rien n'est mis en cache*.",
   "status.notes.title": "Identité de la version",
-  "status.notes.release": "Un seul bytecode audité.",
+  "status.notes.release": "Un seul bytecode publié.",
   "status.notes.releaseText": "Chaque déploiement vient du même code d'initialisation, d'empreinte {initCodeHash}.",
   "status.notes.address": "La même adresse partout.",
   "status.notes.addressText": "Déployé via la fabrique CREATE2, le contrat se trouve à {address} sur chaque réseau.",
