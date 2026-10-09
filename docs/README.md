@@ -27,10 +27,11 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | | [Monad forum questions](submissions/monad-forum.md) | Paste-ready questions to the Monad Metropolis organisers, and what each answer changes |
 | **Research** | [Interview protocol and script](research/interview-script.md) | The demand-validation interviews: hypotheses, ethics, script, reporting rules |
 | | [Information sheet and consent](research/consent.md) | What participants are told and what they agree to (EN, FR; MG by the founder) |
-| **Tooling** | [check-docs.py](tools/check-docs.py) | Checks links and anchors, cited test names, cited repository paths, the threat model's evidence-status markers, addresses (allowlist and EIP-55), the ADR index, the JSON Schema and the submission fields' character counts. Run `python3 docs/tools/check-docs.py` before every documentation pull request |
+| **Tooling** | [check-docs.py](tools/check-docs.py) | Checks links and anchors, cited test names, cited repository paths, the threat model's evidence-status markers, addresses (allowlist and EIP-55), the ADR index, the JSON Schema, the submission fields' character counts, and that the repository's landing page covers what the Monad T&C ask of a README without calling the work audited. Run `python3 docs/tools/check-docs.py` before every documentation pull request |
 | | [Address allowlist](tools/address-allowlist.json) | Every EVM address the documents may contain, with its source and confidence tag |
 | | [submission_fields.py](tools/submission_fields.py) | Counts the characters of every paste-ready submission field against its form limit and rewrites the count lines (`--update`); check-docs runs it |
-| **Project** | [CONTRIBUTING.md](../CONTRIBUTING.md) | Workflow, Conventional Commits, quality gates, coding standards |
+| **Project** | [Repository home page](../.github/README.md) | The v2 README GitHub shows first (`.github/README.md`): problem and user, editions, the contract and its transactions, architecture, setup, prior work, status, AI use and attributions. The root `README.md` is v1's |
+| | [CONTRIBUTING.md](../CONTRIBUTING.md) | Workflow, Conventional Commits, quality gates, coding standards |
 | | [CHANGELOG.md](../CHANGELOG.md) | Notable changes |
 | | [NOTICE.md](../NOTICE.md) | Third-party components, licences and fonts (OFL) |
 | | [AI_DISCLOSURE.md](../AI_DISCLOSURE.md) | How Claude Code was used, what it was not allowed to do, and who is responsible |

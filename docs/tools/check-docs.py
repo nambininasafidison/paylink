@@ -38,6 +38,12 @@ every packages/*/README.md and apps/*/README.md. Checks, each reported with file
              is exempt.
 9. fields    Every paste-ready field of docs/submissions/*.md (a marked ```text block) carries a count line that matches
              its text and stays within the form's limit (docs/tools/submission_fields.py, which also rewrites the counts).
+10. landing  .github/README.md, the page GitHub shows on the repository's home (ahead of v1's frozen root README.md),
+             exists and covers what the Monad T&C ask of a README (PAYLINK-V2-SPEC §2.1): the problem and user, the
+             contract with every deployment record's address and transaction, the architecture, setup, pre-existing
+             work and what was built, status, AI disclosure (AI_DISCLOSURE.md), attributions (NOTICE.md) and the
+             licence; it says "not audited" and never calls the contract audited; its images exist. It is also
+             checked like every other document (links, paths, addresses, stale rules).
 
 The spec's literal test vectors (§7.6, §17) are checked by the contract suite instead:
 protocol/test/vectors/SpecExamples.t.sol.
@@ -441,6 +447,63 @@ def check_fields() -> None:
             err("fields", path, problem.split(": ", 1)[1])
 
 
+# --------------------------------------------------------------------------- 10. landing
+
+LANDING = ROOT / ".github" / "README.md"
+# Sections the Monad T&C copies ask a README to cover (PAYLINK-V2-SPEC §2.1), as headings of the landing page.
+LANDING_SECTIONS = {
+    "the-problem-and-who-it-is-for": "the problem and the intended user",
+    "the-contract": "the contract and its deployments",
+    "architecture": "architecture and stack",
+    "run-it-yourself": "setup steps a third party can run",
+    "what-existed-before-and-what-was-built-for-these-events": "pre-existing components and what was built",
+    "status-and-limits": "status (testnet only, not audited)",
+    "ai-use-attributions-licence-security": "AI disclosure and third-party attributions",
+}
+LANDING_LINKS = ("../AI_DISCLOSURE.md", "../NOTICE.md", "../LICENSE", "../docs/adr/0010-arc-stays-on-v1.md")
+AUDIT_WORD_RE = re.compile(r"audit\w*", re.I)
+NEGATED_RE = re.compile(r"\b(?:not|no|never|non|pas|aucun|aucune|sans|tsy)\b[^.;:!?()]*$", re.I)
+
+
+def audit_claims(text: str) -> list[str]:
+    """Uses of an "audit" word not negated in their own clause, outside code, link targets and HTML comments."""
+    prose = re.sub(r"<!--.*?-->", " ", strip_code(text), flags=re.S)
+    prose = re.sub(r"`[^`]*`", " ", prose)
+    prose = re.sub(r"\]\([^)]*\)", "]", prose)
+    prose = re.sub(r'(?:src|href)="[^"]*"', " ", prose)
+    return [
+        prose[max(0, m.start() - 40) : m.end()].replace("\n", " ")
+        for m in AUDIT_WORD_RE.finditer(prose)
+        if not NEGATED_RE.search(prose[max(0, m.start() - 60) : m.start()])
+    ]
+
+
+def check_landing() -> None:
+    if not LANDING.exists():
+        err("landing", LANDING, "missing: GitHub would show v1's frozen root README.md as the repository's home page")
+        return
+    text = LANDING.read_text(encoding="utf-8")
+    found = anchors(LANDING)
+    for anchor, what in LANDING_SECTIONS.items():
+        if anchor not in found:
+            err("landing", LANDING, f"no section #{anchor} ({what})")
+    for link in LANDING_LINKS:
+        if f"]({link}" not in text:
+            err("landing", LANDING, f"does not link {link}")
+    for record in sorted((ROOT / "protocol" / "deployments").glob("[0-9]*.json")):
+        data = json.loads(record.read_text(encoding="utf-8"))
+        for value, what in ((data["address"], "address"), (data["deployment"]["txHash"], "deployment transaction")):
+            if value.lower() not in text.lower():
+                err("landing", LANDING, f"does not give the {what} of {record.name} ({value})")
+    if not re.search(r"\bnot audited\b", text, re.I):
+        err("landing", LANDING, 'does not say "not audited"')
+    for claim in audit_claims(text):
+        err("landing", LANDING, f"calls the work audited: ...{claim}")
+    for src in re.findall(r'<img[^>]*\ssrc="([^"]+)"', text) + re.findall(r"!\[[^\]]*\]\(([^)\s]+)", text):
+        if not re.match(r"^[a-z][a-z0-9+.-]*:", src) and not (LANDING.parent / src).resolve().exists():
+            err("landing", LANDING, f"image {src} does not exist")
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -450,7 +513,8 @@ def main(argv: list[str]) -> int:
     evidence_docs = sorted((ROOT / "protocol").glob("*.md")) + sorted((ROOT / "protocol" / "audit").glob("*.md"))
     evidence_docs += sorted((ROOT / "protocol" / "deployments").glob("*.md")) + sorted((ROOT / "packages").glob("*/README.md"))
     evidence_docs += sorted((ROOT / "apps").glob("*/README.md"))
-    md_files = sorted(DOCS.rglob("*.md")) + [ROOT / f for f in POLICY_FILES if (ROOT / f).exists()] + evidence_docs + extra
+    landing = [LANDING] if LANDING.exists() else []
+    md_files = sorted(DOCS.rglob("*.md")) + [ROOT / f for f in POLICY_FILES if (ROOT / f).exists()] + landing + evidence_docs + extra
     json_files = sorted(DOCS.rglob("*.json"))
     index = test_index()
     allow = load_allowlist()
@@ -467,6 +531,7 @@ def main(argv: list[str]) -> int:
     check_schema(strict)
     check_evidence(strict)
     check_fields()
+    check_landing()
     for w in warnings:
         print("warning:", w)
     for e in errors:
