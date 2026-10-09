@@ -6,8 +6,8 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
-import { IndexerError, indexerClient, indexerFor, parsePayment } from "../src/read/indexer.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { INDEXER_MAX_BODY, INDEXER_TIMEOUT_MS, IndexerError, indexerClient, indexerFor, parsePayment } from "../src/read/indexer.ts";
 
 const URL_ = "https://indexer.dev.hyperindex.xyz/abc123/v1/graphql";
 const PAYEE = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
@@ -178,6 +178,118 @@ describe("indexerClient", () => {
   it("parses one payment strictly", () => {
     expect(parsePayment(payment()).amount).toBe(25_000_000n);
     expect(() => parsePayment(null)).toThrow(IndexerError);
+  });
+});
+
+/** Headers at once, then a body that sends `head` and never ends; `honoursAbort` makes it error when the request aborts. */
+function stallingEndpoint(head: string, honoursAbort: boolean): { fetcher: typeof fetch; cancelled: () => boolean } {
+  let cancelled = false;
+  const fetcher = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(head));
+        if (honoursAbort) {
+          init?.signal?.addEventListener("abort", () => {
+            controller.error(init.signal?.reason);
+          });
+        }
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    return Promise.resolve(new Response(body, { status: 200, headers: { "content-type": "application/json" } }));
+  }) as unknown as typeof fetch;
+  return { fetcher, cancelled: () => cancelled };
+}
+
+/** Settles a promise into a record, so a test can look at it while it is still pending. */
+function track<T>(promise: Promise<T>): { readonly settled: () => boolean; readonly outcome: Promise<unknown> } {
+  let done = false;
+  const outcome = promise.then(
+    (value) => {
+      done = true;
+      return value;
+    },
+    (error: unknown) => {
+      done = true;
+      return error;
+    },
+  );
+  return { settled: () => done, outcome };
+}
+
+describe("one deadline for the whole answer, and a size cap while it streams", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each([
+    ["errors its body when the request aborts", true],
+    ["ignores the abort altogether", false],
+  ])("gives up on a service that sends its headers, then stalls its body (a body that %s)", async (_name, honoursAbort) => {
+    vi.useFakeTimers();
+    const { fetcher, cancelled } = stallingEndpoint('{"data":{"_meta":[', honoursAbort);
+    const call = track(indexerClient(config, fetcher)?.progress() ?? Promise.resolve(null));
+    await vi.advanceTimersByTimeAsync(INDEXER_TIMEOUT_MS - 1);
+    expect(call.settled()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(call.settled()).toBe(true);
+    const error = await call.outcome;
+    expect(error).toBeInstanceOf(IndexerError);
+    expect(error).toMatchObject({ code: "offline" });
+    // The body is released either way, so the connection does not stay open behind a settled query.
+    expect(cancelled() || honoursAbort).toBe(true);
+  });
+
+  it("refuses an answer past the cap as it streams in, without reading the rest", async () => {
+    const chunk = new Uint8Array(64 * 1024).fill(0x20);
+    let sent = 0;
+    let cancelled = false;
+    // An endless body: buffering it whole would never finish.
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetcher = vi.fn(() => Promise.resolve(new Response(endless, { status: 200 }))) as unknown as typeof fetch;
+    await expect(indexerClient(config, fetcher)?.progress()).rejects.toMatchObject({ name: "IndexerError", code: "shape", message: expect.stringContaining("too large") as unknown });
+    expect(cancelled).toBe(true);
+    // At most the cap, one chunk past it and the stream's own read-ahead were ever pulled.
+    expect(sent).toBeLessThanOrEqual(INDEXER_MAX_BODY + 3 * chunk.byteLength);
+  });
+
+  it("accepts an answer streamed in pieces, split inside a multi-byte character", async () => {
+    const text = JSON.stringify({ data: { _meta: [{ chainId: 10143, progressBlock: 1, isReady: true }] }, note: "Tsy misy olana – é" });
+    const bytes = new TextEncoder().encode(text);
+    const split = bytes.indexOf(0xe2) + 1;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes.slice(0, split));
+        controller.enqueue(bytes.slice(split));
+        controller.close();
+      },
+    });
+    const fetcher = vi.fn(() => Promise.resolve(new Response(body, { status: 200 }))) as unknown as typeof fetch;
+    expect(await indexerClient(config, fetcher)?.progress()).toEqual([{ chainId: 10143, progressBlock: 1n, ready: true }]);
+  });
+
+  it("refuses an answer that is not UTF-8, and does not read the body of an HTTP error", async () => {
+    const latin1 = vi.fn(() => Promise.resolve(new Response(new Uint8Array([0x7b, 0xff, 0x7d]), { status: 200 }))) as unknown as typeof fetch;
+    await expect(indexerClient(config, latin1)?.progress()).rejects.toMatchObject({ code: "shape", message: expect.stringContaining("UTF-8") as unknown });
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const failing = vi.fn(() => Promise.resolve(new Response(body, { status: 502 }))) as unknown as typeof fetch;
+    await expect(indexerClient(config, failing)?.progress()).rejects.toMatchObject({ code: "http" });
+    expect(cancelled).toBe(true);
   });
 });
 

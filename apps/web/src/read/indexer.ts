@@ -97,9 +97,10 @@ export interface IndexerClient {
 
 type Fetch = typeof fetch;
 
-const TIMEOUT_MS = 8_000;
-/** Largest answer accepted, in characters: 100 payments are about 60 kB. */
-const MAX_BODY = 512 * 1024;
+/** Longest wait for a whole answer, headers and body together; past it the service counts as offline. */
+export const INDEXER_TIMEOUT_MS = 8_000;
+/** Largest answer accepted, in bytes, counted while it streams in: 100 payments are about 60 kB. */
+export const INDEXER_MAX_BODY = 512 * 1024;
 const MAX_LIMIT = 100;
 /** Keys per `firstPayments` query (the ledger asks for the device's invoices of one chain). */
 const MAX_KEYS = 256;
@@ -193,15 +194,70 @@ const PROGRESS_QUERY = `query PayLinkProgress {
   _meta { chainId progressBlock isReady }
 }`;
 
+/**
+ * Runs `run` under one deadline that covers everything it awaits, the body included. At the deadline the signal
+ * aborts (a browser's fetch then errors the body stream) and the deadline rejects by itself, so a fetcher or a body
+ * stream that ignores the signal cannot keep the caller waiting either.
+ */
 async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, ms);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const late = new IndexerError("offline", `no complete answer within ${String(ms)} ms`);
+      controller.abort(late);
+      reject(late);
+    }, ms);
+  });
   try {
-    return await run(controller.signal);
+    return await Promise.race([run(controller.signal), deadline]);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * The answer's text, read chunk by chunk: past `max` bytes the stream is cancelled and the answer refused, so a
+ * long or endless body never sits in memory. The bytes must be valid UTF-8 (JSON's encoding); an abort cancels the
+ * read, and a read cut short is never returned as an answer.
+ */
+async function readCapped(response: Response, max: number, signal: AbortSignal): Promise<string> {
+  const stream = response.body;
+  if (stream === null) {
+    return "";
+  }
+  const reader = stream.getReader();
+  const stop = (): void => {
+    reader.cancel(signal.reason).catch(() => undefined);
+  };
+  signal.addEventListener("abort", stop, { once: true });
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (let part = await reader.read(); !part.done; part = await reader.read()) {
+      size += part.value.byteLength;
+      if (size > max) {
+        reader.cancel().catch(() => undefined);
+        fail("answer too large");
+      }
+      chunks.push(part.value);
+    }
+  } finally {
+    signal.removeEventListener("abort", stop);
+  }
+  if (signal.aborted) {
+    throw new IndexerError("offline", "answer cut short");
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return fail("answer is not UTF-8");
   }
 }
 
@@ -216,32 +272,35 @@ export function indexerClient(config: Pick<RuntimeConfig, "indexer">, fetcher: F
   const served = (chainIds: readonly number[]): number[] => [...new Set(chainIds)].filter(serves);
 
   const query = async (text: string, variables: Readonly<Record<string, unknown>>): Promise<Readonly<Record<string, unknown>>> => {
-    let body: string;
-    let status: number;
+    let answer: { readonly status: number; readonly body: string };
     try {
-      const response = await withTimeout(
-        async (signal) =>
-          await fetcher(endpoint.url, {
-            method: "POST",
-            signal,
-            credentials: "omit",
-            referrerPolicy: "no-referrer",
-            cache: "no-store",
-            headers: { "content-type": "application/json", accept: "application/json" },
-            body: JSON.stringify({ query: text, variables }),
-          }),
-        TIMEOUT_MS,
-      );
-      status = response.status;
-      body = await response.text();
+      // The deadline covers the body as well as the headers: a service that answers its headers and then stalls or
+      // drips its body is offline, so the ledger and the status page fall back instead of waiting forever.
+      answer = await withTimeout(async (signal) => {
+        const response = await fetcher(endpoint.url, {
+          method: "POST",
+          signal,
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          cache: "no-store",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ query: text, variables }),
+        });
+        if (response.status < 200 || response.status > 299) {
+          await response.body?.cancel().catch(() => undefined);
+          return { status: response.status, body: "" };
+        }
+        return { status: response.status, body: await readCapped(response, INDEXER_MAX_BODY, signal) };
+      }, INDEXER_TIMEOUT_MS);
     } catch (error) {
+      if (error instanceof IndexerError) {
+        throw error;
+      }
       throw new IndexerError("offline", error instanceof Error ? error.message : "unreachable");
     }
+    const { status, body } = answer;
     if (status < 200 || status > 299) {
       throw new IndexerError("http", `HTTP ${String(status)}`);
-    }
-    if (body.length > MAX_BODY) {
-      fail("answer too large");
     }
     let parsed: unknown;
     try {

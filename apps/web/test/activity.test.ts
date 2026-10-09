@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 import { durationText } from "../src/core/duration.ts";
 import { activitySource, CHAIN_SCAN_REQUESTS, newestFirst, readPayeeActivity, scanRecentPayments, trustFigures } from "../src/read/activity.ts";
 import type { ActivitySource } from "../src/read/activity.ts";
-import { indexerClient } from "../src/read/indexer.ts";
+import { INDEXER_TIMEOUT_MS, indexerClient } from "../src/read/indexer.ts";
 import type { IndexedPayee } from "../src/read/indexer.ts";
 import type { LedgerRow } from "../src/read/ledger.ts";
 import { paidLogReader } from "../src/read/paid-reader.ts";
@@ -118,6 +118,38 @@ describe("readPayeeActivity: history service first", () => {
     const { indexer } = serviceAnswering(null);
     const activity = await readPayeeActivity(sourceOf(client, indexer), PAYEE);
     expect(activity).toMatchObject({ source: "chain", indexerProblem: "offline" });
+  });
+
+  it("falls back to the chain when the history service sends its headers, then never finishes its body", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client } = chainWith([paidLog({ block: 4_990n })]);
+      // Each query gets its headers at once and a body that never ends (the stream errors when the request aborts).
+      const fetcher = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"data":{"Payment":['));
+            init?.signal?.addEventListener("abort", () => {
+              controller.error(init.signal?.reason);
+            });
+          },
+        });
+        return Promise.resolve(new Response(body, { status: 200 }));
+      }) as unknown as typeof fetch;
+      const indexer = indexerClient({ indexer: { url: "https://indexer.example/v1/graphql", chains: [CHAIN_ID] } }, fetcher);
+      let activity: Awaited<ReturnType<typeof readPayeeActivity>> | null = null;
+      const reading = readPayeeActivity(sourceOf(client, indexer), PAYEE).then((result) => {
+        activity = result;
+      });
+      await vi.advanceTimersByTimeAsync(INDEXER_TIMEOUT_MS - 1);
+      expect(activity).toBeNull();
+      expect(client.getLogs).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await reading;
+      expect(activity).toMatchObject({ source: "chain", indexerProblem: "offline", payments: [{ blockNumber: 4_990n }] });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("falls back to the chain, without a problem, when the history service does not serve the chain", async () => {

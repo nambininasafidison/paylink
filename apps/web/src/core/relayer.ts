@@ -74,7 +74,7 @@ export class RelayerProblem extends Error {
   }
 }
 
-const TIMEOUT_MS = 12_000;
+export const RELAYER_TIMEOUT_MS = 12_000;
 const HEALTH_TTL_MS = 20_000;
 const STATES: readonly RelayerChainState[] = ["ready", "not-configured", "awaiting-deployment", "unfunded", "rpc-error", "unreachable"];
 const HEX32 = /^0x[0-9a-f]{64}$/;
@@ -150,13 +150,23 @@ export interface RelayerClient {
 
 type Fetch = typeof fetch;
 
+/**
+ * One deadline for the whole answer, body included: at `ms` the signal aborts (a browser's fetch then errors the body)
+ * and the call rejects even if nothing honours the signal, so headers followed by a stalled body never hang a payment.
+ */
 async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, ms);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await run(controller.signal);
+    return await Promise.race([
+      run(controller.signal),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error("timed out"));
+        }, ms);
+      }),
+    ]);
   } finally {
     clearTimeout(timer);
   }
@@ -173,11 +183,10 @@ export function relayerClient(config: Pick<RuntimeConfig, "relayer">, fetcher: F
     }
     inflight ??= (async () => {
       try {
-        const response = await withTimeout(
-          async (signal) => await fetcher(`${base ?? ""}/v1/health`, { method: "GET", signal, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", headers: { accept: "application/json" } }),
-          TIMEOUT_MS,
+        const body: unknown = await withTimeout(
+          async (signal): Promise<unknown> => await (await fetcher(`${base ?? ""}/v1/health`, { method: "GET", signal, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", headers: { accept: "application/json" } })).json(),
+          RELAYER_TIMEOUT_MS,
         );
-        const body: unknown = await response.json();
         const list = isRecord(body) && Array.isArray(body["chains"]) ? body["chains"] : [];
         const chains = new Map<number, RelayerChainHealth>();
         for (const entry of list) {
@@ -203,29 +212,31 @@ export function relayerClient(config: Pick<RuntimeConfig, "relayer">, fetcher: F
       throw new RelayerProblem({ code: "unknown-chain", status: 0, detail: "no relayer for this chain", fallback: "self-submit" });
     }
     let response: Response;
+    let parsed: unknown;
     try {
-      response = await withTimeout(
-        async (signal) =>
-          await fetcher(`${base}${path}`, {
-            method: "POST",
-            signal,
-            credentials: "omit",
-            referrerPolicy: "no-referrer",
-            cache: "no-store",
-            headers: { "content-type": "application/json", accept: "application/json, application/problem+json" },
-            body: JSON.stringify(body),
-          }),
-        TIMEOUT_MS,
-      );
+      // The body is read under the same deadline: an answer that stalls after its headers is no answer.
+      [response, parsed] = await withTimeout(async (signal) => {
+        const answer = await fetcher(`${base}${path}`, {
+          method: "POST",
+          signal,
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          cache: "no-store",
+          headers: { "content-type": "application/json", accept: "application/json, application/problem+json" },
+          body: JSON.stringify(body),
+        });
+        // A body that is not JSON reads as null; a body cut off by the deadline is a transport failure.
+        const json: unknown = await answer.json().catch((error: unknown) => {
+          if (signal.aborted) {
+            throw error;
+          }
+          return null;
+        });
+        return [answer, json] as const;
+      }, RELAYER_TIMEOUT_MS);
     } catch {
       cached = null;
       throw new RelayerProblem({ code: "offline", status: 0, detail: "the relayer did not answer", fallback: "retry" });
-    }
-    let parsed: unknown;
-    try {
-      parsed = await response.json();
-    } catch {
-      parsed = null;
     }
     if (response.ok) {
       const accepted = parseAccepted(parsed, expected);

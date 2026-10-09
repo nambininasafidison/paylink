@@ -5,9 +5,9 @@
  * requests carry no credentials and go only to the configured endpoint; the ariary estimate is integer arithmetic,
  * rounded half up, for dollar tokens only, and a malformed snapshot hides it.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ariaryLabel, ariaryOf, loadFx, parseFx } from "../src/core/fx.ts";
-import { parseAccepted, parseChainHealth, parseProblem, relayerClient, RelayerProblem } from "../src/core/relayer.ts";
+import { parseAccepted, parseChainHealth, parseProblem, RELAYER_TIMEOUT_MS, relayerClient, RelayerProblem } from "../src/core/relayer.ts";
 
 const URL_ = "https://paylink-relayer.example.workers.dev";
 const config = { relayer: { url: URL_, chains: [10143, 84532] } };
@@ -84,6 +84,56 @@ describe("relayer client", () => {
 
 const fx = { version: 1, base: "USD", date: "2026-10-08", rates: { MGA: "4453.66921254", EUR: "0.89246269" }, source: { name: "fawazahmed0/exchange-api", url: "https://github.com/fawazahmed0/exchange-api", package: "@fawazahmed0/currency-api@2026.10.8", license: "CC0-1.0" } };
 const ausd = { symbol: "AUSD", decimals: 6 } as const;
+
+/** Headers at once, then a body that starts and never ends; `honoursAbort` makes it error when the request aborts. */
+function stalling(honoursAbort: boolean): typeof fetch {
+  return vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"status":"submitted","kind":"pay",'));
+        if (honoursAbort) {
+          init?.signal?.addEventListener("abort", () => {
+            controller.error(new DOMException("aborted", "AbortError"));
+          });
+        }
+      },
+    });
+    return Promise.resolve(new Response(body, { status: 202, headers: { "content-type": "application/json" } }));
+  });
+}
+
+describe("relayer client: one deadline for the whole answer", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each([
+    ["errors when the request aborts", true],
+    ["ignores the abort", false],
+  ])("turns headers followed by a stalled body into 'offline, retry' at the deadline (a body that %s)", async (_name, honoursAbort) => {
+    vi.useFakeTimers();
+    const client = relayerClient(config, stalling(honoursAbort));
+    let outcome: unknown = "pending";
+    const paying = client.pay({ chainId: 10143 } as never).then(
+      () => (outcome = "accepted"),
+      (error: unknown) => (outcome = error),
+    );
+    await vi.advanceTimersByTimeAsync(RELAYER_TIMEOUT_MS - 1);
+    expect(outcome).toBe("pending");
+    await vi.advanceTimersByTimeAsync(1);
+    await paying;
+    expect(outcome).toBeInstanceOf(RelayerProblem);
+    expect(outcome).toMatchObject({ code: "offline", fallback: "retry" });
+  });
+
+  it("reads a health answer whose body stalls as down, not as a page that waits forever", async () => {
+    vi.useFakeTimers();
+    const client = relayerClient(config, stalling(false));
+    const availability = client.availability(10143);
+    await vi.advanceTimersByTimeAsync(RELAYER_TIMEOUT_MS);
+    expect(await availability).toEqual({ kind: "down", state: "offline" });
+  });
+});
 
 describe("ariary estimate", () => {
   it("multiplies in integers and rounds half up, for dollar tokens only", () => {
