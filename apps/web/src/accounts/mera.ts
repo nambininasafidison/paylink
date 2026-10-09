@@ -15,6 +15,9 @@
  * derives the key, checks that it is the account the device expects, signs, ends the session (Mera zeroes its copy)
  * and wipes the intermediate buffers this module owns. The mnemonic is a JavaScript string and cannot be wiped; it is
  * never shown, stored or logged, and goes out of scope immediately.
+ *
+ * The same passkey also does non-account work under other PRF namespaces (`namespaces.ts`: the books backup), through
+ * `namespaceOutput`, which evaluates only the namespace's own salt and derives no account key.
  */
 import { createPasskeyWithPrfOutput, createSecp256k1SigningSession, getPasskeyPrfOutput, isMeraError } from "@category-labs/mera";
 import type { PasskeyCredentialMetadata, WebAuthnClient } from "@category-labs/mera";
@@ -145,6 +148,31 @@ export async function signIn(options: CeremonyOptions & { readonly credential?: 
   } catch (error) {
     throw passkeyFailure(error);
   }
+}
+
+/**
+ * Non-account work (`namespaces.ts`, ADR 0016): one assertion of the device's passkey, pinned to its credential, with a
+ * work namespace's PRF salt instead of Mera's default. Resolves the 32-byte PRF output for that salt (the caller wipes
+ * it); refuses an answer from any other credential. No account key is derived here.
+ */
+export async function namespaceOutput(options: CeremonyOptions & { readonly credential: PasskeyCredentialMetadata; readonly prfSalt: Uint8Array }): Promise<Uint8Array> {
+  let asserted: { readonly credentialId: string; readonly prfOutput: Uint8Array };
+  try {
+    asserted = await getPasskeyPrfOutput({
+      rpId: options.rpId,
+      credential: options.credential,
+      prfSalt: options.prfSalt,
+      ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
+      ...(options.webAuthnClient === undefined ? {} : { webAuthnClient: options.webAuthnClient }),
+    });
+  } catch (error) {
+    throw passkeyFailure(error);
+  }
+  if (asserted.credentialId !== options.credential.credentialId) {
+    asserted.prfOutput.fill(0);
+    throw new PasskeyError("other-key", "another passkey answered");
+  }
+  return asserted.prfOutput;
 }
 
 /**

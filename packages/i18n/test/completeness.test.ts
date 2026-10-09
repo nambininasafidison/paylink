@@ -2,19 +2,26 @@
 /**
  * Completeness gate (PAYLINK-V2-SPEC §3.9, §4.1): French and Malagasy carry exactly the English keys, every message
  * keeps the same named placeholders and the same emphasis, no message is empty or holds markup, every key the SDK can
- * produce is translated, and the generated key types are up to date.
+ * produce is translated, and the generated key types are up to date. Feature catalogues (`<feature>.<locale>.json`)
+ * are held to the same rules as the core catalogue, and hold only their own keys.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SDK_I18N_KEYS } from "@paylink/sdk";
 import { describe, expect, it } from "vitest";
-import { render } from "../scripts/generate.ts";
+import { FEATURES, render } from "../scripts/generate.ts";
 import { placeholders } from "../src/interpolate.ts";
 import { LOCALES } from "../src/locales.ts";
 
 const dir = join(import.meta.dirname, "../src/locales");
 const load = (name: string): Record<string, string> => JSON.parse(readFileSync(join(dir, `${name}.json`), "utf8")) as Record<string, string>;
-const catalogues = Object.fromEntries(LOCALES.map((locale) => [locale, load(locale)])) as Record<(typeof LOCALES)[number], Record<string, string>>;
+const core = Object.fromEntries(LOCALES.map((locale) => [locale, load(locale)])) as Record<(typeof LOCALES)[number], Record<string, string>>;
+const features = Object.fromEntries(FEATURES.map((feature) => [feature, Object.fromEntries(LOCALES.map((locale) => [locale, load(`${feature}.${locale}`)]))])) as Record<
+  (typeof FEATURES)[number],
+  Record<(typeof LOCALES)[number], Record<string, string>>
+>;
+/** Each language's whole catalogue: the core one, then each feature's. */
+const catalogues = Object.fromEntries(LOCALES.map((locale) => [locale, Object.assign({}, core[locale], ...FEATURES.map((f) => features[f][locale]))])) as Record<(typeof LOCALES)[number], Record<string, string>>;
 const en = catalogues.en;
 const keys = Object.keys(en);
 
@@ -76,9 +83,23 @@ describe("catalogues", () => {
     }
   });
 
-  it("keeps the generated key types in step with en.json", () => {
+  it("keeps the generated key types in step with en.json and the feature catalogues", () => {
     const generated = readFileSync(join(import.meta.dirname, "../src/generated/messages.ts"), "utf8");
-    expect(generated).toBe(render(en));
+    expect(generated).toBe(render(en, Object.fromEntries(FEATURES.map((f) => [f, Object.keys(features[f].en)]))));
+  });
+
+  it("keeps each feature's keys in its own catalogue, in every language, and out of the core one", () => {
+    for (const feature of FEATURES) {
+      const own = Object.keys(features[feature].en);
+      expect(own.length, feature).toBeGreaterThan(0);
+      for (const locale of LOCALES) {
+        expect(Object.keys(features[feature][locale]).sort(), `${feature}.${locale}`).toEqual([...own].sort());
+        for (const key of own) {
+          expect(key.startsWith(`${feature}.`), key).toBe(true);
+          expect(Object.hasOwn(core[locale], key), `${locale} ${key}`).toBe(false);
+        }
+      }
+    }
   });
 
   it("lists only existing keys as awaiting the founder's Malagasy review", () => {

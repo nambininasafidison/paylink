@@ -11,6 +11,9 @@ import { formatDateTime } from "@paylink/i18n";
 import type { PageDefinition } from "../app/boot.ts";
 import { cancelInvoice } from "../app/cancel.ts";
 import { networkName } from "../app/chains.ts";
+import { passkeyLayerOf } from "../app/passkey-layer.ts";
+import { booksPanel } from "../books/panel.ts";
+import type { Edition } from "@paylink/chains";
 import type { App } from "../app/context.ts";
 import { intro, notes, routeHref } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
@@ -28,6 +31,9 @@ import { segmented } from "../ui/controls.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce, copyText, download } from "../ui/live.ts";
 import type { PlainMessageKey } from "@paylink/i18n";
+
+/** The edition this build serves (ADR 0008): a constant, so the other editions' bundles drop the ledger backup. */
+declare const __PAYLINK_EDITION__: Edition;
 
 const LABEL_KEY: Readonly<Record<RowLabel, PlainMessageKey>> = {
   open: "ledger.lamp.open",
@@ -79,6 +85,12 @@ export const ledgerPage: PageDefinition = {
     };
     app.session.subscribe(show);
     void app.session.ready.then(show);
+    // Monad edition: the PayLink key's second key backs these books up and restores them (ADR 0016). The build
+    // constant drops the panel from the other editions' bundles.
+    const passkeys = __PAYLINK_EDITION__ === "monad" ? passkeyLayerOf(app) : null;
+    if (passkeys !== null) {
+      ui.views.append(booksPanel(app, passkeys, { restored: () => { shown = undefined; show(); } }));
+    }
   },
 };
 

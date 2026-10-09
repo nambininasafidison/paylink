@@ -8,7 +8,7 @@ PayLink records significant engineering decisions as ADRs in the [MADR 4](https:
 - decision outcome, with consequences and confirmation;
 - pros and cons of each option.
 
-Each record starts with YAML front matter for its status, date and decision-makers. ADRs 0011 to 0015 were written with the workspace and toolchain changes they decide, and use an equivalent header list (status, date, deciders, related) with Context, Options, Decision and Consequences sections.
+Each record starts with YAML front matter for its status, date and decision-makers. ADRs 0011 to 0016 were written with the workspace and toolchain changes they decide, and use an equivalent header list (status, date, deciders, related) with Context, Options, Decision and Consequences sections.
 
 An ADR is never edited to reverse a decision. A new ADR supersedes it, and the old one's status becomes `superseded by ADR-NNNN`. Editorial fixes are allowed.
 
@@ -29,6 +29,7 @@ An ADR is never edited to reverse a decision. A new ADR supersedes it, and the o
 | [0013](0013-browser-deploy-page.md) | Browser deploy page on the current Pages root, sharing one verifier with a CLI | accepted | 2026-10-07 |
 | [0014](0014-web-app-and-single-pages-site.md) | The v2 web app, and one Pages site for v2, its editions, v1 and the deploy kit | accepted | 2026-10-08 |
 | [0015](0015-editions-t1-passkeys-gasless-rails.md) | Editions at T1: Mera passkeys, gasless rails and "Pay with Base" | accepted | 2026-10-08 |
+| [0016](0016-ledger-backup-second-prf-namespace.md) | Ledger backup with the passkey's second key (PRF namespace `paylink.books.v1`) | accepted | 2026-10-09 |
 
 ## Writing a new ADR
 

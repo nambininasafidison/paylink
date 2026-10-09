@@ -1,0 +1,11 @@
+/* The ledger backup panel (ADR 0016), in the design system's grammar: a display window, a key row, a status line. */
+@layer components {
+  .view-books .books-screen { margin-top: 16px; }
+  .view-books .books-hint { margin-top: 14px; }
+  .view-books .books-keys { margin-top: 16px; }
+  .view-books .books-review:empty { display: none; }
+  .view-books .books-review { margin-top: 22px; }
+  .view-books .books-file-name { overflow-wrap: anywhere; text-transform: none; letter-spacing: .02em; }
+  /* The file input is driven by the "Restore from a file" key; it stays out of sight and out of the tab order. */
+  .view-books .books-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; opacity: 0; }
+}

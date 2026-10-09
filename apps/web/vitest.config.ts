@@ -25,10 +25,10 @@ export default defineConfig({
       // end in e2e/specs/app.spec.ts against anvil, which unit coverage does not count.
       exclude: ["src/entries/**"],
       reporter: ["text", "json-summary"],
-      // The logic every page relies on (accounts, read model, device store, rails, formatting, UI pieces, site
-      // assembly) is held to a floor; pages are measured by the e2e suite instead.
+      // The logic every page relies on (accounts, the ledger backup, read model, device store, rails, formatting, UI
+      // pieces, site assembly) is held to a floor; pages are measured by the e2e suite instead.
       thresholds: {
-        "src/{accounts,core,read,rails,store,ui}/**": { lines: 85, statements: 85, functions: 85, branches: 75 },
+        "src/{accounts,books,core,read,rails,store,ui}/**": { lines: 85, statements: 85, functions: 85, branches: 75 },
         "scripts/site.ts": { lines: 90, statements: 90, functions: 90, branches: 80 },
       },
     },

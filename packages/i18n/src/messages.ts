@@ -2,7 +2,8 @@
 /**
  * Message catalogues. English ships with the code (it is also the fallback); French and Malagasy are separate chunks
  * loaded when chosen. The JSON files are the source translators edit; `src/generated/messages.ts` derives the key and
- * placeholder types from en.json (`pnpm --filter @paylink/i18n run generate`).
+ * placeholder types from en.json and the feature catalogues (`pnpm --filter @paylink/i18n run generate`). Feature
+ * catalogues are loaded by `features.ts`.
  */
 import en from "./locales/en.json" with { type: "json" };
 import type { Locale } from "./locales.ts";

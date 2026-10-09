@@ -5,7 +5,7 @@ Start with the [architecture](ARCHITECTURE.md). Every external fact in these doc
 | Area | Document | What it answers |
 |---|---|---|
 | **Design** | [ARCHITECTURE.md](ARCHITECTURE.md) | Components, data flows, trust boundaries, the read model (chain > device > indexer), editions, failure modes |
-| | [Architecture decision records](adr/README.md) | Why each significant choice was made, with the options that were rejected (ADRs 0001–0014) |
+| | [Architecture decision records](adr/README.md) | Why each significant choice was made, with the options that were rejected (ADRs 0001–0016) |
 | **Open standard** | [Invoice format specification v2](spec/paylink-invoice-v2.md) | The normative signed-invoice format: EIP-712 domain and types, key derivation, payment binding, cancellation, URL encodings, receipt verification, test vectors |
 | | [JSON Schema](spec/paylink-invoice-v2.schema.json) | Machine-readable form of the specification's JSON objects (draft 2020-12) |
 | **Security** | [Threat model](security/THREAT_MODEL.md) | Assets, actors, STRIDE per component, mitigations with their evidence, residual risks |

@@ -295,7 +295,7 @@ Rules that follow:
 
 | Data | Location | Notes |
 |---|---|---|
-| Signed invoices, memos, receive cards, address book, receipts, settings | the device's IndexedDB | JSON export and import, with a plaintext warning (T1). A passkey-encrypted backup is planned for T2: a second PRF evaluation with salt `"paylink.books.v1"`, then HKDF-SHA-256 to an AES-256-GCM key; it never reuses the signing-key PRF output |
+| Signed invoices, memos, receive cards, address book, receipts, settings | the device's IndexedDB | JSON export and import, with a plaintext warning (T1). In the Monad edition, an end-to-end encrypted backup: a second PRF evaluation of the PayLink key with salt `SHA-256("paylink.books.v1")`, then HKDF-SHA-256 to an AES-256-GCM key bound to the account and the network, downloaded as a file and restored on any device the passkey reaches; it never reuses the signing key's PRF output ([ADR 0016](adr/0016-ledger-backup-second-prf-namespace.md)) |
 | Invoice terms (minus the memo text) and `payerRef` | public chain, once paid or cancelled | `memoHash` is unsalted; see [spec §15](spec/paylink-invoice-v2.md#15-privacy-considerations) |
 | Aggregates | Envio Cloud | derived from public events only |
 | FX rates (display only) | `apps/web/public/fx.json`, a snapshot of fawazahmed0/exchange-api (CC0-1.0) refreshed by `apps/web/scripts/fx.ts` (a daily Actions job once CI exists) | always labelled "estimate · source · date"; never used in amount calculations |
@@ -377,3 +377,4 @@ The blocking gates, the nightly evidence jobs and the commit conventions are sum
 | [0013](adr/0013-browser-deploy-page.md) | Browser deploy page on the current Pages root, sharing one verifier with a CLI |
 | [0014](adr/0014-web-app-and-single-pages-site.md) | The v2 web app, and one Pages site for v2, its editions, v1 and the deploy kit |
 | [0015](adr/0015-editions-t1-passkeys-gasless-rails.md) | Editions at T1: Mera passkeys, gasless rails and "Pay with Base" |
+| [0016](adr/0016-ledger-backup-second-prf-namespace.md) | Ledger backup with the passkey's second key (PRF namespace `paylink.books.v1`) |

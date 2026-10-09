@@ -4,14 +4,17 @@
  * translation lacks (the completeness test makes that impossible in CI; the fallback only protects a hand-edited
  * deployment).
  */
-import type { MessageKey, MessageParams, PluralBase, PluralParams } from "./generated/messages.ts";
+import type { FeatureKey, MessageKey, MessageParams, PluralBase, PluralParams } from "./generated/messages.ts";
 import { interpolate } from "./interpolate.ts";
 import type { ParamValue } from "./interpolate.ts";
 import { LOCALE_INFO } from "./locales.ts";
 import type { Locale } from "./locales.ts";
 
-/** A complete set of messages for one language. */
-export type Messages = Readonly<Record<MessageKey, string>>;
+/**
+ * A language's messages: every key of the catalogue every page carries, and a feature catalogue's keys (`FeatureKey`)
+ * once a page has loaded it (`featureTranslator`).
+ */
+export type Messages = Readonly<Record<Exclude<MessageKey, FeatureKey>, string>> & Readonly<Partial<Record<FeatureKey, string>>>;
 
 /** Keys of the messages without placeholders (page titles, labels). */
 export type PlainMessageKey = { [K in MessageKey]: [MessageParams[K]] extends [never] ? K : never }[MessageKey];

@@ -8,11 +8,13 @@
  */
 export { formatAriary, formatCount, formatDateTime, formatRelative, formatSeconds } from "./format.ts";
 export type { DateOptions } from "./format.ts";
-export type { MessageKey, MessageParams, PluralBase, PluralParams } from "./generated/messages.ts";
+export type { Feature, FeatureKey, MessageKey, MessageParams, PluralBase, PluralParams } from "./generated/messages.ts";
 export { interpolate, MISSING, placeholders } from "./interpolate.ts";
 export type { ParamValue } from "./interpolate.ts";
 export { DEFAULT_LOCALE, isLocale, LOCALE_INFO, LOCALES, negotiateLocale } from "./locales.ts";
 export type { Locale, LocaleInfo } from "./locales.ts";
 export { EN, loadMessages } from "./messages.ts";
+export { featureTranslator, loadFeature } from "./features.ts";
+export type { FeatureMessages } from "./features.ts";
 export { createTranslator } from "./translator.ts";
 export type { Messages, ParamsArg, ParamsOf, PlainMessageKey, Translator, TranslatorOptions } from "./translator.ts";
