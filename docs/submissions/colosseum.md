@@ -33,7 +33,7 @@ Every `text` block is the exact text to paste; the line under it is its length, 
 | Arbitrum Sepolia (421614) | **not deployed**: `eth_getCode` at that address returns `0x` (checked 2026-10-09); the registry, the relayer and the deploy page already support the chain | `packages/chains/src/chains/arbitrum-sepolia.ts` |
 | Base edition | `https://paylink-mg.pages.dev/base/`: EIP-6963 browser wallets; gasless USDC for EOA payers (one EIP-3009 signature, the relayer submits); EIP-5792 batches (`wallet_sendCalls([approve(amount), pay])`) for smart-account payers, named "Pay with Base" only in the Base app or Coinbase Wallet; Circle's faucet linked for test USDC | `apps/web/src/editions/index.ts` (`baseProfile`), `apps/web/src/rails/batch.ts`, `e2e/specs/editions.spec.ts` |
 | Not used | the `@base-org/account` SDK is **not** shipped: "Pay with Base" is EIP-5792 on the payer's own wallet ([ADR 0015](../adr/0015-editions-t1-passkeys-gasless-rails.md)) | `apps/web/package.json` |
-| Tests | 335 Foundry tests (100 % lines and branches of the contract, 63 of 63 mutants killed, Slither 0 untriaged); 1,441 TypeScript tests; 30 Playwright end-to-end tests, all passing on 2026-10-09 | `protocol/audit/README.md`; `pnpm -r test` |
+| Tests | 335 Foundry tests (100 % lines and branches of the contract, 63 of 63 mutants killed, Slither 0 untriaged); 1,452 TypeScript tests; 31 Playwright end-to-end tests, all passing on 2026-10-09 | `protocol/audit/README.md`; `pnpm -r test` |
 | Payments on the real testnets | none yet (0 contract events on Base Sepolia up to block 47872756, scanned 2026-10-09) | your demo recording will make the first ones |
 | Relayer, indexer | built and tested, **not deployed yet** (the Base gasless route needs the relayer) | [relayer runbook](../runbooks/relayer.md), [Envio runbook](../runbooks/envio.md) |
 | Users, revenue, partners, interviews | none to report as of 2026-10-09 | [interview protocol](../research/interview-script.md) ready |
@@ -98,7 +98,7 @@ AN OPEN STANDARD
 The invoice format is an open specification (EIP-712 types, key derivation, payment binding for EIP-3009, signed cancellation, URL encodings, receipt verification) with a JSON Schema and test vectors that three implementations agree on. Any wallet, marketplace or accounting tool can issue, verify or pay a PayLink invoice without asking us.
 
 QUALITY AND SAFETY
-335 Foundry tests (unit, fuzz and 11 invariants), 100% line and branch coverage of the contract, 63 of 63 hand-written mutants killed and Slither with no untriaged result; more than 1,400 TypeScript tests; 30 Playwright end-to-end tests on the production build, with axe-core WCAG 2.2 AA checks in light and dark. A strict Content-Security-Policy with Trusted Types and no third-party script. It is our own review, not a third-party audit, and it runs on testnets only.
+335 Foundry tests (unit, fuzz and 11 invariants), 100% line and branch coverage of the contract, 63 of 63 hand-written mutants killed and Slither with no untriaged result; more than 1,400 TypeScript tests; 31 Playwright end-to-end tests on the production build, with axe-core WCAG 2.2 AA checks in light and dark. A strict Content-Security-Policy with Trusted Types and no third-party script. It is our own review, not a third-party audit, and it runs on testnets only.
 
 STATUS
 Testnet only. PayLink v1, a simpler payment-link contract on Arc, was written on Oct 4-5, 2026; PayLink v2, everything above, was built from Oct 5 on, inside this event's window. Claude Code (AI) did much of the engineering under the founder's direction; the founder owns every decision, key and submission.
@@ -222,7 +222,7 @@ Characters: 1,452 (no stated limit)
 | What | Value |
 |---|---|
 | Live (Base edition) | `https://paylink-mg.pages.dev/base/` (check it serves v2 first, [README §2](README.md#2-colosseum)) |
-| Repository | `https://github.com/nambininasafidison/paylink` (public, MIT) |
+| Repository | `https://github.com/nambininasafidison/paylink` (public, MIT). After the push its home page shows the v2 README, [`.github/README.md`](../../.github/README.md) (the Base edition, the Base Sepolia contract and transaction, setup, prior work, AI use); the root `README.md` is v1's, kept as it was ([README §2](README.md#2-colosseum) step 1) |
 | Contract, Base Sepolia | [Basescan](https://sepolia.basescan.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082), [Blockscout](https://base-sepolia.blockscout.com/address/0x448eCce9711860502806A3d5B021a4f9Ba715082) |
 | Deployment transaction | [Basescan](https://sepolia.basescan.org/tx/0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed) |
 | Open invoice specification | [docs/spec/paylink-invoice-v2.md](../spec/paylink-invoice-v2.md) and its [JSON Schema](../spec/paylink-invoice-v2.schema.json) |

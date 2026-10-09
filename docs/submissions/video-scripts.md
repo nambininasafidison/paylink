@@ -28,7 +28,7 @@
 | The contract is genuine on both chains | the same Status pages: "Genuine contract: Release 2.0.0: code and immutables match." for Monad testnet and Base Sepolia | Do not record; tell Claude |
 | The relayer answers and has gas | Status: "Relayer: Answering …"; or open `https://paylink-relayer.raherizonambinina.workers.dev/v1/health` | [Relayer runbook](../runbooks/relayer.md) §5 to §6. **Without it there is no Monad demo**: a PayLink key holds no MON, so it cannot pay its own fee |
 | The AUSD faucet still pays | one "Get 10,000 test AUSD" on a throwaway key the day before | If it is dry or busy: from MetaMask (which holds MON), call `requestFunds(<payer address>)` on the faucet contract `0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C` yourself, for example from an explorer's write-contract tab if it offers one for this proxy (**U**), off camera, and say so with a caption |
-| History service (optional) | Status: "History service: Answering …" | Record anyway: the ledger then says "From the network's latest blocks only"; never claim Envio on screen if that line shows |
+| History service (optional) | Status: the "History service" lamp is green and reads "Monad testnet: indexed to block …" (not "Not configured" or "Not answering.") | Record anyway: the ledger then says "From the network's latest blocks only"; never claim Envio on screen or in the narration if that line shows (pitch (b) row 4 has the sentence to add only when the lamp is green) |
 
 ### 0.2 Devices: pick one setup and rehearse it once, the day before
 
@@ -41,6 +41,8 @@ PayLink keys need a passkey manager with PRF (iCloud Keychain, Google Password M
 | **C** (one phone) | Phone, normal Chrome tab | Same phone, a Chrome Incognito tab (separate storage) | "Copy" on the card, paste in the Incognito tab's address bar |
 
 Every script below says MERCHANT and PAYER; the clicks are the same in every setup.
+
+**Install it as an app, once, in the same rehearsal.** The Agora bounty asks for "a mobile app" (**UV**, FACTS 2026-10-08), and our answer says PayLink is an installable PWA ([monad.md §5.1](monad.md#51-agora-best-cross-border-payments-app)). On the PAYER phone (Setup A or B), open `https://paylink-mg.pages.dev/monad/` and install it: iOS Safari, Share → **Add to Home Screen**; Android Chrome, ⋮ → **Install app** (or **Add to Home screen**). Then, from the **PayLink** icon: create the payer's PayLink key with the fingerprint, get test AUSD and pay one invoice. Note the result (phone, system version, browser). If the installed app cannot create or use a PayLink key, record (c) shot 1 from the browser instead, and tell Claude: the Agora answer's "Mobile:" sentence then goes ([README §1](README.md#1-monad-metropolis) step 7).
 
 ### 0.3 Screen and sound
 
@@ -118,7 +120,7 @@ Captions are short, in English, bottom third, white on a dark band. Two captions
 | 1 | 0:00–0:15 | You, medium shot. Caption: "[Your name] · founder, PayLink · Antananarivo, Madagascar" | "I'm [your first name], and I build PayLink from Antananarivo, in Madagascar. PayLink turns a dollar invoice into a link you get paid through with a fingerprint." |
 | 2 | 0:15–0:45 | You | "Many people here earn from clients abroad: designers, developers, translators, small shops serving visitors. [Say one true thing you have seen or lived, in one sentence.] We believe getting paid from abroad is still slow, costly or uncertain for them, and we are testing that in structured interviews. [Only if you have held some: 'So far, n of N people we interviewed described …'.]" |
 | 3 | 0:45–1:10 | Insert (10 s): the payer's fingerprint, "Approved", the till lighting up. Then you | "With PayLink, the freelancer signs an invoice with a passkey and sends it on WhatsApp. The client opens it anywhere, checks it, and pays in AUSD with one fingerprint, without any gas token. The money goes straight to the freelancer, and both keep a receipt anyone can verify." |
-| 4 | 1:10–1:35 | You | "Why Monad: a payment has to feel like a card tap, and on Monad the client sees it settle in the time measured on the screen. We built for Monad's rules: gas limits computed exactly, history indexed with Envio, a relayer that never sends value, and Mera passkeys, so neither side ever holds MON." |
+| 4 | 1:10–1:35 | You | "Why Monad: a payment has to feel like a card tap, and on Monad the client sees it settle in the time measured on the screen. We built for Monad's rules: gas limits computed exactly, a relayer that never sends value, and Mera passkeys, so neither side ever holds MON." [Only if, on the day you record, the Status page's "History service" lamp is green (§0.1): add "Payment history comes from an Envio indexer."] |
 | 5 | 1:35–1:50 | You | "Why now: dollar stablecoins, passkeys in every phone and fast EVM chains finally make 'get paid in dollars with a fingerprint' possible for people who were left out." |
 | 6 | 1:50–2:00 | You. Caption: "paylink-mg.pages.dev/monad · testnet" | "PayLink is open source and live on Monad testnet. Next, we test it with real freelancers in Antananarivo. Thank you." |
 
@@ -129,7 +131,7 @@ Captions are short, in English, bottom third, white on a dark band. Two captions
 1. « Je m'appelle [prénom], et je construis PayLink depuis Antananarivo, à Madagascar. PayLink transforme une facture en dollars en un lien par lequel on est payé avec une empreinte. »
 2. « Beaucoup de gens ici gagnent leur vie avec des clients à l'étranger : graphistes, développeurs, traducteurs, petites boutiques qui servent des visiteurs. [Une chose vraie que vous avez vue ou vécue, en une phrase.] Nous pensons qu'être payé depuis l'étranger reste lent, coûteux ou incertain pour eux, et nous le vérifions par des entretiens structurés. [Seulement si vous en avez fait : « Jusqu'ici, n personnes sur N que nous avons interrogées ont décrit … ».] »
 3. « Avec PayLink, le freelance signe une facture avec une passkey et l'envoie sur WhatsApp. Le client l'ouvre où qu'il soit, la vérifie et paie en AUSD avec une seule empreinte, sans jeton de gaz. L'argent va directement au freelance, et chacun garde un reçu que tout le monde peut vérifier. »
-4. « Pourquoi Monad : un paiement doit ressembler à un passage de carte, et sur Monad le client le voit se régler dans le temps mesuré à l'écran. Nous avons construit pour les règles de Monad : des limites de gaz calculées au plus juste, un historique indexé avec Envio, un relais qui n'envoie jamais de valeur, et des passkeys Mera, pour qu'aucune des deux parties n'ait jamais besoin de MON. »
+4. « Pourquoi Monad : un paiement doit ressembler à un passage de carte, et sur Monad le client le voit se régler dans le temps mesuré à l'écran. Nous avons construit pour les règles de Monad : des limites de gaz calculées au plus juste, un relais qui n'envoie jamais de valeur, et des passkeys Mera, pour qu'aucune des deux parties n'ait jamais besoin de MON. » [Seulement si, le jour de l'enregistrement, le voyant « History service » de la page Status est vert (§0.1) : ajoutez « L'historique des paiements vient d'un indexeur Envio. »]
 5. « Pourquoi maintenant : les dollars numériques, les passkeys dans chaque téléphone et des chaînes EVM rapides rendent enfin possible « être payé en dollars avec une empreinte » pour des gens qui en étaient exclus. »
 6. « PayLink est open source et en ligne sur le testnet de Monad. Prochaine étape : le tester avec de vrais freelances à Antananarivo. Merci. »
 
@@ -144,18 +146,18 @@ Captions are short, in English, bottom third, white on a dark band. Two captions
 - [ ] §0.1 green. One setup from §0.2.
 - [ ] RECEIVER (Rakoto, Antananarivo): a PayLink key and a receive card made off camera: `/monad/send/`, **Use my account**, then **Create my receive card**, tick "I understand this link stays payable until I cancel it.", **Use my PayLink key to sign** (or **Review and sign**), **Sign in wallet**, fingerprint. Then **Watch it on the till** in a window you can show.
 - [ ] The receive card's link is on the SENDER's device before recording (Setup A or B: scan its QR once and copy the address bar into a note; Setup C: **Copy**).
-- [ ] SENDER (a client abroad): no PayLink key yet on its device or profile.
-- [ ] MonadVision open in a tab on the SENDER device (you will paste the sender's address there at the end).
+- [ ] SENDER (a client abroad): no PayLink key yet on its device or profile, and PayLink installed on its home screen in the rehearsal (§0.2). This needs the SENDER on a phone of its own (Setup A, or B with the phone as SENDER). In Setup C the SENDER is an Incognito tab, which an installed app cannot be: open `https://paylink-mg.pages.dev/monad/send/` there for shot 1, and leave the words "installed on her phone like an app" out of the narration and the caption.
+- [ ] MonadVision open in the phone's browser (Chrome or Safari) on the SENDER device, outside the installed app (you will paste the sender's address there at the end).
 
 | # | Time | Screen and exact clicks | Caption | Narration (EN) |
 |---|---|---|---|---|
-| 1 | 0:00–0:10 | SENDER: `https://paylink-mg.pages.dev/monad/send/` | "PayLink · AUSD on Monad testnet" | "A client abroad wants to send dollars to Rakoto in Antananarivo." |
+| 1 | 0:00–0:10 | SENDER: the phone's home screen; tap the **PayLink** icon. PayLink opens full screen, without the browser's address bar; tap **Send** in the top menu | "PayLink, installed on the phone from the browser · AUSD on Monad testnet" | "A client abroad opens PayLink, installed on her phone like an app, to send dollars to Rakoto in Antananarivo." |
 | 2 | 0:10–0:25 | Under "Save a contact": "Name" `Rakoto (Antananarivo)`; "Their receive card or payment link": paste the card link; **Save contact** | "His receive card, checked before it is saved" | "She saves Rakoto's receive card once. PayLink checks it on chain and remembers the address it pays." |
 | 3 | 0:25–0:50 | Press **Send** next to "Rakoto (Antananarivo)". The pay view shows "Saved as: Rakoto (Antananarivo)". Press **Use my PayLink key to pay**; KeyCard: "Name on the key" `My phone`, **Create my PayLink key**, fingerprint | "Passkey onboarding: one fingerprint, no wallet, no seed phrase" | "She has never used crypto. One fingerprint creates her PayLink key, a Mera passkey, and her account on Monad." |
 | 4 | 0:50–1:08 | The funds row: "This account holds 0.00 AUSD." Press **Get 10,000 test AUSD**; "Test AUSD received." | "AUSD balance: 0.00, then 10,000 test AUSD from Agora's faucet" | "Her account holds no AUSD yet. On testnet, one tap asks Agora's AUSD faucet for test dollars, with no MON needed." |
 | 5 | 1:08–1:30 | "Your amount": type `25`; the signing display shows 25.00 AUSD to Rakoto's address; press **Send AUSD** (an open-amount card's key); fingerprint; "Approved", "Settled in N.N s" | "Gasless: one EIP-3009 signature" | "She types twenty-five dollars, reads exactly what she approves, and pays with one fingerprint. Approved, in the time you see." |
 | 6 | 1:30–1:42 | RECEIVER: the till is green: 25.00 AUSD received | "Received in Antananarivo, verified on chain" | "In Antananarivo, Rakoto's till lights up for the payment." |
-| 7 | 1:42–1:57 | SENDER: **Open the receipt**, **View the transaction** (MonadVision: the AUSD transfer). Then paste her address in MonadVision: token balance 9,975 AUSD | "Real testnet transaction · AUSD balances on MonadVision" | "The transfer is on Monad testnet: twenty-five AUSD moved, and her balance shows what is left." |
+| 7 | 1:42–1:57 | SENDER: **Open the receipt**, **View the transaction** (MonadVision: the AUSD transfer; from the installed app it opens in the phone's browser view). Then switch to the browser's MonadVision tab and paste her address: token balance 9,975 AUSD | "Real testnet transaction · AUSD balances on MonadVision" | "The transfer is on Monad testnet: twenty-five AUSD moved, and her balance shows what is left." |
 | 8 | 1:57–2:00 | Hold | "paylink-mg.pages.dev/monad · testnet" | "PayLink: send dollars with a fingerprint." |
 
 The 9,975 AUSD of shot 7 assumes the 10,000 test AUSD of shot 4 and one payment of 25; say the number you see.
@@ -164,7 +166,7 @@ The 9,975 AUSD of shot 7 assumes the 10,000 test AUSD of shot 4 and one payment 
 
 **French translation (for you)**
 
-1. « Une cliente à l'étranger veut envoyer des dollars à Rakoto, à Antananarivo. »
+1. « Une cliente à l'étranger ouvre PayLink, installé sur son téléphone comme une application, pour envoyer des dollars à Rakoto, à Antananarivo. »
 2. « Elle enregistre une fois la carte de réception de Rakoto. PayLink la vérifie sur la chaîne et retient l'adresse qu'elle paie. »
 3. « Elle n'a jamais utilisé de crypto. Une empreinte crée sa clé PayLink, une passkey Mera, et son compte sur Monad. »
 4. « Son compte n'a pas encore d'AUSD. Sur le testnet, une touche demande des dollars de test au robinet AUSD d'Agora, sans avoir besoin de MON. »

@@ -618,3 +618,36 @@ test("Monad: the KeyCard and the pay view in dark mode on a phone, without axe v
   await page.screenshot({ path: test.info().outputPath("monad-pay-320-mg-dark.png"), fullPage: true });
   expect(visitor.problems).toEqual([]);
 });
+
+test("Monad: installable from the browser as an app (standalone manifest scoped to /monad/, its icons, a service worker)", async ({ browser }) => {
+  // The evidence behind "an installable PWA" (docs/submissions/monad.md, Agora answer): what Chrome and Safari read
+  // to offer "Install app" / "Add to Home Screen". Installing on a real phone is a rehearsal step, not tested here.
+  const visitor = await person(browser, { phone: true });
+  const { page } = visitor;
+  await page.goto(`${origin}/monad/send/`);
+  await expect(page.locator("main#terminal")).toBeVisible();
+  const href = await page.locator('link[rel="manifest"]').getAttribute("href");
+  expect(href).toBe("/monad/manifest.webmanifest");
+  interface Manifest {
+    readonly name: string;
+    readonly display: string;
+    readonly start_url: string;
+    readonly scope: string;
+    readonly id: string;
+    readonly icons: readonly { readonly src: string; readonly sizes: string; readonly type: string; readonly purpose: string }[];
+  }
+  const manifest = await page.evaluate(async (url) => (await (await fetch(url)).json()) as Manifest, href ?? "");
+  expect(manifest).toMatchObject({ name: "PayLink Monad", display: "standalone", start_url: "/monad/", scope: "/monad/", id: "/monad/" });
+  for (const size of ["192x192", "512x512"]) {
+    const icon = manifest.icons.find((i) => i.sizes === size && i.purpose === "any");
+    expect(icon, size).toBeDefined();
+    const loaded = await page.evaluate(async (src) => {
+      const response = await fetch(src);
+      return { status: response.status, type: response.headers.get("content-type") ?? "" };
+    }, icon?.src ?? "");
+    expect(loaded, icon?.src).toEqual({ status: 200, type: expect.stringContaining("image/png") as unknown });
+  }
+  const scope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
+  expect(scope).toBe(`${origin}/monad/`);
+  expect(visitor.problems).toEqual([]);
+});

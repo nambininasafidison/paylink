@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Event** | Monad Metropolis, Track 02 "Consumer Products & Payments", plus the Agora and Mera bounties |
-| **Status** | Ready to paste. Questions 2 and 3 are open; questions 1 and 4 are resolved (see [§1](#1-status-of-each-question)) |
-| **Date** | 2026-10-06 |
+| **Status** | Ready to paste. Questions 2, 3 and 5 are open; questions 1 and 4 are resolved (see [§1](#1-status-of-each-question)) |
+| **Date** | 2026-10-06; Q5 added 2026-10-09 |
 | **Source** | PAYLINK-V2-SPEC Appendix A and §2.1, updated with the owner's registration-time checks of 2026-10-05/06 |
 | **Who posts** | The owner, from the owner's own account. Claude Code drafts only and never posts ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 | **Where** | The support forum linked from the Metropolis dashboard. The Monad developer Discord (Metropolis role) is also recommended for quick answers (**UV**, 2026-10-06) |
@@ -19,6 +19,7 @@ Confidence tags as in [ARCHITECTURE.md](../ARCHITECTURE.md): **UV** verified by 
 | Q2 | Does the invoice and "send to a receive card" flow meet the Agora bounty's "send AUSD across borders"? Does "instant settlement" mean Agora's Instant Settlement product? | **Open. Post.** | Bounty wording known only from secondary copies (**L**) |
 | Q3 | Can one project be considered for both Mera bounties? | **Open. Post.** | Bounty names and amounts (**L**): "Best Mera-Powered UX" $2.5k and "One Passkey, Many Keys" $2.5k |
 | Q4 | What is the exact registration cut-off? | **Resolved. Do not post.** | Registration closed on Oct 6, and PayLink is registered (**UV**, 2026-10-06) |
+| Q5 | The Agora bounty requires "a mobile app": does an installable PWA count, or must it be a native or app-store app? | **Open. Check, then post if needed.** | The requirement is on the bounty page (**UV**, FACTS 2026-10-08). FACTS also record that a support question was posted on 2026-10-08 and awaits the organisers, without its text: if it did not ask this, post Q5 |
 
 Not asked on purpose: the Mercuryo and Kimi requirement texts (PAYLINK-V2-SPEC §12). Both bounties are out of scope before Oct 12 (PAYLINK-V2-SPEC §2.7). Ask only if that scope changes.
 
@@ -46,6 +47,21 @@ A user can pay an invoice, or send AUSD to a contact's saved payment card (a reu
 Two questions about the Agora bounty:
 1. Does this flow meet the "send AUSD across borders" requirement?
 2. Does "instant settlement" in the bounty text refer specifically to Agora's Instant Settlement product, or to fast settlement in general?
+
+Repository: https://github.com/nambininasafidison/paylink
+Thank you!
+```
+
+### Q5. Agora: does an installable PWA count as a mobile app? (post, or check)
+
+First read the question you posted on 2026-10-08 and its answer, if any. Post this only if that question did not already ask it, and only after the rehearsal has run the flow from the installed app ([video-scripts.md §0.2](video-scripts.md#02-devices-pick-one-setup-and-rehearse-it-once-the-day-before)); if it has not, end the first paragraph after "opens full screen from its own icon".
+
+**Title:** `Agora bounty: does an installable PWA count as "a mobile app"?`
+
+```text
+Hi! The Agora bounty asks for a mobile app. Our Track 02 project, PayLink, is a mobile-first progressive web app on Monad testnet: it installs from the phone's browser ("Add to Home Screen" in iOS Safari, "Install app" in Android Chrome), opens full screen from its own icon, and runs the whole flow there: Mera passkey onboarding, AUSD balance, and a gasless AUSD send. There is no app-store build.
+
+Does an installable PWA meet the "mobile app" requirement, or does the bounty need a native or app-store app?
 
 Repository: https://github.com/nambininasafidison/paylink
 Thank you!
@@ -104,6 +120,7 @@ Fill in as answers arrive. Quote the answer and link it; never paraphrase an org
 | Q2 | | | | | |
 | Q3 | | | | | |
 | Q1 (optional) | | | | | |
+| Q5 (or the 2026-10-08 question) | 2026-10-08 (a support question; text not recorded here) | | | | |
 
 ## 6. What each answer changes
 
@@ -112,6 +129,7 @@ Fill in as answers arrive. Quote the answer and link it; never paraphrase an org
 | Q1: testnet sufficient | Nothing changes; the demo stays on testnet | Deploy the same artefact to Monad mainnet 143 with at most one tiny transaction ([deploy runbook §7](../runbooks/deploy.md#7-monad-mainnet-143-conditional)); budget about 0.5 MON |
 | Q2a: flow meets "send AUSD across borders" | Keep the receive card and Send (tier T1) as the Agora story in the README and video | Ask what is missing. If it needs more than text, drop the Agora bounty; Track 02 is unaffected |
 | Q2b: "instant settlement" means the Agora product | Consider the tier T2 "receive as" option through Agora Instant Settlement (AUSD/CTK `0x1Aa8958Aa34cEC8096EF4381cb335effe977b0ae`, whitelister `0x7c10F56d6f04a51376393a1C3670e966863F6BD5`, both **L**), only if T1 is green by the Oct 10 freeze | Nothing to build; "instant" is shown as the measured settlement time |
+| Q5: an installable PWA counts as "a mobile app" | Keep Agora selected, with the answer's "Mobile:" sentence and video (c) opening from the home-screen icon | Untick Agora on the dashboard (Track 02 and the other bounties are unaffected), unless you choose to keep it and accept that it may not qualify; no app-store app can be built and reviewed before the deadline |
 | Q3: both Mera bounties allowed | Keep the tier T2 passkey-encrypted books backup (second PRF salt `"paylink.books.v1"`, [ARCHITECTURE §7.2](../ARCHITECTURE.md#72-what-is-stored-where)) as the "One Passkey, Many Keys" entry | Select only "Best Mera-Powered UX"; the backup stays T2 and unclaimed |
 
 The Mera go/no-go on **Oct 9, 18:00 UTC** (PAYLINK-V2-SPEC §10) overrides all of this: if passkey PRF fails on real phones, the Monad edition falls back to an injected wallet, and the Mera and Agora bounties are dropped.

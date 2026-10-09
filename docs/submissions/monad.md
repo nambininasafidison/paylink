@@ -29,9 +29,9 @@ Checked from the sandbox on 2026-10-09 unless stated otherwise. If one of them c
 | Contract | PayLinkV2 2.0.0 at `0x448eCce9711860502806A3d5B021a4f9Ba715082` on Monad testnet (10143) | `protocol/deployments/10143.json`; `eth_getCode` at that address returns the runtime code (checked 2026-10-09) |
 | Deployment transaction | `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c193e4f903cb4d6a`, block 69331735, CREATE2 | the record above; [MonadVision](https://testnet.monadvision.com/tx/0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c193e4f903cb4d6a) |
 | Same contract on Base Sepolia (84532) | same address, block 47859253 | `protocol/deployments/84532.json`, `eth_getCode` checked 2026-10-09 |
-| Contract tests | 335 Foundry tests in 32 suites, all passing; 100 % lines and branches of `src/`; 63 of 63 mutants killed; Slither 0 untriaged | `forge test` run on 2026-10-09; `protocol/audit/README.md` |
-| TypeScript tests | 1,441 passing (SDK 564, web 340, chains 204, relayer 131 plus 3 opt-in fork tests skipped, deploy page 74, design 29 with this pack's 8 brand tests, indexer 28, i18n 27, ESLint config 25, verify-deployment 19) | `pnpm -r test` on 2026-10-09 |
-| End-to-end tests | 30 Playwright tests on the production build, all passing | same run |
+| Contract tests | 335 Foundry tests in 32 suites, all passing; 100 % lines and branches of `src/`; 63 of 63 mutants killed; Slither 0 untriaged | `forge test` run on 2026-10-09 (again after the review fixes); `protocol/audit/README.md` |
+| TypeScript tests | 1,452 passing (SDK 564, web 351, chains 204, relayer 131 plus 3 opt-in fork tests skipped, deploy page 74, design 29 with this pack's 8 brand tests, indexer 28, i18n 27, ESLint config 25, verify-deployment 19) | `pnpm -r test` on 2026-10-09, after the review fixes |
+| End-to-end tests | 31 Playwright tests on the production build, all passing | same run |
 | Live product | `https://paylink-mg.pages.dev/monad/` | Cloudflare Pages project `paylink-mg` (FACTS 2026-10-07). **Not checked from the sandbox today** (the proxy refused the host); check it yourself ([README §1](README.md#1-monad-metropolis)) |
 | Relayer (gasless payments, test AUSD, gasless cancel) | built and tested; **not deployed yet** | [relayer runbook](../runbooks/relayer.md) |
 | History indexer (Envio) | built and tested; **not deployed yet**; `/config.json` has `"indexer": null` | [Envio runbook](../runbooks/envio.md) |
@@ -77,32 +77,46 @@ WHAT A USER DOES ON MONAD (paylink-mg.pages.dev/monad/)
 1. Create a PayLink key. A Mera passkey is the whole account layer, for the merchant and for the payer: no wallet extension, no seed phrase, no MON. One fingerprint creates the passkey, and its PRF output derives the account.
 2. Sign an invoice. The merchant types an amount and what it is for. A signing display shows exactly what the fingerprint will sign (amount, address grouped by four, network, expiry), then one fingerprint signs an EIP-712 invoice. Creating it costs no gas and works offline. The link, a QR card that prints on A6, WhatsApp and the system share sheet are ready at once.
 3. Pay. The payer opens the link. Four lamps are read from the chain before the Pay key unlocks: the signature is valid, the network is right, the contract is the genuine PayLink release (registry address, masked code hash, EIP-712 immutables), and the invoice is still payable. The payer creates their own PayLink key; on testnet, "Get 10,000 test AUSD" asks Agora's AUSD faucet through our relayer, so the payer never needs MON. The signing display says "Pay exactly this, once", one fingerprint signs an EIP-3009 authorization, and the relayer submits payWithAuthorization. The token nonce is derived on chain from the invoice, the payer, the amount and a reference, so the relayer can delay a payment but cannot redirect it, and the payer can send the same signed authorization themselves.
-4. Get paid. The receipt is verified on chain before the screen says Approved, with "settled in N.N s" measured on the payer's device. The merchant's till (a phone or tablet on the counter) lights green and chimes only for a verified Paid event of the armed invoice, at its exact amount. The ledger merges the device's invoices with the contract's statesOf, lists the payments received from an Envio HyperIndex indexer (falling back to the chain's latest blocks), exports CSV, and cancels an invoice with one fingerprint and no gas (cancelBySig).
+4. Get paid. The receipt is verified on chain before the screen says Approved, with "settled in N.N s" measured on the payer's device. The merchant's till (a phone or tablet on the counter) lights green and chimes only for a verified Paid event of the armed invoice, at its exact amount. The ledger merges the device's invoices with the contract's statesOf, lists the payments received from the chain's latest blocks (an Envio HyperIndex indexer for the full history is built and tested in apps/indexer; until it is online, the ledger says it reads only the latest blocks), exports CSV, and cancels an invoice with one fingerprint and no gas (cancelBySig).
 5. Send and receive. Every account has a receive card: an open-amount link printed with its QR code. Contacts saved in the address book are paid in two taps, and the pay view shows "Saved as ..." or an amber "first payment to this address" warning.
 6. Keep the books. A second PRF namespace of the same passkey (paylink.books.v1) derives an AES-256-GCM key that encrypts the merchant's books into a file only that passkey can open, on any device it syncs to.
 The app is in English, French and Malagasy (the founder is reviewing the Malagasy), with an ariary estimate that is labelled as an estimate and never used in a payment.
 
 WHY MONAD, IN WHAT WE ACTUALLY USE
 - Monad charges the gas limit, not the gas used, so every transaction sends clamp(estimate x 1.10, floor, ceiling) from per-function gas bounds measured on anvil's Monad emulation, not a padded guess.
-- The public RPC caps eth_getLogs at 100 blocks, so the till polls from head - 10 every second, and history comes from an Envio HyperIndex indexer over HyperSync instead of the browser.
+- The public RPC caps eth_getLogs at 100 blocks, so the till polls from head - 10 every second, and a merchant's full history needs an indexer: an Envio HyperIndex indexer over HyperSync is built and tested (apps/indexer); until it is online, the ledger reads the chain's latest blocks and says so.
 - The relayer never sends value, which keeps it clear of Monad's reserve-balance rule.
 - Blocks are fast enough for a payment to feel like a card tap. We show the time measured on the payer's device instead of quoting a figure.
 
 UNDER THE HOOD
 - PayLinkV2 (Solidity 0.8.30, OpenZeppelin 5.3.0, paris bytecode) is immutable, ownerless and fee-less. Settlement is exact-delta: the contract never keeps funds. It is deployed on Monad testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 (CREATE2), the same address as on Base Sepolia.
 - 335 Foundry tests (unit, fuzz and 11 invariants), 100% line and branch coverage of the contract, 63 of 63 hand-written mutants killed, Slither with no untriaged result. This is our own review, not a third-party audit.
-- More than 1,400 TypeScript unit and integration tests (SDK, web app, relayer, indexer, chain registry) and 30 Playwright end-to-end tests on the production build, with Chromium's WebAuthn virtual authenticator and PRF, the relayer process and axe-core WCAG 2.2 AA checks.
+- More than 1,400 TypeScript unit and integration tests (SDK, web app, relayer, indexer, chain registry) and 31 Playwright end-to-end tests on the production build, with Chromium's WebAuthn virtual authenticator and PRF, the relayer process and axe-core WCAG 2.2 AA checks.
 - A strict Content-Security-Policy with Trusted Types, no third-party script, a frame lock, and passkeys pinned to one origin.
 - An open invoice specification (EIP-712 types, key derivation, payment binding, URL encodings, receipt verification) with a JSON Schema and test vectors, so any wallet can issue or pay a PayLink invoice.
 
 HONEST STATUS
 Testnet only, not audited. PayLink v1, a simpler payment-link contract on Arc, was written on Oct 4-5, 2026; everything in this entry (the v2 contract, the Monad edition, Mera, the relayer, the indexer, the ledger backup) was built from Oct 5 on, with Claude Code (AI) doing much of the engineering under the founder's direction. The founder owns every decision, key and submission.
 ```
-Characters: 5,671 / 8,000
+Characters: 5,894 / 8,000
+
+<a id="description-with-the-indexer"></a>**Only once the indexer answers** ([README §1](README.md#1-monad-metropolis) step 9 done, and on `/monad/status/` the "History service" lamp is green and reads "Monad testnet: indexed to block …"), replace the two sentences above that say "until it is online" with these, word for word; otherwise paste the Description as it is, which is true either way. Each replacement is shorter than the sentence it replaces, so the text stays within the limit.
+
+Step 4 ("Get paid"), replace the sentence that starts "The ledger merges":
+
+```text
+The ledger merges the device's invoices with the contract's statesOf, lists the payments received from an Envio HyperIndex indexer (falling back to the chain's latest blocks), exports CSV, and cancels an invoice with one fingerprint and no gas (cancelBySig).
+```
+
+"Why Monad", replace the second item:
+
+```text
+- The public RPC caps eth_getLogs at 100 blocks, so the till polls from head - 10 every second, and history comes from an Envio HyperIndex indexer over HyperSync instead of the browser.
+```
 
 ### GitHub repository
 
-`https://github.com/nambininasafidison/paylink` (public, MIT). Push `main` first: the last two feature commits (ledger backup, history indexer) and this pack are local only ([README §1](README.md#1-monad-metropolis)).
+`https://github.com/nambininasafidison/paylink` (public, MIT). Push `main` first: the ledger backup, the history indexer, this pack and the fixes after its review are local commits ([README §1](README.md#1-monad-metropolis)). The repository's home page then shows [`.github/README.md`](../../.github/README.md), the v2 README the T&C ask for (problem and user, both editions, the contract and its transactions, architecture, setup, the pre-existing v1, what was built, AI use, attributions); the root `README.md` is v1's, frozen. Check after the push that the home page opens on "PayLink" with the Monad and Base editions, not on v1's "shareable USDC payment links on Arc".
 
 ### Live product
 
@@ -228,6 +242,8 @@ The forms ask one question per bounty; none states a length limit (**UV**, FACTS
 
 Question: the core features that let a user send AUSD to another person or across borders. The bounty also needs a demo video of at most 2 minutes showing passkey onboarding, an AUSD balance and a completed send or receive settled instantly: [video-scripts.md (c)](video-scripts.md#3-c-agora-demo-at-most-200).
 
+The bounty also asks for **"a mobile app"** (**UV**, FACTS 2026-10-08). Whether an installable web app (PWA) counts is not known: the question is [Q5 of the forum page](monad-forum.md#q5-agora-does-an-installable-pwa-count-as-a-mobile-app-post-or-check). The answer below says what PayLink is: a PWA, with no app-store app. Keep its "Mobile:" sentence only if the rehearsal installed PayLink from the browser and paid from its home-screen icon ([video-scripts.md §0.2](video-scripts.md#02-devices-pick-one-setup-and-rehearse-it-once-the-day-before)); [README §1](README.md#1-monad-metropolis) step 7 says what to do with the organisers' answer.
+
 <!-- field: monad.bounty-agora max=0 -->
 ```text
 PayLink makes AUSD the default dollar of its Monad edition and lets anyone send it across borders in two ways, both settled by one contract call on Monad testnet:
@@ -235,11 +251,12 @@ PayLink makes AUSD the default dollar of its Monad edition and lets anyone send 
 2. Send to a person. Every account has a receive card, an open-amount payment link with a QR code. Save someone's card in the address book once, then press "Send" next to their name, type any amount, and pay.
 How AUSD moves: the payer signs an EIP-3009 authorization for Agora's AUSD with a fingerprint (a Mera passkey; no wallet, no MON), and our relayer submits PayLinkV2.payWithAuthorization. The contract calls AUSD's receiveWithAuthorization and forwards exactly the amount to the payee in the same transaction; the authorization's nonce is derived on chain from the invoice, payer, amount and reference, so the relayer cannot redirect the money. The receipt is verified on chain before the payer sees "Approved", with the settlement time measured on their device, and the merchant's till lights up for that payment.
 Onboarding: "Get 10,000 test AUSD" has the relayer call Agora's AUSD testnet faucet (requestFunds) for a new account, so neither side ever holds MON. The app shows the account's AUSD balance when it is too low to pay, then offers the faucet.
+Mobile: PayLink is a mobile-first installable PWA (web manifest with standalone display, service worker): "Add to Home Screen" in iOS Safari, or "Install app" in Android Chrome, installs it with its own icon. Every page is checked at phone widths from 320 to 390 px in the end-to-end suite, and the Monad payment runs end to end on a phone-sized screen.
 Real AUSD: the gasless payment was run against Agora's AUSD and its faucet on an anvil fork of Monad testnet (relayer fork test, and the screenshots in docs/submissions/assets).
 Where: protocol/src/PayLinkV2.sol (payWithAuthorization), apps/web/src/pages/pay.ts and send.ts, apps/web/src/rails/authorization.ts, apps/web/src/app/funds.ts, apps/relayer/ (pay and onboard endpoints). Contract: 0x448eCce9711860502806A3d5B021a4f9Ba715082.
 Not built: Agora's Instant Settlement product, and conversion to local currency.
 ```
-Characters: 1,914 (no stated limit)
+Characters: 2,268 (no stated limit)
 
 ### 5.2 Envio: Best Use of Envio
 
