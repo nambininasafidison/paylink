@@ -35,7 +35,7 @@ catalog:
   '@base-org/account': 2.5.13
   hono: 4.13.13
   zod: 4.6.5
-  envio: 3.12.1
+  envio: 3.14.0
   vitest: 5.0.3
   '@vitest/coverage-v8': 5.0.3
   typescript-eslint: 8.71.1
@@ -47,7 +47,7 @@ catalog:
   '@types/node': 22.20.5 # Node 22 line (.nvmrc 22.22.0); tests and scripts only, never src/
   # Deploy page (web/v2/deploy, tools/deploy-page), added on 2026-10-07.
   rolldown: 1.2.12 # bundles the deploy page's vendored viem subset; the same version vite 8.3.2 already resolves
-  axe-core: 4.13.0 # e2e accessibility gate (spec §4.1 "axe 0 violations"); 4.14.0 was two days old at pinning
+  axe-core: 4.14.0 # e2e accessibility gate (spec §4.1 "axe 0 violations"); 4.14.0 was two days old at pinning
   # Relayer (apps/relayer, spec §3.7), added on 2026-10-07. hono and zod are pinned above.
   '@hono/node-server': 2.1.3 # Node adapter for local e2e against anvil; peer hono ^4
   wrangler: 4.148.0 # `wrangler deploy --dry-run` config gate; the runbook's deploy command uses this exact version
