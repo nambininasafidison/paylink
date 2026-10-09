@@ -33,6 +33,11 @@ import { announce } from "../ui/live.ts";
 import type { ChainDefinition } from "@paylink/chains";
 
 const LOOKBACK_BLOCKS = 10n;
+
+/** Letters in the longest word of `text`: the verdict's size is bounded by it (`--len`, components.css). */
+export function longestWord(text: string): number {
+  return Math.max(1, ...text.split(/\s+/).map((word) => word.length));
+}
 const MAX_RANGE = 99n;
 const POLL_MS = 1000;
 
@@ -149,7 +154,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
   const token = armed?.token ?? chain.tokens.find((x) => x.listing === "default");
   const expected = armed !== null && armed.invoice.amount !== 0n ? displayAmount(armed.invoice.amount, armed.token, app.locale) : null;
   const stateWord = h("b", { class: "till-word" }, t("till.idle"));
-  const verdict = h("div", { class: "till-verdict" }, h("span", { class: "till-glyph", attrs: { "aria-hidden": "true" } }), stateWord);
+  const verdict = h("div", { class: "till-verdict", vars: { "--len": String(longestWord(t("till.idle"))) } }, h("span", { class: "till-glyph", attrs: { "aria-hidden": "true" } }), stateWord);
   const figure = h("div", { class: "till-figure" }, expected === null ? num(t("ticket.any"), "any") : num(expected), h("span", { class: "unit" }, token?.symbol ?? ""));
   const fxLine = h("p", { class: "till-fx" }, armed !== null && armed.invoice.amount !== 0n ? ariaryLabel(armed.invoice.amount, armed.token, app.fx, app.locale, (p) => t("fx.estimate", p)) : null);
   const caption = h("p", { class: "till-caption" }, armed?.memo === null || armed === null ? t("till.watching", { address: shortHex(payee) }) : sanitizeMemoForDisplay(armed.memo));
@@ -177,6 +182,9 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
   const light = (state: "idle" | "waiting" | "paid" | "error", text: string): void => {
     display.setAttribute("data-state", state === "waiting" ? "waiting" : state);
     stateWord.textContent = text;
+    // The verdict is sized to the window and to its longest word, which never breaks: "VOALOA" (Malagasy) has six
+    // letters where "PAID" has four.
+    verdict.style.setProperty("--len", String(longestWord(text)));
     ui.plate(plateText(chain), state === "paid" ? "ok" : state === "error" ? "err" : "wait");
   };
 

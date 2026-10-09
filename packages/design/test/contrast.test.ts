@@ -40,7 +40,7 @@ const TEXT: [string, string][] = [
   ["--ink", "--bg"], ["--ink", "--panel"], ["--ink-2", "--panel"], ["--muted", "--panel"], ["--muted", "--well"], ["--muted", "--bg"],
   ["--signal-ink", "--panel"], ["--signal-ink", "--bg"], ["--ok", "--panel"], ["--err", "--panel"], ["--warn", "--panel"], ["--warn", "--well"],
   ["--screen-ink", "--screen"], ["--screen-dim", "--screen"], ["--lcd-ok", "--screen"], ["--screen-warn", "--screen"], ["--screen-err", "--screen"],
-  ["--on-signal", "--signal"], ["--slip-ink", "--slip"], ["--slip-muted", "--slip"],
+  ["--on-signal", "--signal"], ["--slip-ink", "--slip"], ["--slip-muted", "--slip"], ["--slip-warn", "--slip"],
 ];
 // Field edges (--rule-2) are measured against the surface the field sits on, the panel, where v1 documents 3.3:1
 // (WCAG 1.4.11: the boundary against its adjacent colour); against the well inside the field they reach 2.99:1.

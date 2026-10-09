@@ -12,16 +12,50 @@ import { WalletError } from "../accounts/types.ts";
 import { TransactionRevertedError } from "../rails/wallet.ts";
 import { RelayerProblem } from "./relayer.ts";
 
-/** An error the app raises itself, already phrased as an i18n key. */
+/**
+ * The support code engraved under each of the app's own errors ("Error code AuthorizationUsed"): short, stable, the
+ * same in every language, and named like the contract's custom errors. A person reads it out to support, so it never
+ * shows an i18n key, which is an implementation detail that changes with the copy. Each throw names its code; the union
+ * is checked by the compiler and costs nothing at run time.
+ */
+export type SupportCode =
+  | "AmountInvalid"
+  | "AuthorizationLapsed"
+  | "AuthorizationLive"
+  | "AuthorizationUsed"
+  | "BalanceTooLow"
+  | "BatchIncomplete"
+  | "CancelFailed"
+  | "CancelNeedsFee"
+  | "CancelPending"
+  | "CancelRelayRefused"
+  | "ContactNameInvalid"
+  | "FeeServiceDown"
+  | "MemoTooLong"
+  | "NoExpiryUnconfirmed"
+  | "NoFeeCoin"
+  | "NoPaymentRoute"
+  | "NotDeployed"
+  | "NoToken"
+  | "ReceiptMismatch"
+  | "SeatsInvalid"
+  | "SettlementPending"
+  | "TooManyDecimals"
+  | "WouldRevert";
+
+/** An error the app raises itself, already phrased as an i18n key, with its support code. */
 export class AppError<K extends MessageKey = MessageKey> extends Error {
   readonly key: K;
   readonly params: ParamsOf<K>;
+  /** The support code shown under the message ("AuthorizationUsed"). */
+  readonly code: SupportCode;
 
-  constructor(key: K, params: ParamsOf<K>, message?: string) {
-    super(message ?? key);
+  constructor(key: K, params: ParamsOf<K>, code: SupportCode) {
+    super(key);
     this.name = "AppError";
     this.key = key;
     this.params = params;
+    this.code = code;
   }
 }
 
@@ -39,7 +73,7 @@ export function decodeUiError(app: Pick<App, "i18n">, error: unknown): UiError {
   if (error instanceof AppError) {
     const appError = error as AppError;
     const message = lookup(appError.key, appError.params) ?? t("error.unknown");
-    return { message, code: code(appError.key), name: appError.key };
+    return { message, code: code(appError.code), name: appError.key };
   }
   if (error instanceof PasskeyUseError) {
     const key = { cancelled: "error.passkey.cancelled", "prf-unavailable": "error.passkey.prf", "other-key": "error.passkey.otherKey", unsupported: "error.passkey.unsupported", failed: "error.passkey.failed" } as const;

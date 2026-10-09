@@ -43,6 +43,31 @@
   .device:fullscreen .till-figure .num { font-size: min(26vh, calc(190cqw / var(--n, 6))); }
   .device:fullscreen .till-caption { font-size: clamp(17px, 2.4vw, 28px); }
 
+  /* A phone on its side on the counter (full screen, landscape, short): the amount must stay whole. The verdict and the
+     amount sit side by side, the amount sized by the height, the verdict on at most two short lines; the caption and the
+     log step aside; Stop, Chime and Exit share one row of 44 px keys under the window. */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .device:fullscreen { padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
+    .device:fullscreen .view-till { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+    .device:fullscreen .view-till > .till { grid-column: 1 / -1; align-self: stretch; overflow: hidden;
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto minmax(0, 1fr) auto auto; column-gap: 18px;
+      grid-template-areas: "top top" "verdict figure" "settled figure" "fx figure"; padding: 10px 16px 12px; }
+    .device:fullscreen .till-top { grid-area: top; }
+    .device:fullscreen .till-verdict { grid-area: verdict; align-self: center; margin: 8px 0 0; padding: .3em .45em; border-radius: 4px;
+      --fit: calc(40cqw / (var(--len, 8) * .82 + 1.5)); font-size: clamp(16px, min(6vh, var(--fit)), 32px); }
+    .device:fullscreen .till[data-state="paid"] .till-verdict { --fit: calc(40cqw / (var(--len, 4) * .86 + 1.5)); font-size: clamp(20px, min(10vh, var(--fit)), 44px); }
+    .device:fullscreen .till-figure { grid-area: figure; padding: 6px 0 0; justify-content: center; }
+    .device:fullscreen .till-figure .num { font-size: min(42vh, calc(190cqw / var(--n, 6))); }
+    .device:fullscreen .till-figure .unit { margin-top: 6px; }
+    .device:fullscreen .till-settled { grid-area: settled; align-self: start; }
+    .device:fullscreen .till-fx { grid-area: fx; margin-top: 4px; }
+    .device:fullscreen .till-caption, .device:fullscreen .till-log { display: none; }
+    .device:fullscreen .view-till > .status { grid-column: 1; grid-row: 2; margin: 0; }
+    .device:fullscreen .view-till > .key-primary { grid-column: 2; grid-row: 2; width: auto; min-height: 44px; margin: 0; padding-inline: 18px; }
+    .device:fullscreen .view-till > .key-row { grid-column: 3; grid-row: 2; margin: 0; }
+    .device:fullscreen .view-till > .key-row .key { min-height: 44px; }
+  }
+
   /* The pay view's verification strip sits between the window and the facts. */
   .bill .vstrip { margin-top: 18px; }
   .bill .warn-note { margin-top: 12px; }

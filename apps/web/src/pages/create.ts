@@ -231,10 +231,10 @@ function renderTerminal(app: App, ui: PageUi): void {
   /** Reads and checks the form; throws an AppError naming the field. */
   const readDraft = (): Draft => {
     if (chain === undefined || token === undefined) {
-      throw new AppError("create.error.noToken", {});
+      throw new AppError("create.error.noToken", {}, "NoToken");
     }
     if (app.registry.v2Target(chain.chainId) === undefined) {
-      throw new AppError("chain.notDeployedLong", { network: networkName(chain) });
+      throw new AppError("chain.notDeployedLong", { network: networkName(chain) }, "NotDeployed");
     }
     const typed = amountInput.value.trim();
     let amount = 0n;
@@ -243,17 +243,17 @@ function renderTerminal(app: App, ui: PageUi): void {
         amount = parseTypedAmount(typed, token);
       } catch (error) {
         amountInput.focus();
-        throw isPayLinkError(error, "E_AMOUNT_PRECISION") ? new AppError("create.error.precision", { decimals: token.decimals }) : new AppError("create.error.amount", {});
+        throw isPayLinkError(error, "E_AMOUNT_PRECISION") ? new AppError("create.error.precision", { decimals: token.decimals }, "TooManyDecimals") : new AppError("create.error.amount", {}, "AmountInvalid");
       }
       if (amount === 0n) {
         amountInput.focus();
-        throw new AppError("create.error.amount", {});
+        throw new AppError("create.error.amount", {}, "AmountInvalid");
       }
     }
     const memo = memoInput.value.trim() === "" ? null : normalizeMemo(memoInput.value.trim());
     if (memo !== null && memoBytes(memo).length > MAX_MEMO_BYTES) {
       memoInput.focus();
-      throw new AppError("create.error.memoTooLong", { used: memoBytes(memo).length, max: MAX_MEMO_BYTES });
+      throw new AppError("create.error.memoTooLong", { used: memoBytes(memo).length, max: MAX_MEMO_BYTES }, "MemoTooLong");
     }
     let maxPayments = 1;
     if (payments === "unlimited") {
@@ -262,12 +262,12 @@ function renderTerminal(app: App, ui: PageUi): void {
       const seats = Number(seatsInput.value);
       if (!Number.isInteger(seats) || seats < 2 || seats > MAX_SEATS) {
         seatsInput.focus();
-        throw new AppError("create.error.seats", { max: MAX_SEATS });
+        throw new AppError("create.error.seats", { max: MAX_SEATS }, "SeatsInvalid");
       }
       maxPayments = seats;
     }
     if (expiry === "never" && !never.checked()) {
-      throw new AppError("create.error.never", {});
+      throw new AppError("create.error.never", {}, "NoExpiryUnconfirmed");
     }
     return { chain, token, amount, memo, maxPayments, expiry };
   };

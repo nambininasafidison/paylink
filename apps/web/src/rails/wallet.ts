@@ -15,7 +15,7 @@
 import type { Erc20Token, PayLinkFunction } from "@paylink/chains";
 import { approveCall, decodePaidLog, gasLimitFor, payCall, payNativeCall, preparePermitPayment, replayRevertData } from "@paylink/sdk";
 import type { CallRequest } from "@paylink/sdk";
-import type { Hex, TransactionReceipt } from "viem";
+import type { Address, Hex, TransactionReceipt } from "viem";
 import { pollingIntervalFor } from "../core/clients.ts";
 import type { ChainClient } from "../core/clients.ts";
 import type { PaymentContext, PaymentOutcome, PaymentRail } from "./types.ts";
@@ -52,7 +52,7 @@ async function estimate(client: ChainClient, from: `0x${string}`, call: CallRequ
 }
 
 /** The block-level index of the `Paid` event this payer's transaction emitted for this invoice. */
-export function paidLogIndex(receipt: TransactionReceipt, context: Pick<PaymentContext, "link" | "account">): number {
+export function paidLogIndex(receipt: Pick<TransactionReceipt, "logs">, context: Pick<PaymentContext, "link"> & { readonly account: { readonly address: Address } }): number {
   const contract = context.link.target.deployment.address.toLowerCase();
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== contract) {

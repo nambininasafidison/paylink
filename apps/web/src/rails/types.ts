@@ -63,8 +63,11 @@ export interface PaymentOutcome {
   readonly receipt: TransactionReceipt;
   /** Block-level log index of the `Paid` event the transaction emitted. */
   readonly logIndex: number;
-  /** Milliseconds from the moment the payer confirmed (the signature or the wallet's approval) to the receipt. */
-  readonly elapsedMs: number;
+  /**
+   * Milliseconds from the moment the payer confirmed (the signature or the wallet's approval) to the receipt; `null`
+   * when this device did not watch it settle (an earlier authorisation that a late relay used, found afterwards).
+   */
+  readonly elapsedMs: number | null;
 }
 
 export interface PaymentRail {

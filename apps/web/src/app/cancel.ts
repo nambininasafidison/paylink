@@ -27,7 +27,7 @@ async function untilCancelled(client: ChainClient, link: DecodedInvoiceLink, tim
       return;
     }
     if (Date.now() > deadline) {
-      throw new AppError("ledger.cancel.pending", {});
+      throw new AppError("ledger.cancel.pending", {}, "CancelPending");
     }
     await new Promise((resolve) => setTimeout(resolve, pollingIntervalFor(link.target.chain)));
   }
@@ -38,7 +38,7 @@ async function cancelWithGas(app: App, link: DecodedInvoiceLink, account: Accoun
   const chain = link.target.chain;
   const client = app.client(chain);
   if ((await client.getBalance(account.address)) === 0n) {
-    throw new AppError("ledger.cancel.noGas", { coin: chain.nativeCurrency.symbol });
+    throw new AppError("ledger.cancel.noGas", { coin: chain.nativeCurrency.symbol }, "CancelNeedsFee");
   }
   await account.switchChain(chain);
   const call = cancelCall(link.target.deployment.address, link.invoice);
@@ -48,7 +48,7 @@ async function cancelWithGas(app: App, link: DecodedInvoiceLink, account: Accoun
   onStep("sent");
   const receipt = await client.waitForReceipt(txHash);
   if (receipt.status !== "success") {
-    throw new AppError("ledger.cancel.failed", {});
+    throw new AppError("ledger.cancel.failed", {}, "CancelFailed");
   }
   return "transaction";
 }
@@ -79,7 +79,7 @@ export async function cancelInvoice(app: App, link: DecodedInvoiceLink, account:
     if (error instanceof RelayerProblem && error.fallback === "self-submit" && (await client.getBalance(account.address).catch(() => 0n)) > 0n) {
       return await cancelWithGas(app, link, account, onStep);
     }
-    throw error instanceof RelayerProblem ? new AppError("ledger.cancel.relayer", { code: error.code }) : error;
+    throw error instanceof RelayerProblem ? new AppError("ledger.cancel.relayer", { code: error.code }, "CancelRelayRefused") : error;
   }
   onStep("relayed");
   await untilCancelled(client, link);

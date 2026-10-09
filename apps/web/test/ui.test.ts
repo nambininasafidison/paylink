@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * The Precision Terminal pieces: QR codes drawn with createElementNS, the band selector (WAI-ARIA radio group), the
- * address grouped by four with one spoken label, the printed card and receipt slip, clipboard copies from canonical
+ * address grouped by four with one spoken label, the printed card (the receipt slip: test/proof-slip.test.ts), clipboard copies from canonical
  * state, and the service worker URL through the single Trusted Types policy.
  */
 import qrcode from "qrcode-generator";
@@ -11,7 +11,6 @@ import { addr, hexGroups, lamp, num, setStatus, statusLine } from "../src/ui/ato
 import { bandSelector, confirmBox, segmented } from "../src/ui/controls.ts";
 import { announce, copyText, download, toast } from "../src/ui/live.ts";
 import { correctionFor, qrMatrix, qrPath, qrSvg } from "../src/ui/qr.ts";
-import { receiptSlip } from "../src/ui/receipt.ts";
 import { signingDisplay } from "../src/ui/signing.ts";
 import { shortLink, ticket } from "../src/ui/ticket.ts";
 
@@ -149,12 +148,6 @@ describe("printed pieces", () => {
     expect(card.querySelector(".lamba")?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("prints a receipt slip whose verdict is red when the receipt is not valid", () => {
-    const slip = receiptSlip({ top: "PayLink receipt", verdict: "Not verified", valid: false, amount: "25.50", symbol: "AUSD", rows: [["To", "0x7099…79C8"]], checks: [["err", "Payment found"]], foot: "Verified on Monad", label: "Receipt" });
-    expect(slip.querySelector(".receipt-top b")?.className).toBe("is-err");
-    expect(slip.querySelector("dl")?.textContent).toBe("To0x7099…79C8");
-    expect(slip.querySelector(".checks-mini .lamp.err")?.textContent).toBe("Payment found");
-  });
 });
 
 describe("live regions and clipboard", () => {

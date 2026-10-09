@@ -62,7 +62,7 @@ async function renderSend(app: App, ui: PageUi, section: HTMLElement): Promise<v
         const label = name.value.trim();
         if (label === "" || label.length > MAX_LABEL) {
           name.focus();
-          throw new AppError("send.error.name", { max: MAX_LABEL });
+          throw new AppError("send.error.name", { max: MAX_LABEL }, "ContactNameInvalid");
         }
         const raw = card.value.trim();
         const fragment = raw.includes("#") ? fragmentOf(raw) : raw;

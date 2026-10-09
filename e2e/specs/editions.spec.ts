@@ -17,7 +17,9 @@
  * - a smart account (EIP-5792 `atomic: supported`) pays with one `wallet_sendCalls([approve, pay])`, named "Pay with Base"
  *   only when the wallet is the Base app or Coinbase Wallet (rdns `com.coinbase.wallet`).
  *
- * The root edition (`/`): a relayer failure after the signature leaves the payer the own-gas way out (spec §3.5, §3.7).
+ * The root edition (`/`): a relayer failure after the signature leaves the payer the own-gas way out (spec §3.5, §3.7);
+ * a relay that lands after the payer stopped waiting is found and shown as the payment it is, with its receipt, whether
+ * the page is still open or opened again later (spec §4.2 "relayer slow, then lands"; invoice spec §8.6).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -26,6 +28,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { decodeFunctionData, parseAbi } from "viem";
 import type { Address, Hex } from "viem";
 import { ACCOUNTS, PAYER_FUNDS, PAYLINK, TOKEN } from "../fixtures/app.ts";
+import { axe, settleAnimations } from "../fixtures/axe.ts";
 import { addAuthenticator, BASE, buildEditionsSite, DRIP, MONAD, RELAYER_ORIGIN, routeRelayer, startEditionChains, startRelayer } from "../fixtures/editions.ts";
 import type { EditionChains, LocalRelayer } from "../fixtures/editions.ts";
 import { brokenWords, horizontalOverflow, setLocale, truncatedText } from "../fixtures/layout.ts";
@@ -35,7 +38,6 @@ import { REPO } from "../fixtures/server.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 import type { MockWallet } from "../fixtures/wallet.ts";
 
-const axeSource = readFileSync(join(REPO, "e2e/node_modules/axe-core/axe.min.js"), "utf8");
 const erc20 = parseAbi(["function approve(address spender, uint256 value) returns (bool)"]);
 const payLinkAbi = parseAbi([
   "function pay((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef)",
@@ -107,15 +109,6 @@ async function person(
           ...(options.wallet.info === undefined ? {} : { info: options.wallet.info }),
         });
   return { context, page, problems, relayed, wallet };
-}
-
-async function axe(page: Page): Promise<string[]> {
-  await page.evaluate(axeSource);
-  return await page.evaluate(async () => {
-    const run = (window as unknown as { axe: { run: (ctx: Document, o: object) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe.run;
-    const result = await run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } });
-    return result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
-  });
 }
 
 const lamp = (page: Page, index: number) => page.locator(".vstrip > li").nth(index);
@@ -454,6 +447,104 @@ test("all: the relayer fails after the signature; the payer sends the same autho
   expect(payer.problems).toEqual([]);
 });
 
+test("all: relayer slow, then lands: the payer sees the payment the late relay made, with its receipt, charged once and nothing re-signed", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const seller = await person(browser, { wallet: { account: ACCOUNTS.payee, chainId: MONAD } });
+  const invoice = async (amount: string, memo: string): Promise<string> => {
+    await seller.page.goto(`${origin}/`);
+    await seller.page.locator("#amount").fill(amount);
+    await seller.page.locator("#memo").fill(memo);
+    await seller.page.locator(".view-create > .key-primary").click();
+    await seller.page.locator(".signing + .key-row .key-primary").click();
+    await expect(seller.page.locator(".ticket")).toBeVisible();
+    return await seller.page.locator(".share input").inputValue();
+  };
+  const payer = await person(browser, { wallet: { account: ACCOUNTS.payer, chainId: MONAD } });
+  // The fee service takes the payment but answers after the page has stopped waiting (12 s): the request is held for
+  // 13 s, then relayed for real. Later requests go straight through.
+  let held = 0;
+  const landed: Promise<void>[] = [];
+  await payer.context.route(`${RELAYER_ORIGIN}/v1/${String(MONAD)}/pay`, async (route) => {
+    if (route.request().method() !== "POST" || held >= 2) {
+      await route.fallback();
+      return;
+    }
+    held += 1;
+    const body = route.request().postData() ?? "";
+    const from = route.request().headers()["origin"] ?? "";
+    landed.push(
+      (async () => {
+        await new Promise((resolve) => setTimeout(resolve, 13_000));
+        await fetch(`${relayer.url}/v1/${String(MONAD)}/pay`, { method: "POST", headers: { "content-type": "application/json", origin: from }, body });
+      })(),
+    );
+    await landed.at(-1);
+    await route.abort("timedout").catch(() => undefined);
+  });
+  const signatures = (): number => payer.wallet?.requests.filter((r) => r.method === "eth_signTypedData_v4").length ?? 0;
+  const supportCodes = async (): Promise<string[]> => await payer.page.locator(".status .code").allTextContents();
+  const before = await balance(chains.monad, ACCOUNTS.payer);
+
+  // 1. The page gives up on the fee service and offers to send the same signature again.
+  const first = await invoice("2", "Slow relayer");
+  await payer.page.goto(first);
+  const key = payer.page.locator(".payform .key-primary");
+  await key.click(); // connect
+  await expect(key).toHaveText("Pay 2.00 AUSD");
+  await key.click();
+  await expect(payer.page.locator(".bill > .status")).toContainText("The service that covers the network fee did not answer.", { timeout: 30_000 });
+  await expect(payer.page.locator(".route-note")).toHaveText("Your signature from a moment ago is still valid: it is sent again, nothing new is signed.");
+  expect(signatures()).toBe(1);
+  // 2. The relay lands meanwhile. The payer presses the key offered to send the same signature again: the page finds
+  //    the payment the signature already made and shows "Approved", from that transaction's receipt; never a red
+  //    error, never a second signature or transaction.
+  await expect.poll(async () => await balance(chains.monad, ACCOUNTS.payer), { timeout: 30_000 }).toBe(before - 2_000_000n);
+  await expect(key).toHaveText("Pay 2.00 AUSD");
+  await key.click();
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved", { timeout: 20_000 });
+  await expect(payer.page.locator(".verdict .verdict-time")).toHaveText("Paid with your earlier signature");
+  await expect(payer.page.locator(".bill > .status")).toHaveClass("status ok");
+  await expect(payer.page.locator(".bill > .status")).toHaveText("Paid 2.00 AUSD with your earlier signature: nothing new was signed.");
+  await expect(payer.page.locator(".receipt-slot .receipt-who")).toHaveText("Paid by you: the From address is your account.");
+  expect(signatures()).toBe(1);
+  expect(payer.wallet?.sent()).toHaveLength(0);
+  expect(await balance(chains.monad, ACCOUNTS.payer)).toBe(before - 2_000_000n);
+  // The receipt verifies, and the payer's own books keep it.
+  const receiptHref = (await payer.page.locator(".receipt-slot a.key").first().getAttribute("href")) ?? "";
+  expect(receiptHref).toMatch(/\/r\/#2\.10143\.0x[0-9a-f]{64}\.\d+\./);
+  await payer.page.goto(new URL(receiptHref, origin).toString());
+  await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Payment found");
+  await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Matches the invoice");
+  await payer.page.goto(`${origin}/ledger/`);
+  await expect(payer.page.locator(".receipts-block a[href*='/r/#']")).toHaveCount(1);
+  // Opened again, the paid link points to the payer's receipt.
+  await payer.page.goto(first);
+  await expect(payer.page.locator(".payform .key-primary")).toBeDisabled();
+  await expect(payer.page.locator(".state-own")).toContainText("You paid this link from this device.");
+  await expect(payer.page.locator(".state-own a")).toHaveAttribute("href", receiptHref);
+
+  // 3. The payer gives up and leaves before the relay lands; opening the link again later finds the payment.
+  const second = await invoice("1.1", "Slow relayer, tab closed");
+  await payer.page.goto(second);
+  await expect(key).toHaveText("Pay 1.10 AUSD");
+  await key.click();
+  await expect(payer.page.locator(".bill > .status")).toContainText("did not answer", { timeout: 30_000 });
+  await payer.page.goto(`${origin}/ledger/`);
+  await expect.poll(async () => await balance(chains.monad, ACCOUNTS.payer), { timeout: 30_000 }).toBe(before - 3_100_000n);
+  await payer.page.goto(second);
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved", { timeout: 20_000 });
+  await expect(payer.page.locator(".verdict .verdict-time")).toHaveText("Paid with your earlier signature");
+  await expect(payer.page.locator(".receipt-slot a[href*='/r/#']").first()).toBeVisible();
+  expect(signatures()).toBe(2);
+  expect(payer.wallet?.sent()).toHaveLength(0);
+  expect(await balance(chains.monad, ACCOUNTS.payer)).toBe(before - 3_100_000n);
+  await Promise.all(landed);
+  // Support codes are short and stable, never an i18n key.
+  expect((await supportCodes()).filter((code) => /\b(pay|receipt|ledger|create)\.[a-z]/.test(code))).toEqual([]);
+  expect(payer.problems).toEqual([]);
+  expect(seller.problems).toEqual([]);
+});
+
 test("Monad: the KeyCard and the pay view in dark mode on a phone, without axe violations or horizontal scroll", async ({ browser }) => {
   const visitor = await person(browser, { phone: true, scheme: "dark" });
   const { page } = visitor;
@@ -483,6 +574,8 @@ test("Monad: the KeyCard and the pay view in dark mode on a phone, without axe v
   // Malagasy on a 320 px phone, through the whole seller flow and the pay view: no word broken inside itself, no copy
   // cut by an ellipsis, no sideways scroll and no axe violation (spec §3.9 text expansion, §3.10 reflow).
   const readable = async (where: string): Promise<void> => {
+    // Read as a person reads it: once the entrance animations (the card's rise, a verdict's sweep) have played.
+    await settleAnimations(page);
     expect(await brokenWords(page), `${where}: words broken inside`).toEqual([]);
     expect(await truncatedText(page), `${where}: copy cut`).toEqual([]);
     expect(await horizontalOverflow(page), `${where}: horizontal scroll`).toBeLessThanOrEqual(0);

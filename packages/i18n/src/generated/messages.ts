@@ -255,6 +255,7 @@ export type MessageKey =
   | "pay.note.expired"
   | "pay.note.scheduled"
   | "pay.note.self"
+  | "pay.note.yours"
   | "pay.error.amount"
   | "pay.error.predicted"
   | "pay.error.balance"
@@ -318,6 +319,16 @@ export type MessageKey =
   | "receipt.tx"
   | "receipt.foot"
   | "receipt.label"
+  | "receipt.who.you"
+  | "receipt.who.byYou"
+  | "receipt.who.byYouTo"
+  | "receipt.who.contact"
+  | "receipt.who.notYou"
+  | "receipt.who.unknown"
+  | "receipt.chain"
+  | "receipt.qrLabel"
+  | "receipt.verifyTitle"
+  | "receipt.verifyText"
   | "receipt.check.paid"
   | "receipt.check.contract"
   | "receipt.check.invoice"
@@ -655,6 +666,7 @@ export type MessageKey =
   | "pay.payWithBase"
   | "pay.waitRelayer"
   | "pay.retryRelayer"
+  | "pay.recover"
   | "pay.route.needsGas"
   | "pay.route.consumed"
   | "pay.route.resubmit"
@@ -666,7 +678,10 @@ export type MessageKey =
   | "pay.status.resubmit"
   | "pay.status.relayed"
   | "pay.status.batch"
+  | "pay.status.recovering"
+  | "pay.status.recovered"
   | "pay.verdict.settled"
+  | "pay.verdict.earlier"
   | "pay.error.balanceKey"
   | "pay.error.consumed"
   | "pay.error.outstanding"
@@ -976,6 +991,7 @@ export interface MessageParams {
   readonly "pay.note.expired": never;
   readonly "pay.note.scheduled": { readonly date: ParamValue };
   readonly "pay.note.self": never;
+  readonly "pay.note.yours": never;
   readonly "pay.error.amount": never;
   readonly "pay.error.predicted": { readonly reason: ParamValue };
   readonly "pay.error.balance": { readonly balance: ParamValue; readonly symbol: ParamValue };
@@ -1039,6 +1055,16 @@ export interface MessageParams {
   readonly "receipt.tx": never;
   readonly "receipt.foot": { readonly network: ParamValue };
   readonly "receipt.label": never;
+  readonly "receipt.who.you": never;
+  readonly "receipt.who.byYou": never;
+  readonly "receipt.who.byYouTo": { readonly label: ParamValue };
+  readonly "receipt.who.contact": { readonly label: ParamValue };
+  readonly "receipt.who.notYou": never;
+  readonly "receipt.who.unknown": never;
+  readonly "receipt.chain": never;
+  readonly "receipt.qrLabel": never;
+  readonly "receipt.verifyTitle": never;
+  readonly "receipt.verifyText": never;
   readonly "receipt.check.paid": never;
   readonly "receipt.check.contract": never;
   readonly "receipt.check.invoice": never;
@@ -1376,6 +1402,7 @@ export interface MessageParams {
   readonly "pay.payWithBase": never;
   readonly "pay.waitRelayer": never;
   readonly "pay.retryRelayer": never;
+  readonly "pay.recover": never;
   readonly "pay.route.needsGas": never;
   readonly "pay.route.consumed": never;
   readonly "pay.route.resubmit": never;
@@ -1387,7 +1414,10 @@ export interface MessageParams {
   readonly "pay.status.resubmit": never;
   readonly "pay.status.relayed": never;
   readonly "pay.status.batch": { readonly amount: ParamValue; readonly symbol: ParamValue };
+  readonly "pay.status.recovering": never;
+  readonly "pay.status.recovered": { readonly amount: ParamValue; readonly symbol: ParamValue };
   readonly "pay.verdict.settled": { readonly seconds: ParamValue };
+  readonly "pay.verdict.earlier": never;
   readonly "pay.error.balanceKey": { readonly balance: ParamValue; readonly symbol: ParamValue };
   readonly "pay.error.consumed": never;
   readonly "pay.error.outstanding": { readonly seconds: ParamValue };

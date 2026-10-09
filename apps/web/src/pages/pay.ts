@@ -14,6 +14,11 @@
  * of the edition can execute is used. Who pays the network fee (the assurance line and the lead's step 02) is said
  * from that route, never from the edition alone; "Pay with Base" is said only to a Base app or Coinbase Wallet. The
  * outcome is verified as a receipt on the chain before "Approved" lights.
+ *
+ * A gasless payment can land after the payer stopped waiting for it (a slow relayer: invoice spec §8.6). The device
+ * keeps the signed authorisation; once the token reports it used, the view finds the payment it made (no signature,
+ * no transaction), verifies it and shows the same "Approved" and receipt, never a red error: on the next press of the
+ * Pay key (which offers to send the same signature again) and whenever the link is opened again.
  */
 import type { ChainDefinition, Token } from "@paylink/chains";
 import { formatDateTime, formatSeconds } from "@paylink/i18n";
@@ -40,15 +45,16 @@ import type { PageUi } from "../app/shell.ts";
 import { showFundsIfShort } from "../app/funds.ts";
 import { choosePath } from "../app/payer.ts";
 import type { PathChoice } from "../app/payer.ts";
+import { payeeIdentity as receiptIdentity, proofSlip } from "../app/proof-slip.ts";
 import { pickWallet } from "../app/wallet-ui.ts";
 import { chainTime } from "../core/clients.ts";
 import type { ChainClient } from "../core/clients.ts";
 import { AppError, decodeUiError } from "../core/errors.ts";
-import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
+import { displayAmount, parseTypedAmount } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { receiptUrl } from "../core/links.ts";
-import { RelayFallbackError } from "../rails/authorization.ts";
-import type { PaymentStep } from "../rails/types.ts";
+import { recoverConsumedPayment, RelayFallbackError } from "../rails/authorization.ts";
+import type { PaymentOutcome, PaymentStep } from "../rails/types.ts";
 import { checkLink } from "../read/checks.ts";
 import type { LinkChecks } from "../read/checks.ts";
 import { parseStoredContact, parseStoredReceipt, receiptId } from "../store/db.ts";
@@ -56,7 +62,6 @@ import { addr, ext, fact, hexGroups, lamp, num, setStatus, statusLine, unit } fr
 import type { LampKind } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce, copyText } from "../ui/live.ts";
-import { receiptSlip } from "../ui/receipt.ts";
 import { signingDisplay } from "../ui/signing.ts";
 
 const SETTLEMENT_FN: Readonly<Partial<Record<PaymentPath, SettlementFunction>>> = {
@@ -294,6 +299,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   let offerFor: Address | null = null;
   /** The rail that sends the payer's own authorisation with their own gas, when this edition has one. */
   const ownGasRail = app.edition.rails.find((r) => r.paths.includes("self-authorization"));
+  /** Whether this view already looked for the payment of an earlier, used authorisation on its own (once). */
+  let recoveryTried = false;
 
   void payeeIdentity(app, invoice.payee).then((who) => {
     payeeLabel = who.label;
@@ -304,6 +311,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const lockKey = (label: string): void => {
     key.textContent = label;
     key.disabled = true;
+    delete key.dataset["action"];
     replace(signSlot);
   };
 
@@ -366,13 +374,23 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     }
     if (choice.ok) {
       showSigning(account, choice.path);
-    } else {
-      lockKey(choice.reason === "authorization-consumed" ? t("pay.locked") : t("pay.waitRelayer"));
-      key.dataset["action"] = "recheck";
-      key.disabled = choice.reason === "authorization-consumed";
-      if (!key.disabled) {
-        key.textContent = t("pay.retryRelayer");
+    } else if (choice.reason === "authorization-consumed") {
+      // The payer's earlier signature was used: the payment went through (a relay that landed late). Its receipt is
+      // found and shown; nothing is signed or sent, and the money is never asked for twice.
+      replace(signSlot);
+      key.textContent = t("pay.recover");
+      key.disabled = false;
+      key.dataset["action"] = "recover";
+      if (!recoveryTried) {
+        recoveryTried = true;
+        startRecovery(now);
       }
+      return;
+    } else {
+      lockKey(t("pay.waitRelayer"));
+      key.dataset["action"] = "recheck";
+      key.disabled = false;
+      key.textContent = t("pay.retryRelayer");
     }
     const needed = typedAmount() ?? 0n;
     await showFundsIfShort(app, fundsSlot, {
@@ -414,6 +432,15 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       // "checking" on a paid, cancelled, expired or refused link).
       net.set("off", t("verify.network.notNeeded"));
       lockKey(t("pay.locked"));
+      if (checks.payable.state === "err" && (checks.payable.status === "paid" || checks.payable.status === "sold-out")) {
+        // Paid, possibly by this payer: an earlier signature a late relay used is found and shown, and a receipt
+        // this device already holds is one press away.
+        if (account !== null && !recoveryTried) {
+          recoveryTried = true;
+          startRecovery(checks.payable.now, true);
+        }
+        void showOwnReceipt();
+      }
       return;
     }
     if (states.includes("unknown")) {
@@ -491,7 +518,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
           return;
         }
         const decoded = decodeUiError(app, error);
-        setStatus(status, "err", decoded.message, decoded.code);
+        // A used signature whose payment the network does not show yet is not a failure: amber, and searched again.
+        setStatus(status, error instanceof AppError && error.key === "pay.error.consumed" ? "warn" : "err", decoded.message, decoded.code);
       })
       .finally(() => {
         busy = false;
@@ -500,6 +528,48 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
           void refresh();
         }
       });
+  };
+
+  /**
+   * Finds the payment an earlier, used authorisation of this payer made, verifies it and shows it as paid. Reads only:
+   * nothing is signed or sent. `quiet`: the link is closed anyway, so finding nothing says nothing.
+   */
+  const startRecovery = (now: bigint, quiet = false): void => {
+    const account = app.session.account();
+    if (account === null || busy || paid) {
+      return;
+    }
+    busy = true;
+    key.disabled = true;
+    key.setAttribute("aria-busy", "true");
+    recoverEarlier(app, { link, chain, client, account, now, status, quiet, onDone: done })
+      .catch((error: unknown) => {
+        if (quiet) {
+          // The link is closed anyway: a read that failed here changes nothing on screen.
+          return;
+        }
+        const decoded = decodeUiError(app, error);
+        setStatus(status, error instanceof AppError && error.key === "pay.error.consumed" ? "warn" : "err", decoded.message, decoded.code);
+      })
+      .finally(() => {
+        busy = false;
+        key.removeAttribute("aria-busy");
+        if (!paid && key.dataset["action"] === "recover") {
+          key.disabled = false;
+        }
+      });
+  };
+
+  /** A receipt this device holds for this link (it paid it here): one press away on a link that is closed. */
+  const showOwnReceipt = async (): Promise<void> => {
+    const receipts = (await app.store.listReceipts().catch(() => [])).map(parseStoredReceipt);
+    const own = receipts.filter((r) => r !== null && r.role === "paid" && r.chainId === chain.chainId && r.invoiceKey.toLowerCase() === link.key.toLowerCase()).at(-1);
+    if (own === undefined || own === null || paid) {
+      return;
+    }
+    stateNote.hidden = false;
+    stateNote.querySelector(".state-own")?.remove();
+    stateNote.append(h("span", { class: "state-own" }, " ", t("pay.note.yours"), " ", h("a", { attrs: { href: receiptUrl(app.site, own.fragment) } }, t("receipt.open"))));
   };
 
   /**
@@ -560,10 +630,16 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       }
     } else if (action === "pay") {
       startPayment(null);
+    } else if (action === "recover") {
+      void chainTime(client)
+        .catch(() => BigInt(Math.floor(Date.now() / 1000)))
+        .then((now) => {
+          startRecovery(now);
+        });
     }
   });
 
-  const done = (outcome: { amount: bigint; txHash: `0x${string}`; logIndex: number; elapsedMs: number; slip: HTMLElement; receiptLink: string }): void => {
+  const done = (outcome: Settled): void => {
     paid = true;
     replace(signSlot);
     replace(fundsSlot);
@@ -577,7 +653,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       pill.textContent = t("pay.pill.paid");
       due.textContent = t("pay.paid");
       // Closed by this very payment: a hollow lamp and "Closed", never a green "payable".
-      payable.set("off", t("verify.payable.paidNow"), t("verify.state.closed"));
+      payable.set("off", outcome.elapsedMs === null ? t("pay.verdict.earlier") : t("verify.payable.paidNow"), t("verify.state.closed"));
     } else {
       // Seats and receive cards stay open: re-read the count this payment just moved.
       void readLinkState(client, link.target.deployment.address, link.key)
@@ -586,19 +662,19 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
         })
         .catch(() => undefined);
     }
-    const seconds = formatSeconds(app.locale, outcome.elapsedMs / 1000);
+    const seconds = outcome.elapsedMs === null ? null : formatSeconds(app.locale, outcome.elapsedMs / 1000);
     screen.append(
       h(
         "div",
         { class: "verdict", attrs: { role: "status" } },
         h("b", null, t("pay.verdict.approved")),
         h("span", null, fixed ? t("pay.verdict.paidInFull") : t("pay.verdict.sent", { amount: shown, symbol: token.symbol })),
-        h("span", { class: "verdict-time" }, t("pay.verdict.settled", { seconds })),
+        h("span", { class: "verdict-time" }, seconds === null ? t("pay.verdict.earlier") : t("pay.verdict.settled", { seconds })),
       ),
     );
     ui.voice("paid");
     ui.plate(plateText(chain), "ok");
-    setStatus(status, "ok", t("pay.status.done", { amount: shown, symbol: token.symbol, seconds }));
+    setStatus(status, "ok", seconds === null ? t("pay.status.recovered", { amount: shown, symbol: token.symbol }) : t("pay.status.done", { amount: shown, symbol: token.symbol, seconds }));
     const copy = h("button", { class: "key key-line", attrs: { type: "button" } }, t("receipt.copy"));
     copy.addEventListener("click", () => {
       void copyText(outcome.receiptLink, copy, { idle: t("receipt.copy"), done: t("share.copied"), said: t("receipt.copiedSaid") });
@@ -787,7 +863,17 @@ interface PayInput {
   readonly status: HTMLElement;
   /** A path the payer chose explicitly (the own-gas fallback after a relayer refusal); the router's choice otherwise. */
   readonly forced: PathChoice | null;
-  readonly onDone: (outcome: { amount: bigint; txHash: `0x${string}`; logIndex: number; elapsedMs: number; slip: HTMLElement; receiptLink: string }) => void;
+  readonly onDone: (outcome: Settled) => void;
+}
+
+/** A verified payment, ready to show: `elapsedMs` is `null` when this device did not watch it settle. */
+interface Settled {
+  readonly amount: bigint;
+  readonly txHash: `0x${string}`;
+  readonly logIndex: number;
+  readonly elapsedMs: number | null;
+  readonly slip: HTMLElement;
+  readonly receiptLink: string;
 }
 
 async function pay(app: App, input: PayInput): Promise<void> {
@@ -799,34 +885,39 @@ async function pay(app: App, input: PayInput): Promise<void> {
       amount = parseTypedAmount(input.amountInput.value, token);
     } catch {
       input.amountInput.focus();
-      throw new AppError("pay.error.amount", {});
+      throw new AppError("pay.error.amount", {}, "AmountInvalid");
     }
     if (amount === 0n) {
       input.amountInput.focus();
-      throw new AppError("pay.error.amount", {});
+      throw new AppError("pay.error.amount", {}, "AmountInvalid");
     }
   }
   const shown = displayAmount(amount, token, app.locale);
   const choice = input.forced ?? (await choosePath(app, client, account, link, input.now));
+  if (!choice.ok && choice.reason === "authorization-consumed") {
+    // Paid already, with the payer's earlier signature (a relay that landed late): its receipt, not a second payment.
+    await recoverEarlier(app, { ...input, quiet: false });
+    return;
+  }
   if (!choice.ok) {
-    throw new AppError(choice.reason === "authorization-consumed" ? "pay.route.consumed" : choice.reason === "needs-gas" ? "pay.route.needsGas" : "pay.route.none", {});
+    throw choice.reason === "needs-gas" ? new AppError("pay.route.needsGas", {}, "FeeServiceDown") : new AppError("pay.route.none", {}, "NoPaymentRoute");
   }
   // The contract's own checks, predicted in its order, before any prompt (invoice spec §7.2).
   const fn = SETTLEMENT_FN[choice.path] ?? "pay";
   const state = await readLinkState(client, link.target.deployment.address, link.key);
   const predicted = predictPayment({ invoice: link.invoice, verifyingContract: link.target.deployment.address, state, now: input.now, fn, amount, payer: account.address, signatureValid: true });
   if (predicted !== null) {
-    throw new AppError("pay.error.predicted", { reason: app.i18n.lookup(predicted.i18nKey, predicted.params) ?? predicted.name });
+    throw new AppError("pay.error.predicted", { reason: app.i18n.lookup(predicted.i18nKey, predicted.params) ?? predicted.name }, "WouldRevert");
   }
   // Funds: the token amount, and gas only when the payer sends the transaction.
   if (token.kind === "erc20") {
     const balance = await client.erc20(token.address, "balanceOf", [account.address]);
     if (balance < amount) {
-      throw new AppError(account.kind === "passkey" ? "pay.error.balanceKey" : "pay.error.balance", { balance: displayAmount(balance, token, app.locale), symbol: token.symbol });
+      throw new AppError(account.kind === "passkey" ? "pay.error.balanceKey" : "pay.error.balance", { balance: displayAmount(balance, token, app.locale), symbol: token.symbol }, "BalanceTooLow");
     }
   }
   if (choice.payerPaysGas && (await client.getBalance(account.address)) === 0n) {
-    throw new AppError("pay.error.gas", { coin: chain.nativeCurrency.symbol });
+    throw new AppError("pay.error.gas", { coin: chain.nativeCurrency.symbol }, "NoFeeCoin");
   }
   const onStep = (step: PaymentStep): void => {
     switch (step.kind) {
@@ -878,10 +969,48 @@ async function pay(app: App, input: PayInput): Promise<void> {
     relayer: app.relayer,
     authorizations: app.store.authorizations,
   });
+  await finish(app, input, outcome);
+}
+
+/**
+ * The payment an earlier, used authorisation of this payer made (invoice spec §8.6 "consumed"), found on the chain and
+ * shown like any other: verified, kept on the device, "Approved". Throws `pay.error.consumed` when the network does
+ * not show it yet (unless `quiet`).
+ */
+async function recoverEarlier(app: App, input: Pick<PayInput, "link" | "chain" | "client" | "account" | "now" | "status" | "onDone"> & { readonly quiet: boolean }): Promise<void> {
+  const { t } = app.i18n;
+  if (!input.quiet) {
+    setStatus(input.status, "", t("pay.status.recovering"));
+  }
+  const found = await recoverConsumedPayment({
+    authorizations: app.store.authorizations,
+    registry: app.registry,
+    client: input.client,
+    now: input.now,
+    link: input.link,
+    chain: input.chain,
+    payer: input.account.address,
+  });
+  if (found.state === "found") {
+    await finish(app, input, found.outcome);
+    return;
+  }
+  if (found.state === "missing" && !input.quiet) {
+    throw new AppError("pay.error.consumed", {}, "AuthorizationUsed");
+  }
+  if (!input.quiet) {
+    setStatus(input.status, "", "");
+  }
+}
+
+/** Verifies the outcome as a receipt on the chain, keeps it on the device, and hands the slip to the view. */
+async function finish(app: App, input: Pick<PayInput, "link" | "chain" | "client" | "onDone">, outcome: PaymentOutcome): Promise<void> {
+  const { t } = app.i18n;
+  const { link, chain, client } = input;
   const reference = { chainId: chain.chainId, txHash: outcome.txHash, logIndex: outcome.logIndex };
   const verification = await verifyReceipt({ registry: app.registry, client, reference, paid: link });
   if (!verification.valid) {
-    throw new AppError("pay.error.receipt", { reason: app.i18n.lookup(verification.i18nKey, verification.params) ?? verification.failure });
+    throw new AppError("pay.error.receipt", { reason: app.i18n.lookup(verification.i18nKey, verification.params) ?? verification.failure }, "ReceiptMismatch");
   }
   const proof = verification.proof;
   const fragment = encodeReceiptFragment(reference, link);
@@ -900,30 +1029,19 @@ async function pay(app: App, input: PayInput): Promise<void> {
     fragment,
     savedAt: Date.now(),
   });
-  const explorer = chain.explorers[0];
-  const slip = receiptSlip({
-    top: t("receipt.top"),
-    verdict: t("receipt.approved"),
-    valid: true,
-    amount: displayAmount(proof.amount, token, app.locale),
-    symbol: token.symbol,
-    rows: [
-      ...(link.memo === null ? [] : [[t("receipt.for"), sanitizeMemoForDisplay(link.memo)] as const]),
-      [t("receipt.to"), shortHex(proof.payee)],
-      [t("receipt.from"), shortHex(proof.payer)],
-      [t("receipt.time"), formatDateTime(app.locale, proof.timestamp)],
-      [t("receipt.network"), `${chain.label} · ${String(chain.chainId)}`],
-      [t("receipt.tx"), explorer === undefined ? shortHex(outcome.txHash) : ext(`${explorer.url}/tx/${outcome.txHash}`, shortHex(outcome.txHash))],
-    ],
+  const receiptLink = receiptUrl(app.site, fragment);
+  const slip = proofSlip(app, {
+    proof,
+    chain,
+    url: receiptLink,
+    identity: await receiptIdentity(app, proof),
     checks: [
       ["ok", t("receipt.check.paid")],
       ["ok", t("receipt.check.contract")],
       ["ok", t("receipt.check.invoice")],
     ],
-    foot: t("receipt.foot", { network: networkName(chain) }),
-    label: t("receipt.label"),
   });
-  input.onDone({ amount: proof.amount, txHash: outcome.txHash, logIndex: outcome.logIndex, elapsedMs: outcome.elapsedMs, slip, receiptLink: receiptUrl(app.site, fragment) });
+  input.onDone({ amount: proof.amount, txHash: outcome.txHash, logIndex: outcome.logIndex, elapsedMs: outcome.elapsedMs, slip, receiptLink });
 }
 
 function details(app: App, link: DecodedInvoiceLink): HTMLElement {

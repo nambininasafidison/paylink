@@ -33,7 +33,7 @@ export function batchRail(): PaymentRail {
       const started = performance.now();
       const result = await account.sendCalls({ chainId: context.chain.chainId, calls: calls.map((c) => ({ to: c.to, data: c.data, value: c.value })) });
       if (result.status !== "confirmed") {
-        throw new AppError("pay.error.batch", {});
+        throw new AppError("pay.error.batch", {}, "BatchIncomplete");
       }
       for (const txHash of [...result.txHashes].reverse()) {
         const receipt = await context.client.waitForReceipt(txHash, { pollingMs: pollingIntervalFor(context.chain), timeoutMs: 60_000 });
@@ -48,7 +48,7 @@ export function batchRail(): PaymentRail {
           // Another transaction of the batch (a non-atomic wallet split it): look at the next one.
         }
       }
-      throw new AppError("pay.error.batch", {});
+      throw new AppError("pay.error.batch", {}, "BatchIncomplete");
     },
   };
 }

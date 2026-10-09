@@ -719,7 +719,22 @@
     "pay.step2.covered",
     "pay.step2.key",
     "pay.step2.keyOwn",
-    "pay.step2.pending"
+    "pay.step2.pending",
+    "receipt.who.you",
+    "receipt.who.byYou",
+    "receipt.who.byYouTo",
+    "receipt.who.contact",
+    "receipt.who.notYou",
+    "receipt.who.unknown",
+    "receipt.chain",
+    "receipt.qrLabel",
+    "receipt.verifyTitle",
+    "receipt.verifyText",
+    "pay.verdict.earlier",
+    "pay.status.recovering",
+    "pay.status.recovered",
+    "pay.recover",
+    "pay.note.yours"
   ],
   "pendingFormats": [
     "src/format.ts MG_MONTHS, MG_MONTHS_SHORT, MG_WEEKDAYS: CLDR mg names on fr-MG date patterns, 24-hour clock",

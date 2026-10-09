@@ -2,13 +2,15 @@
 /**
  * The T1 rails and the PaymentRouter's inputs:
  * - authorisation rails: one EIP-3009 signature, persisted before it is sent anywhere; a live one is resubmitted and
- *   never re-signed; a used one is "already paid"; the relayer's refusals carry their fallback; settlement is followed
- *   on the chain (the relayer's hash, else the token's authorisation state and the `Paid` log);
+ *   never re-signed; a used one is the payment it made, found by the token's `AuthorizationUsed(payer, nonce)` inside
+ *   the authorisation's window (a relay that landed after the payer gave up), never signed again; the relayer's refusals
+ *   carry their fallback; settlement is followed on the chain (the relayer's hash, else the token's authorisation state
+ *   and that event);
  * - the EIP-5792 batch rail: exactly `[approve(amount), pay]`, atomic, the `Paid` log read from the registry RPC;
  * - EIP-5792 answers in their 2.0.0 and earlier shapes;
  * - the router's choice for passkey, EOA and smart-account payers, with the relayer up or down.
  */
-import { decodePaidLog, gasLimitFor, memoryOutstandingAuthorizationStore, outstandingAuthorizationId, PAID_TOPIC, payLinkV2Abi } from "@paylink/sdk";
+import { AUTHORIZATION_USED_EVENT, DEFAULT_AUTHORIZATION_TTL_SECONDS, decodePaidLog, gasLimitFor, memoryOutstandingAuthorizationStore, outstandingAuthorizationId, PAID_TOPIC, payLinkV2Abi } from "@paylink/sdk";
 import type { OutstandingAuthorization } from "@paylink/sdk";
 import { decodeFunctionData, encodeAbiParameters, encodeEventTopics, encodeFunctionResult, erc20Abi, parseAbi } from "viem";
 import type { Address, Hex, RpcLog, TransactionReceipt } from "viem";
@@ -19,7 +21,7 @@ import { choosePath } from "../src/app/payer.ts";
 import type { App } from "../src/app/context.ts";
 import type { RelayAccepted, RelayerClient } from "../src/core/relayer.ts";
 import { RelayerProblem } from "../src/core/relayer.ts";
-import { relayedAuthorizationRail, RelayFallbackError, selfAuthorizationRail, waitForSettlement } from "../src/rails/authorization.ts";
+import { recoverConsumedPayment, relayedAuthorizationRail, RelayFallbackError, selfAuthorizationRail, waitForSettlement } from "../src/rails/authorization.ts";
 import { batchRail } from "../src/rails/batch.ts";
 import type { PaymentContext, PaymentStep } from "../src/rails/types.ts";
 import { walletRail } from "../src/rails/wallet.ts";
@@ -31,19 +33,38 @@ const domainAbi = parseAbi(["function eip712Domain() view returns (bytes1, strin
 /** ERC-5267: the token's domain, as Mock3009 reports it (the registry states the same name and version). */
 const DOMAIN_ANSWER = encodeFunctionResult({ abi: domainAbi, functionName: "eip712Domain", result: ["0x0f", "AUSD", "1", 31337n, TOKEN_ADDRESS, `0x${"00".repeat(32)}`, []] });
 
-function paidLog(key: Hex, payee: Address, from: Address, amount: bigint, logIndex: number, hash: Hex): RpcLog {
+function paidLog(key: Hex, payee: Address, from: Address, amount: bigint, logIndex: number, hash: Hex, block = 101n): RpcLog {
   return {
     address: CONTRACT,
     topics: encodeEventTopics({ abi: payLinkV2Abi, eventName: "Paid", args: { key, payee, payer: from } }),
     data: encodeAbiParameters([{ type: "address" }, { type: "uint128" }, { type: "uint32" }, { type: "bytes32" }], [TOKEN_ADDRESS, amount, 0, `0x${"00".repeat(32)}`]),
     logIndex: `0x${logIndex.toString(16)}`,
-    blockNumber: "0x65",
+    blockNumber: `0x${block.toString(16)}`,
     blockHash: TX(9),
     transactionHash: hash,
     transactionIndex: "0x0",
     removed: false,
   } as RpcLog;
 }
+
+/** EIP-3009 `AuthorizationUsed(payer, nonce)`, emitted by the token in the transaction that used the authorisation. */
+function usedLog(from: Address, nonce: Hex, logIndex: number, hash: Hex, block = 101n): RpcLog {
+  return {
+    address: TOKEN_ADDRESS,
+    topics: encodeEventTopics({ abi: [AUTHORIZATION_USED_EVENT], eventName: "AuthorizationUsed", args: { authorizer: from, nonce } }),
+    data: "0x",
+    logIndex: `0x${logIndex.toString(16)}`,
+    blockNumber: `0x${block.toString(16)}`,
+    blockHash: TX(9),
+    transactionHash: hash,
+    transactionIndex: "0x0",
+    removed: false,
+  } as RpcLog;
+}
+
+/** The fake chain's clock: block 100 is stamped NOW, two seconds a block; the head is block HEAD. */
+const HEAD = 400n;
+const stampOf = (block: bigint): bigint => NOW + (block - 100n) * 2n;
 
 function account(kind: AccountProvider["kind"], extra: Partial<AccountProvider> = {}, sent: TransactionRequest[] = []): AccountProvider & { signatures: number } {
   const made = {
@@ -76,6 +97,8 @@ interface Harness {
   readonly receipts: Map<Hex, TransactionReceipt>;
   readonly logs: RpcLog[];
   readonly relayed: unknown[];
+  /** Every `eth_getLogs` block range asked for. */
+  readonly ranges: [bigint, bigint][];
   account: AccountProvider & { signatures: number };
 }
 
@@ -87,8 +110,14 @@ async function harness(options: { relay?: (body: unknown) => Promise<RelayAccept
   const logs: RpcLog[] = [];
   const relayed: unknown[] = [];
   const store = memoryOutstandingAuthorizationStore();
+  const ranges: [bigint, bigint][] = [];
   const client = {
     ...fake.client,
+    getBlockNumber: () => Promise.resolve(HEAD),
+    getBlock: (p: { blockNumber: bigint } | { blockTag: "latest" | "finalized" }) => {
+      const number = "blockNumber" in p ? p.blockNumber : HEAD;
+      return Promise.resolve({ number, timestamp: stampOf(number) });
+    },
     call: async (p: Parameters<typeof fake.client.call>[0]) => {
       if (p.to.toLowerCase() === TOKEN_ADDRESS.toLowerCase() && p.data.startsWith("0x84b0196e")) {
         return { data: DOMAIN_ANSWER };
@@ -107,7 +136,21 @@ async function harness(options: { relay?: (body: unknown) => Promise<RelayAccept
       const found = receipts.get(hash);
       return found === undefined ? Promise.reject(new Error("no receipt")) : Promise.resolve(found);
     },
-    getLogs: () => Promise.resolve(logs),
+    // Like an RPC: the address, the block range and every topic position that is not null must match.
+    getLogs: (filter: { address: Address; fromBlock: bigint; toBlock: bigint; topics: readonly (Hex | null)[] }) => {
+      ranges.push([filter.fromBlock, filter.toBlock]);
+      return Promise.resolve(
+        logs.filter((log) => {
+          const block = BigInt(log.blockNumber ?? "0x0");
+          return (
+            log.address.toLowerCase() === filter.address.toLowerCase() &&
+            block >= filter.fromBlock &&
+            block <= filter.toBlock &&
+            filter.topics.every((topic, i) => topic === null || log.topics[i]?.toLowerCase() === topic.toLowerCase())
+          );
+        }),
+      );
+    },
   };
   const relayer: RelayerClient = {
     endpoint: () => "https://relayer.test",
@@ -135,11 +178,31 @@ async function harness(options: { relay?: (body: unknown) => Promise<RelayAccept
     relayer,
     authorizations: store,
   };
-  return { ctx, steps, store, used, receipts, logs, relayed, account: acct, link };
+  return { ctx, steps, store, used, receipts, logs, relayed, ranges, account: acct, link };
 }
 
 const success = (hash: Hex, logs: RpcLog[]): TransactionReceipt =>
-  ({ transactionHash: hash, status: "success", blockNumber: 101n, logs: logs.map((l) => ({ ...l, logIndex: Number(l.logIndex) })) }) as unknown as TransactionReceipt;
+  ({ transactionHash: hash, status: "success", blockNumber: BigInt(logs[0]?.blockNumber ?? "0x65"), logs: logs.map((l) => ({ ...l, logIndex: Number(l.logIndex) })) }) as unknown as TransactionReceipt;
+
+const storeId = (link: { chainId: number; key: Hex }): string => outstandingAuthorizationId({ chainId: link.chainId, key: link.key, payer: payer.address });
+
+/** A payment whose relay timed out: the authorisation is signed and stored, and nothing settled it yet. */
+async function gaveUp(options: { open?: boolean; amount?: bigint } = {}): Promise<Harness & { link: Awaited<ReturnType<typeof issue>>["link"]; stored: OutstandingAuthorization }> {
+  const h = await harness({ ...options, relay: () => Promise.reject(new RelayerProblem({ code: "offline", status: 0, detail: "timed out", fallback: "retry" })) });
+  await expect(relayedAuthorizationRail().execute("relayed-authorization", h.ctx)).rejects.toBeInstanceOf(RelayFallbackError);
+  const stored = (await h.store.get(storeId(h.link))) as OutstandingAuthorization;
+  return { ...h, stored };
+}
+
+/** The late relay lands in `block`: the token marks the nonce used and logs it, next to the invoice's `Paid`. */
+function lands(h: Harness & { link: Awaited<ReturnType<typeof issue>>["link"]; stored: OutstandingAuthorization }, block: bigint, hash: Hex, amount = h.link.invoice.amount): RpcLog {
+  h.used.add(h.stored.nonce);
+  const used = usedLog(payer.address, h.stored.nonce, 6, hash, block);
+  const paid = paidLog(h.link.key, h.link.invoice.payee, payer.address, amount, 7, hash, block);
+  h.logs.push(used, paid);
+  h.receipts.set(hash, success(hash, [used, paid]));
+  return paid;
+}
 
 describe("relayed authorisation rail", () => {
   it("signs once, stores the authorisation before relaying it, follows the receipt, then forgets it", async () => {
@@ -172,29 +235,77 @@ describe("relayed authorisation rail", () => {
     expect(same.steps[0]).toBe("resubmit");
   });
 
-  it("refuses a second payment while an authorisation for another amount is live, and calls a used one paid", async () => {
+  it("refuses a second payment while an authorisation for another amount is live, and never signs over a used one", async () => {
     const h = await harness({ open: true, amount: 1_000_000n, relay: () => Promise.reject(new RelayerProblem({ code: "offline", status: 0, detail: "x" })) });
     await expect(relayedAuthorizationRail().execute("relayed-authorization", h.ctx)).rejects.toBeInstanceOf(RelayFallbackError);
     await expect(relayedAuthorizationRail().execute("relayed-authorization", { ...h.ctx, amount: 2_000_000n })).rejects.toMatchObject({ key: "pay.error.outstanding" });
     const stored = (await h.store.get(outstandingAuthorizationId({ chainId: h.link.chainId, key: h.link.key, payer: payer.address }))) as OutstandingAuthorization;
     h.used.add(stored.nonce);
-    await expect(relayedAuthorizationRail().execute("relayed-authorization", h.ctx)).rejects.toMatchObject({ key: "pay.error.consumed" });
+    // Used, but no block of its window shows the payment yet: an amber "not visible yet" with its support code, the
+    // record kept for the next search, and no new signature.
+    await expect(relayedAuthorizationRail().execute("relayed-authorization", h.ctx)).rejects.toMatchObject({ key: "pay.error.consumed", code: "AuthorizationUsed" });
+    expect(h.account.signatures).toBe(1);
+    expect(await h.store.get(storeId(h.link))).toBeDefined();
   });
 
-  it("finds the payment when the relayer says the authorisation was already used", async () => {
+  it("relayer slow, then lands: the next press shows the payment the late relay made, from its receipt, and signs nothing", async () => {
+    const h = await gaveUp();
+    expect(h.account.signatures).toBe(1);
+    // The relay the payer gave up on lands 120 blocks later (4 minutes on this clock), far behind the head.
+    const paid = lands(h, 220n, TX(42));
+    for (const rail of [relayedAuthorizationRail(), selfAuthorizationRail()]) {
+      await h.store.put(storeId(h.link), h.stored);
+      h.steps.length = 0;
+      const outcome = await rail.execute(rail.paths[0] ?? "relayed-authorization", h.ctx);
+      expect(outcome).toMatchObject({ txHash: TX(42), logIndex: Number(paid.logIndex), elapsedMs: null });
+      expect(h.steps).toEqual(["mined"]);
+      expect(h.account.signatures).toBe(1);
+      expect(await h.store.get(storeId(h.link))).toBeUndefined();
+    }
+    // Searched by the token's AuthorizationUsed event, only inside the authorisation's window, in ranges the chain accepts.
+    const window = { from: 100n, to: 100n + DEFAULT_AUTHORIZATION_TTL_SECONDS / 2n - 1n };
+    expect(h.ranges.every(([from, to]) => from >= window.from && to <= window.to && to - from + 1n <= 100n)).toBe(true);
+  });
+
+  it("recovers a used authorisation's payment for the view: found and forgotten, or missing and kept, or nothing to find", async () => {
+    const h = await gaveUp({ open: true, amount: 3_000_000n });
+    const context = { ...h.ctx, payer: payer.address };
+    expect(await recoverConsumedPayment(context)).toEqual({ state: "none" });
+    h.used.add(h.stored.nonce);
+    expect(await recoverConsumedPayment(context)).toEqual({ state: "missing" });
+    expect(await h.store.get(storeId(h.link))).toBeDefined();
+    // Another payment of this payer to the same card, same amount, just before this signature: not this payment.
+    const before = paidLog(h.link.key, h.link.invoice.payee, payer.address, 3_000_000n, 1, TX(30), 99n);
+    h.logs.push(before);
+    h.receipts.set(TX(30), success(TX(30), [before]));
+    expect(await recoverConsumedPayment(context)).toEqual({ state: "missing" });
+    lands(h, 130n, TX(31), 3_000_000n);
+    const found = await recoverConsumedPayment(context);
+    expect(found).toMatchObject({ state: "found", outcome: { txHash: TX(31), logIndex: 7, elapsedMs: null } });
+    expect(await h.store.get(storeId(h.link))).toBeUndefined();
+    expect(await recoverConsumedPayment(context)).toEqual({ state: "none" });
+  });
+
+  it("finds the payment when the relayer says the authorisation was already used, however far behind the head", async () => {
     const h = await harness({ relay: () => Promise.reject(new RelayerProblem({ code: "already-settled", status: 409, detail: "used" })) });
     const original = h.ctx.relayer.pay.bind(h.ctx.relayer);
+    let nonce: Hex | null = null;
     h.ctx.relayer.pay = async (body) => {
       const stored = (await h.store.get(outstandingAuthorizationId({ chainId: h.link.chainId, key: h.link.key, payer: payer.address }))) as OutstandingAuthorization;
       h.used.add(stored.nonce);
+      nonce = stored.nonce;
+      // It landed 250 blocks before the head: far outside a recent-blocks lookback.
+      const used = usedLog(payer.address, stored.nonce, 4, TX(4), 150n);
+      const log = paidLog(h.link.key, h.link.invoice.payee, payer.address, h.link.invoice.amount, 5, TX(4), 150n);
+      h.logs.push(used, log);
+      h.receipts.set(TX(4), success(TX(4), [used, log]));
       return await original(body);
     };
-    const log = paidLog(h.link.key, h.link.invoice.payee, payer.address, h.link.invoice.amount, 5, TX(4));
-    h.logs.push(log);
-    h.receipts.set(TX(4), success(TX(4), [log]));
     const outcome = await relayedAuthorizationRail().execute("relayed-authorization", h.ctx);
     expect(outcome).toMatchObject({ txHash: TX(4), logIndex: 5 });
-    expect(decodePaidLog({ ...log, logIndex: 5 })?.payer).toBe(payer.address);
+    expect(nonce).not.toBeNull();
+    const paid = h.logs[1];
+    expect(paid === undefined ? null : decodePaidLog({ ...paid, logIndex: 5 })?.payer).toBe(payer.address);
   });
 
   it("reports an authorisation that lapsed unused, and a payment still pending at the deadline", async () => {

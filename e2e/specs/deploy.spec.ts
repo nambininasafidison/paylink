@@ -14,13 +14,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
 import { concat, getCreateAddress, numberToHex } from "viem";
 import type { Address, Hex } from "viem";
 import { main as verifyCli } from "../../tools/verify-deployment/verify-deployment.mjs";
 import { ANVIL_ACCOUNTS, PROXY, startAnvil } from "../fixtures/anvil.ts";
 import type { Anvil } from "../fixtures/anvil.ts";
-import { REPO, serveWeb, WEB_ROOT } from "../fixtures/server.ts";
+import { axe } from "../fixtures/axe.ts";
+import { serveWeb, WEB_ROOT } from "../fixtures/server.ts";
 import type { StaticServer } from "../fixtures/server.ts";
 import { withoutRecord } from "../fixtures/deploy-data.ts";
 import { brokenWords } from "../fixtures/layout.ts";
@@ -40,7 +40,6 @@ const releaseData = JSON.parse(readFileSync(join(WEB_ROOT, "v2/deploy/data/relea
 };
 const CREATE2_ADDRESS = releaseData.release.create2.address;
 const ACCOUNT = ANVIL_ACCOUNTS.wallet;
-const axeSource = readFileSync(join(REPO, "e2e/node_modules/axe-core/axe.min.js"), "utf8");
 
 const bounds = (chainId: number, method: "create" | "create2"): { floor: bigint; ceiling: bigint } => {
   const c = chainsData.chains.find((x) => x.chainId === chainId);
@@ -62,17 +61,6 @@ async function cli(args: string[]): Promise<{ code: number; stdout: string; stde
   let stderr = "";
   const code = await verifyCli(args, { stdout: (s: string) => (stdout += s), stderr: (s: string) => (stderr += s) });
   return { code, stdout, stderr };
-}
-
-/** WCAG 2.2 AA through axe-core, injected over the DevTools protocol (the page's CSP forbids inline scripts). */
-async function axe(page: Page): Promise<{ id: string; impact: string; nodes: string[] }[]> {
-  await page.evaluate(axeSource);
-  return await page.evaluate(async () => {
-    const result = await (window as unknown as { axe: { run: (ctx: Document, o: object) => Promise<{ violations: { id: string; impact: string; nodes: { target: string[] }[] }[] }> } }).axe.run(document, {
-      runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
-    });
-    return result.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.map((n) => n.target.join(" ")) }));
-  });
 }
 
 let server: StaticServer;

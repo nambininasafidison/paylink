@@ -5,24 +5,26 @@
  * Every opening re-reads the transaction receipt from the registry's RPCs: it must have succeeded, the log at that
  * index must be a well-formed `Paid` event of the canonical deployment, in an allowlisted token, and, when the link
  * carries the invoice, its key, payee, token and amount must match. The slip states what that proves, never a bare
- * "valid"; "could not check" is never shown as either valid or invalid. Prints on an 80 mm roll or on A6.
+ * "valid": the payee and the payer in full, grouped by four, and whose address the payee is as far as this device
+ * knows (`app/proof-slip.ts`: a look-alike of the viewer's own address is told apart). "Could not check" is never shown
+ * as either valid or invalid. Prints on an 80 mm roll or on A6, with the full transaction hash, the chain's CAIP-2 id
+ * and the receipt link with its QR code, so the paper can be checked again.
  */
-import { decodeReceiptFragment, fragmentOf, sanitizeMemoForDisplay, verifyReceipt } from "@paylink/sdk";
+import { decodeReceiptFragment, fragmentOf, verifyReceipt } from "@paylink/sdk";
 import type { DecodedReceiptLink, ReceiptProof } from "@paylink/sdk";
-import { formatDateTime } from "@paylink/i18n";
 import type { PageDefinition } from "../app/boot.ts";
 import { networkName, plateText } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
+import { identityLine, payeeIdentity, proofSlip } from "../app/proof-slip.ts";
+import type { PayeeIdentity } from "../app/proof-slip.ts";
 import { intro, notes } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
 import { decodeUiError } from "../core/errors.ts";
-import { displayAmount, shortHex } from "../core/format.ts";
 import { receiptUrl } from "../core/links.ts";
 import { receiptId } from "../store/db.ts";
-import { addr, ext, fact, hexGroups, setStatus, statusLine } from "../ui/atoms.ts";
+import { addr, fact, hexGroups, setStatus, statusLine } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { copyText, printElement } from "../ui/live.ts";
-import { receiptSlip } from "../ui/receipt.ts";
 
 export const receiptPage: PageDefinition = {
   route: "receipt",
@@ -96,8 +98,9 @@ async function renderReceipt(app: App, ui: PageUi, view: HTMLElement): Promise<v
   }
   ui.plate(plateText(chain), "ok");
   setStatus(status, "ok", verification.proof.finality === "finalized" ? t("receipt.status.final") : t("receipt.status.confirmed"));
-  const account = app.session.account();
-  if (account !== null && account.address.toLowerCase() === verification.proof.payee.toLowerCase()) {
+  // Whose address the payee is: the account signed in here (restored silently, never a prompt) or a saved contact.
+  const identity = await payeeIdentity(app, verification.proof);
+  if (identity.kind === "you") {
     await app.store.putReceipt({
       id: receiptId(decoded.chainId, decoded.txHash, decoded.logIndex),
       chainId: decoded.chainId,
@@ -114,39 +117,38 @@ async function renderReceipt(app: App, ui: PageUi, view: HTMLElement): Promise<v
       savedAt: Date.now(),
     });
   }
-  view.append(...proofView(app, decoded, verification.proof, fragment));
+  const shown = proofView(app, decoded, verification.proof, fragment, identity);
+  view.append(...shown);
+  // Connecting (or switching account) here re-reads whose address the payee is: no reload needed to be told.
+  const slip = shown[0];
+  const proof = verification.proof;
+  app.session.subscribe(() => {
+    if (slip?.isConnected === true) {
+      void payeeIdentity(app, proof).then((next) => {
+        paintIdentity(app, slip, next);
+      });
+    }
+  });
 }
 
-function proofView(app: App, decoded: DecodedReceiptLink, proof: ReceiptProof, fragment: string): HTMLElement[] {
+function proofView(app: App, decoded: DecodedReceiptLink, proof: ReceiptProof, fragment: string, identity: PayeeIdentity): HTMLElement[] {
   const { t } = app.i18n;
   const chain = decoded.target.chain;
   const token = proof.tokenInfo;
   const explorer = chain.explorers[0];
-  const memo = proof.memo === null ? null : sanitizeMemoForDisplay(proof.memo);
-  const slip = receiptSlip({
-    top: t("receipt.top"),
-    verdict: t("receipt.approved"),
-    valid: true,
-    amount: displayAmount(proof.amount, token, app.locale),
-    symbol: token.symbol,
-    rows: [
-      ...(memo === null ? [] : [[t("receipt.for"), memo] as const]),
-      [t("receipt.to"), shortHex(proof.payee)],
-      [t("receipt.from"), shortHex(proof.payer)],
-      [t("receipt.time"), formatDateTime(app.locale, proof.timestamp)],
-      [t("receipt.network"), `${chain.label} · ${String(chain.chainId)}`],
-      [t("receipt.tx"), explorer === undefined ? shortHex(proof.txHash) : ext(`${explorer.url}/tx/${proof.txHash}`, shortHex(proof.txHash))],
-    ],
+  const url = receiptUrl(app.site, fragment);
+  const slip = proofSlip(app, {
+    proof,
+    chain,
+    url,
+    identity,
     checks: [
       ["ok", t("receipt.check.paid")],
       ["ok", t("receipt.check.contract")],
       [proof.invoice === null ? "off" : "ok", proof.invoice === null ? t("receipt.check.noInvoice") : t("receipt.check.invoice")],
       [proof.finality === "finalized" ? "ok" : "wait", proof.finality === "finalized" ? t("receipt.finalized") : t("receipt.confirmed")],
     ],
-    foot: t("receipt.foot", { network: networkName(chain) }),
-    label: t("receipt.label"),
   });
-  const url = receiptUrl(app.site, fragment);
   const copy = h("button", { class: "key key-line", attrs: { type: "button" } }, t("receipt.copy"));
   copy.addEventListener("click", () => {
     void copyText(url, copy, { idle: t("receipt.copy"), done: t("share.copied"), said: t("receipt.copiedSaid") });
@@ -156,8 +158,8 @@ function proofView(app: App, decoded: DecodedReceiptLink, proof: ReceiptProof, f
     h(
       "div",
       { class: "share-keys" },
-      h("button", { class: "key key-line", attrs: { type: "button" }, on: { click: () => { printElement(slip, "80mm"); } } }, t("receipt.print80")),
-      h("button", { class: "key key-line", attrs: { type: "button" }, on: { click: () => { printElement(slip, "a6"); } } }, t("receipt.printA6")),
+      h("button", { class: "key key-line", attrs: { type: "button" }, on: { click: () => { void printSlip(app, slip, "80mm"); } } }, t("receipt.print80")),
+      h("button", { class: "key key-line", attrs: { type: "button" }, on: { click: () => { void printSlip(app, slip, "a6"); } } }, t("receipt.printA6")),
       copy,
       explorer === undefined ? null : h("a", { class: "key key-line ext", attrs: { href: `${explorer.url}/tx/${proof.txHash}`, target: "_blank", rel: "noopener noreferrer" } }, t("receipt.explorer")),
     ),
@@ -181,4 +183,31 @@ function proofView(app: App, decoded: DecodedReceiptLink, proof: ReceiptProof, f
       ),
     ),
   ];
+}
+
+/** Draws the receipt link's QR code into the slip's paper-only block, once (the QR library loads on first use). */
+export async function drawSlipQr(app: Pick<App, "i18n">, slip: HTMLElement): Promise<void> {
+  const frame = slip.querySelector<HTMLElement>(".receipt-verify .qr-frame[data-qr]");
+  const url = frame?.getAttribute("data-qr") ?? null;
+  if (frame === null || url === null || frame.childElementCount > 0) {
+    return;
+  }
+  const { qrSvg } = await import("../ui/qr.ts");
+  frame.append(qrSvg(url, app.i18n.t("receipt.qrLabel")));
+}
+
+/** Prints the slip on an 80 mm roll or on A6, with its QR code drawn first. */
+export async function printSlip(app: Pick<App, "i18n">, slip: HTMLElement, size: "80mm" | "a6"): Promise<void> {
+  await drawSlipQr(app, slip);
+  printElement(slip, size);
+}
+
+/** Repaints the slip's identity line, when the account signed in here changes (the payee connects on the receipt). */
+function paintIdentity(app: App, slip: HTMLElement, identity: PayeeIdentity): void {
+  const line = slip.querySelector(".receipt-who");
+  if (line !== null) {
+    const who = identityLine(app, identity);
+    line.setAttribute("data-lamp", who.lamp);
+    line.textContent = who.text;
+  }
 }

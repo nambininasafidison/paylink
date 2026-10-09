@@ -574,7 +574,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
 /* ---------- Receipt slip: prints out of the terminal ---------- */
 .receipt {
-  --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule); --focus: var(--slip-focus);
+  --ink: var(--slip-ink); --ink-2: #3F3D39; --muted: var(--slip-muted); --rule-2: var(--slip-rule); --focus: var(--slip-focus); --warn: var(--slip-warn);
   --z: 7px; padding: 18px 18px calc(18px + var(--z)); background: var(--slip); color: var(--slip-ink);
   -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--z)) 100%;
           mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--z)) 100%;
@@ -591,10 +591,40 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .receipt-amt { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 16px 0 6px; }
 .receipt-amt .num { font-weight: 480; font-stretch: 78%; font-size: min(48px, calc(170cqw / var(--n, 6))); line-height: .95; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .receipt-amt .unit { color: var(--slip-muted); }
-.receipt dl { margin: 6px 0 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.5; word-spacing: 0; }
-.receipt dl > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; padding: 5px 0; }
-.receipt dt { color: var(--slip-muted); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; padding-top: 1px; }
+/* Readings: one label column for every row (a subgrid), as wide as the longest label and at most two fifths of the slip.
+   Labels are engraved words and never break inside one ("TAMBAJOT|RA"): they wrap between words or not at all. On a
+   screen too narrow for a label beside a grouped address or hash (a small phone), that label goes above its reading;
+   on paper the readings are set smaller and stay beside their labels. */
+.receipt dl { margin: 6px 0 0; display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); column-gap: 10px; font-family: var(--mono); font-size: 11.5px; line-height: 1.5; word-spacing: 0; }
+.receipt dl > div { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; padding: 5px 0; }
+.receipt dt { color: var(--slip-muted); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; padding-top: 1px; overflow-wrap: normal; word-break: normal; hyphens: manual; }
 .receipt dd { margin: 0; min-width: 0; word-break: break-word; }
+.receipt dd .addr { color: var(--slip-ink); }
+/* In a reading, a grouped address wraps between groups, never past its box: five groups a line when there is room (the
+   second line's first group right-aligned under the first, as .addr does), fewer in a narrow column. */
+.receipt dd .addr, .details dd .addr { display: flex; flex-wrap: wrap; max-width: calc(22ch + 4 * .55em); }
+.receipt dd .addr > span:nth-child(6), .details dd .addr > span:nth-child(6) { min-width: 6ch; text-align: right; }
+@media screen {
+  @container (max-width: 319px) {
+    .receipt dl > div:has(.addr, .hex) { row-gap: 1px; }
+    .receipt dl > div:has(.addr, .hex) > :is(dt, dd) { grid-column: 1 / -1; }
+  }
+}
+/* Whose address the payee is, as far as this device knows (screen only): a lamp and a sentence, amber when the payment
+   did not go to the account signed in here. */
+.receipt-who { position: relative; margin: 12px 0 0; padding: 8px 10px 9px 28px; border: 1px solid var(--slip-rule); border-left-width: 3px; border-radius: 4px;
+  font: 400 13px/1.45 var(--sans); color: var(--ink-2); text-wrap: pretty; }
+.receipt-who::before { content: ""; position: absolute; left: 11px; top: 13px; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--slip-muted); }
+.receipt-who[data-lamp="ok"] { border-left-color: var(--led-ok); }
+.receipt-who[data-lamp="ok"]::before { background: var(--led-ok); box-shadow: 0 0 6px rgba(34,200,102,.45); }
+.receipt-who[data-lamp="wait"] { border-left-color: var(--led-wait); color: var(--warn); font-weight: 600; }
+.receipt-who[data-lamp="wait"]::before { background: var(--led-wait); box-shadow: 0 0 6px rgba(255,176,0,.5); }
+/* Paper only (print.css shows them): the full transaction hash, the CAIP-2 id, the receipt link and its QR code. */
+.receipt .only-print { display: none; }
+.receipt-verify { margin-top: 10px; padding-top: 10px; border-top: 1.5px dashed var(--slip-rule); gap: 8px 12px; }
+.receipt-verify-cap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.receipt-verify-cap b { font-weight: 680; font-size: 14px; letter-spacing: -.01em; }
+.receipt-verify-cap > span { font-size: 12px; line-height: 1.4; color: var(--slip-muted); }
 .receipt a { color: var(--slip-ink); }
 .receipt dd a { position: relative; }
 .receipt dd a::before { content: ""; position: absolute; inset: -14px -6px; }
@@ -685,14 +715,19 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .till { margin-top: 18px; padding: 16px 18px 18px; min-height: 340px; display: flex; flex-direction: column; }
 .till-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--screen-dim); font: 400 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; word-spacing: 0; }
 /* The verdict band: a lamp glyph and the state word, sized to the window (cqw), never colour alone: waiting breathes
-   amber, paid is a green disc with a check, an error a red disc with a cross, a stopped till a hollow ring. */
-.till-verdict { display: flex; align-items: center; gap: .45em; margin: 14px -18px 0; padding: .35em 18px;
-  font: 600 clamp(20px, 6.5cqw, 64px)/1.1 var(--mono); letter-spacing: .1em; text-transform: uppercase; word-spacing: 0; overflow-wrap: normal; hyphens: manual;
+   amber, paid is a green disc with a check, an error a red disc with a cross, a stopped till a hollow ring.
+   It is also sized to its longest word (`--len` letters, set by the till), which never breaks: Martian Mono advances
+   .7em a letter, plus the tracking, and the glyph with its gap takes 1.35em; `--fit` is the size at which that word
+   fills the window exactly (the band's padding cancels its negative margins, so the window's width is 100cqw). */
+.till-verdict { --fit: calc(100cqw / (var(--len, 8) * .82 + 1.5)); display: flex; align-items: center; gap: .45em; margin: 14px -18px 0; padding: .35em 18px;
+  font: 600 clamp(16px, min(6.5cqw, var(--fit)), 64px)/1.1 var(--mono); letter-spacing: .1em; text-transform: uppercase; word-spacing: 0; overflow-wrap: normal; hyphens: manual;
   color: var(--screen-warn); border-block: 1px solid transparent; }
 .till-glyph { width: .9em; height: .9em; flex: none; align-self: center; border-radius: 50%; background: var(--led-wait); box-shadow: 0 0 .35em rgba(255,176,0,.6); animation: breathe 2.4s ease-in-out infinite; }
 .till[data-state="idle"] .till-verdict { color: var(--screen-dim); }
 .till[data-state="idle"] .till-glyph { background: transparent; box-shadow: inset 0 0 0 .1em var(--screen-dim); animation: none; }
-.till[data-state="paid"] .till-verdict { font-size: clamp(48px, min(15cqw, 12vh), 180px); letter-spacing: .14em; color: var(--lcd-ok);
+/* PAID, read from across a counter: as large as the window and the screen's height allow for this word ("VOALOA" fits a
+   320 px phone as "PAID" does). */
+.till[data-state="paid"] .till-verdict { --fit: calc(100cqw / (var(--len, 4) * .86 + 1.5)); font-size: clamp(24px, min(15cqw, 12vh, var(--fit)), 180px); letter-spacing: .14em; color: var(--lcd-ok);
   background: linear-gradient(rgba(34,200,102,.24), rgba(34,200,102,.10)); border-block-color: rgba(34,200,102,.45); animation: lcd .28s steps(7, end) 1 both; }
 .till[data-state="paid"] .till-glyph { animation: none; box-shadow: 0 0 .3em rgba(34,200,102,.75);
   background: var(--led-ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M6.5 11.5l3 3 6-7' fill='none' stroke='%23071A0E' stroke-width='2.4' stroke-linecap='square'/%3E%3C/svg%3E") center / 100% no-repeat; }
@@ -717,9 +752,16 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .details > summary::before { content: ""; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform var(--t-fast) ease; flex: none; }
 .details[open] > summary::before { transform: rotate(45deg); }
 .details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.details dl { margin: 0 0 8px; }
-.details dl > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
-.details dt { font: 400 10px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); word-spacing: 0; }
+/* The same reading grid as the slip: one label column, as wide as the longest label (at most two fifths), labels never
+   broken inside a word; a disclosure too narrow for a label beside a grouped address stacks them (WCAG 1.4.10). */
+.details { container-type: inline-size; }
+.details dl { margin: 0 0 8px; display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); column-gap: 10px; }
+.details dl > div { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; padding: 7px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.details dt { font: 400 10px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); word-spacing: 0; overflow-wrap: normal; word-break: normal; hyphens: manual; }
+@container (max-width: 379px) {
+  .details dl > div:has(.addr, .hex) { row-gap: 2px; }
+  .details dl > div:has(.addr, .hex) > :is(dt, dd) { grid-column: 1 / -1; }
+}
 .details dd { margin: 0; min-width: 0; font: 400 11.5px/1.6 var(--mono); color: var(--ink-2); overflow-wrap: anywhere; word-spacing: 0; }
 
 /* ---------- Status board (/status/) ---------- */
@@ -822,7 +864,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   .lamba { margin: 0 -14px 12px; }
   .perf { margin: 16px -14px; }
   .receipt { padding: 16px 14px calc(16px + var(--z)); margin: -4px 8px 0; }
-  .receipt dl > div { grid-template-columns: 52px minmax(0, 1fr); gap: 8px; }
   .verdict b { font-size: 14px; letter-spacing: .14em; }
   .band { padding: 8px 7px 9px; }
   .band-label { font-size: 11.5px; letter-spacing: .08em; }

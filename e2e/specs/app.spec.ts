@@ -11,16 +11,20 @@
  * an EIP-2612-only token with permit), print the card and the receipt (A6, 80 mm), the receipt verified on chain, the payee's ledger from statesOf, the armed till,
  * refusals (tampered link, self-payment, already paid), the language switch, axe on every route in light and dark,
  * no horizontal scroll on a 390 px phone, no CSP violation, and the frozen v1 app and the deploy kit in their areas.
+ * Receipts name payee and payer in full and say whose address the payee is (a look-alike of the merchant's address is
+ * told apart); on paper they carry what re-proves them (full transaction hash, CAIP-2, link and QR code). Filled states
+ * (a real receipt with its details open, the paid pay view, the printed slip) reflow in EN, FR and MG from 320 px.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import type { Browser, BrowserContext, Page } from "@playwright/test";
-import { decodeFunctionData, parseAbi } from "viem";
-import type { Hex } from "viem";
+import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
+import { decodeFunctionData, getAddress, parseAbi } from "viem";
+import type { Address, Hex } from "viem";
 import { ACCOUNTS, buildE2eSite, CHAIN_ID, FOREIGN_CHAIN_ID, PAYER_FUNDS, PAYLINK, PERMIT_TOKEN, startAppChain, startForeignChain } from "../fixtures/app.ts";
 import type { AppChain } from "../fixtures/app.ts";
 import type { Anvil } from "../fixtures/anvil.ts";
+import { axe } from "../fixtures/axe.ts";
 import { brokenWords, focusRingContrast, horizontalOverflow, overlappingTargets, selectedMarkContrast, setLocale, truncatedText } from "../fixtures/layout.ts";
 import { printedPageSize } from "../fixtures/print.ts";
 import { servePages } from "../fixtures/pages.ts";
@@ -29,7 +33,6 @@ import { REPO } from "../fixtures/server.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 import type { MockWallet } from "../fixtures/wallet.ts";
 
-const axeSource = readFileSync(join(REPO, "e2e/node_modules/axe-core/axe.min.js"), "utf8");
 const payLinkAbi = parseAbi([
   "function pay((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef)",
   "function payWithPermit((address,address,uint128,uint64,uint64,uint32,bytes32,bytes32) inv, bytes payeeSig, uint128 amount, bytes32 payerRef, (uint256,uint8,bytes32,bytes32) p)",
@@ -108,16 +111,18 @@ async function createInvoice(payee: Actor, amount: string, memo: string, query =
   return await page.locator(".share input").inputValue();
 }
 
-async function axe(page: Page): Promise<string[]> {
-  await page.evaluate(axeSource);
-  return await page.evaluate(async () => {
-    const run = (window as unknown as { axe: { run: (ctx: Document, o: object) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe.run;
-    const result = await run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } });
-    return result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
-  });
-}
-
 const lamp = (page: Page, index: number) => page.locator(".vstrip > li").nth(index);
+
+/** "0x7099 7970 C518 …": an address as the slip groups it. */
+const grouped = (address: Address): string => [address.slice(0, 6), ...(address.slice(6).match(/.{4}/g) ?? [])].join(" ");
+/** The groups a slip row shows for its address (the visual groups, not the spoken label). */
+const shownGroups = async (scope: Locator, term: string): Promise<string> =>
+  await scope
+    .locator("dl > div")
+    .filter({ has: scope.page().locator("dt", { hasText: new RegExp(`^${term}$`) }) })
+    .first()
+    .evaluate((row) => [...row.querySelectorAll(".addr > span[aria-hidden]")].map((g) => g.textContent).join(" "));
+const flat = (text: string): string => text.replace(/\s+/g, "").toLowerCase();
 
 test("hero flow: sign an invoice, pay it from the wallet with one authorisation (relayer down), verify the receipt, read the ledger", async ({ browser }) => {
   const payee = await actor(browser, ACCOUNTS.payee);
@@ -178,6 +183,12 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   await key.click(); // pay
   await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
   await expect(payer.page.locator(".status.ok")).toContainText("settled in");
+  // The slip names both parties in full, grouped by four (0x7099…79C8 is 32 bits, which a vanity address matches),
+  // and says whose payment it is.
+  const paidSlip = payer.page.locator(".receipt-slot .receipt");
+  expect(await shownGroups(paidSlip, "To")).toBe(grouped(ACCOUNTS.payee));
+  expect(await shownGroups(paidSlip, "From")).toBe(grouped(ACCOUNTS.payer));
+  await expect(paidSlip.locator(".receipt-who")).toHaveText("Paid by you: the From address is your account.");
 
   // The fee service is down: one EIP-3009 authorisation (the one a relayer would have sent), sent by the payer's
   // wallet as one payWithAuthorization with an explicit gas limit (Monad charges the limit), to the release address.
@@ -199,21 +210,41 @@ test("hero flow: sign an invoice, pay it from the wallet with one authorisation 
   await expect(lamp(payer.page, 3).locator(".vstrip-state")).toHaveText("Closed");
 
   // The receipt link re-verifies on chain.
+  const receiptHref = (await payer.page.locator(".receipt-slot a.key").first().getAttribute("href")) ?? "";
   await payer.page.locator(".receipt-slot a.key").first().click();
   await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Payment found");
   await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Matches the invoice");
+  await expect(payer.page.locator(".view-receipt .receipt-who")).toHaveText("Paid by you: the From address is your account.");
+  expect(await shownGroups(payer.page.locator(".view-receipt .receipt"), "To")).toBe(grouped(ACCOUNTS.payee));
+  // The payee, signed in with the wallet the payment went to, is told so in words.
+  await payee.page.goto(new URL(receiptHref, server.origin).toString());
+  await expect(payee.page.locator(".view-receipt .receipt-who")).toHaveText("Paid to you: the To address is the account signed in here.");
+  await expect(payee.page.locator(".view-receipt .receipt-who")).toHaveAttribute("data-lamp", "ok");
+  const txHash = new URL(receiptHref, server.origin).hash.split(".")[2] ?? "";
+  expect(txHash).toMatch(/^0x[0-9a-f]{64}$/);
   // The slip is light paper in both themes: its focus ring stays dark laterite on it in dark mode too.
   for (const scheme of ["light", "dark"] as const) {
     await payer.page.emulateMedia({ colorScheme: scheme });
     expect(await focusRingContrast(payer.page.locator(".view-receipt .receipt dd a").first()), `receipt link focus, ${scheme}`).toBeGreaterThanOrEqual(3);
   }
   await payer.page.emulateMedia({ colorScheme: "light" });
-  // The slip prints on an 80 mm roll and on A6 (the keyword `A6` alone gave Letter in Chromium).
+  // The slip prints on an 80 mm roll and on A6 (the keyword `A6` alone gave Letter in Chromium), with what lets anyone
+  // check the paper again: the full transaction hash, payee and payer in full, the CAIP-2 chain id and the receipt link
+  // (with its QR code). Read from the PDF itself. What only this screen knows (whose payment it is) stays off paper.
   const roll = await printedPageSize(payer.page, payer.page.getByRole("button", { name: "Print (80 mm)" }), test.info().outputPath("receipt-80mm.pdf"));
   expect([roll.width, roll.height].map(Math.round)).toEqual([80, 210]);
   const a6 = await printedPageSize(payer.page, payer.page.getByRole("button", { name: "Print (A6)" }), test.info().outputPath("receipt-a6.pdf"));
   expect([a6.width, a6.height].map(Math.round)).toEqual([105, 148]);
   expect(a6.pages).toBe(1);
+  for (const [size, paper] of [["80 mm", roll], ["A6", a6]] as const) {
+    const text = flat(paper.text);
+    expect(text, `${size}: full transaction hash`).toContain(txHash);
+    expect(text, `${size}: payee in full`).toContain(ACCOUNTS.payee.toLowerCase());
+    expect(text, `${size}: payer in full`).toContain(ACCOUNTS.payer.toLowerCase());
+    expect(text, `${size}: CAIP-2`).toContain(`eip155:${String(CHAIN_ID)}`);
+    expect(text, `${size}: receipt link`).toContain(flat(new URL(receiptHref, server.origin).toString().replace(/^https?:\/\//, "")));
+    expect(text, `${size}: screen-only identity line`).not.toContain(flat("Paid by you"));
+  }
 
   // Paid once: the link now refuses a second payment.
   await payer.page.goto(link);
@@ -281,6 +312,129 @@ async function pay(payer: Actor, link: string, label: string): Promise<void> {
   await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
 }
 
+test("counter fraud: a genuine receipt paid to a look-alike of the merchant's address says it is not theirs", async ({ browser }) => {
+  // The fraudster signs his own invoice with the merchant's memo and pays himself (here: anvil #1 is the fraudster).
+  const fraudster = await actor(browser, ACCOUNTS.payee);
+  const link = await createInvoice(fraudster, "25", "Invoice #42");
+  const payer = await actor(browser, ACCOUNTS.payer);
+  await pay(payer, link, "Pay 25.00 AUSD");
+  const href = new URL((await payer.page.locator(".receipt-slot a.key").first().getAttribute("href")) ?? "", server.origin).toString();
+  // The merchant's own address shares the fraudster's first and last four hex digits: what a vanity grinder makes in
+  // minutes, and all a 0x7099…79C8 short form ever showed.
+  const merchant = getAddress(`${ACCOUNTS.payee.slice(0, 6)}${"5a".repeat(16)}${ACCOUNTS.payee.slice(-4)}`.toLowerCase());
+  expect(merchant.slice(0, 6).toLowerCase()).toBe(ACCOUNTS.payee.slice(0, 6).toLowerCase());
+  expect(merchant.slice(-4).toLowerCase()).toBe(ACCOUNTS.payee.slice(-4).toLowerCase());
+  const counter = await actor(browser, merchant);
+  await counter.page.goto(href);
+  const slip = counter.page.locator(".view-receipt .receipt");
+  await expect(slip).toContainText("Approved");
+  // Not connected yet: the slip asks for the group-by-group comparison, and shows the whole address to compare.
+  await expect(slip.locator(".receipt-who")).toHaveAttribute("data-lamp", "off");
+  expect(await shownGroups(slip, "To")).toBe(grouped(ACCOUNTS.payee));
+  expect(await shownGroups(slip, "To")).not.toBe(grouped(merchant));
+  // Signed in with the merchant's wallet, right on the receipt: amber, in words, before anything is handed over.
+  await counter.page.locator(".top .connect").click();
+  await expect(slip.locator(".receipt-who")).toHaveAttribute("data-lamp", "wait");
+  await expect(slip.locator(".receipt-who")).toHaveText(/^Not paid to you: the To address is not the account signed in here\./);
+  // The same receipt, opened by the real payee, is theirs.
+  await fraudster.page.goto(href);
+  await expect(fraudster.page.locator(".view-receipt .receipt-who")).toHaveText("Paid to you: the To address is the account signed in here.");
+  expect(await axe(counter.page)).toEqual([]);
+  expect(counter.problems).toEqual([]);
+});
+
+test("filled states reflow in EN, FR and MG from 320 to 1280 px: the paid pay view, a receipt with its details open, the printed slip", async ({ browser }) => {
+  test.setTimeout(600_000);
+  const payee = await actor(browser, ACCOUNTS.payee);
+  const payer = await actor(browser, ACCOUNTS.payer);
+  const WIDTHS = [1280, 768, 390, 360, 320] as const;
+  const AXE_WIDTHS: readonly number[] = [1280, 390, 320];
+  const readable = async (where: string, width: number): Promise<void> => {
+    expect(await horizontalOverflow(payer.page), `${where}: horizontal scroll`).toBeLessThanOrEqual(0);
+    expect(await brokenWords(payer.page), `${where}: words broken inside`).toEqual([]);
+    expect(await truncatedText(payer.page), `${where}: copy cut`).toEqual([]);
+    // Nothing of a reading runs past its slip or disclosure (the grouped addresses included).
+    expect(
+      await payer.page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>(".receipt dd, .details dd, .receipt dt, .details dt")]
+          .filter((el) => el.getClientRects().length > 0)
+          .filter((el) => {
+            const box = el.closest(".receipt, .details")?.getBoundingClientRect();
+            return [...el.querySelectorAll("*"), el].some((part) => {
+              const r = part.getBoundingClientRect();
+              return box !== undefined && r.width > 0 && (r.right > box.right + 0.5 || r.left < box.left - 0.5);
+            });
+          })
+          .map((el) => `${el.tagName.toLowerCase()} ${el.textContent.slice(0, 24)}`),
+      ),
+      `${where}: readings inside their box`,
+    ).toEqual([]);
+    if (AXE_WIDTHS.includes(width)) {
+      expect(await axe(payer.page), where).toEqual([]);
+    }
+  };
+  for (const locale of ["en", "fr", "mg"] as const) {
+    await payee.page.goto(`${server.origin}/`);
+    await setLocale(payee.page, "en");
+    const link = await createInvoice(payee, "1.5", `Fandoavana ${locale}`);
+    await payer.page.goto(`${server.origin}/`);
+    await setLocale(payer.page, locale);
+    await payer.page.setViewportSize({ width: 1280, height: 900 });
+    await payer.page.goto(link);
+    await payer.page.reload();
+    const key = payer.page.locator(".payform .key-primary");
+    await expect(key).toBeEnabled();
+    if ((await key.getAttribute("data-action")) === "connect") {
+      await key.click();
+    }
+    await expect(key).toHaveAttribute("data-action", "pay");
+    await key.click();
+    await expect(payer.page.locator(".receipt-slot .receipt")).toBeVisible();
+    await expect(payer.page.locator(".bill .verdict")).toBeVisible();
+    for (const width of WIDTHS) {
+      await payer.page.setViewportSize({ width, height: 900 });
+      await readable(`paid pay view ${locale} ${String(width)}`, width);
+    }
+    const href = (await payer.page.locator(".receipt-slot a.key").first().getAttribute("href")) ?? "";
+    await payer.page.goto(new URL(href, server.origin).toString());
+    await expect(payer.page.locator(".view-receipt .receipt-who")).toBeVisible();
+    await payer.page.locator(".view-receipt .details > summary").click();
+    for (const width of WIDTHS) {
+      await payer.page.setViewportSize({ width, height: 900 });
+      await readable(`receipt, details open ${locale} ${String(width)}`, width);
+      if (width === 320) {
+        await payer.page.screenshot({ path: test.info().outputPath(`receipt-details-${locale}-320.png`), fullPage: true });
+      }
+    }
+    // On paper (80 mm roll and A6): no label broken inside a word, nothing past the paper's edge.
+    for (const size of ["80 mm", "A6"] as const) {
+      await payer.page.evaluate(() => {
+        window.print = () => undefined;
+      });
+      await payer.page.locator(".share-keys button").nth(size === "80 mm" ? 0 : 1).click();
+      await payer.page.locator("#print-area .qr path").waitFor({ state: "attached" });
+      await payer.page.emulateMedia({ media: "print" });
+      expect(await brokenWords(payer.page), `printed ${size} ${locale}: words broken inside`).toEqual([]);
+      expect(
+        await payer.page.evaluate(() => {
+          const paper = document.querySelector("#print-area .receipt")?.getBoundingClientRect();
+          return [...document.querySelectorAll("#print-area .receipt *")].filter((el) => {
+            const r = el.getBoundingClientRect();
+            return paper !== undefined && r.width > 0 && r.right > paper.right + 0.5;
+          }).length;
+        }),
+        `printed ${size} ${locale}: nothing past the paper's edge`,
+      ).toBe(0);
+      await payer.page.emulateMedia({ media: null });
+      await payer.page.evaluate(() => document.getElementById("print-area")?.replaceChildren());
+      // And one page: the 80 mm roll's 210 mm, one A6 sheet.
+      const paper = await printedPageSize(payer.page, payer.page.locator(".share-keys button").nth(size === "80 mm" ? 0 : 1), test.info().outputPath(`receipt-${locale}-${size === "A6" ? "a6" : "80mm"}.pdf`));
+      expect(paper.pages, `printed ${size} ${locale}: one page`).toBe(1);
+    }
+  }
+  expect(payer.problems).toEqual([]);
+});
+
 test("the armed till lights only for its invoice, at its amount", async ({ browser }) => {
   const payee = await actor(browser, ACCOUNTS.payee);
   const other = await createInvoice(payee, "0.01", "Not this one");
@@ -323,6 +477,46 @@ test("the armed till lights only for its invoice, at its amount", async ({ brows
   expect(await display.evaluate((el) => el.getBoundingClientRect().height / window.innerHeight)).toBeGreaterThan(0.6);
   expect(await figure.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
   await till.page.screenshot({ path: test.info().outputPath("till-paid-fullscreen.png") });
+  await till.page.evaluate(async () => { await document.exitFullscreen(); });
+
+  // The paid verdict fits the window in every language on a phone: Malagasy "VOALOA" has six letters where "PAID" has
+  // four, and the word is never cut by the window's edge. The till lights again from the chain on each reload.
+  const inside = async (selector: string): Promise<number> =>
+    await till.page.evaluate((sel) => {
+      const box = document.querySelector(".till")?.getBoundingClientRect();
+      const part = document.querySelector(sel)?.getBoundingClientRect();
+      return box === undefined || part === undefined ? Number.POSITIVE_INFINITY : Math.max(part.right - box.right, box.left - part.left, part.bottom - box.bottom, box.top - part.top);
+    }, selector);
+  for (const [locale, word] of [["en", "Paid"], ["fr", "Payé"], ["mg", "Voaloa"]] as const) {
+    await setLocale(till.page, locale);
+    for (const width of [320, 360, 375, 390]) {
+      await till.page.setViewportSize({ width, height: 800 });
+      await till.page.reload();
+      await till.page.locator(".view-till .key-primary").click();
+      await expect(display).toHaveAttribute("data-state", "paid", { timeout: 15_000 });
+      await expect(till.page.locator(".till-word")).toHaveText(word);
+      expect(await inside(".till-word"), `${locale} ${String(width)}: the verdict inside the window`).toBeLessThanOrEqual(0.5);
+    }
+  }
+
+  // A phone on its side on the counter, in full screen: the amount stays whole inside the window, under the verdict's
+  // side, and the keys stay reachable in one row.
+  await setLocale(till.page, "en");
+  await till.page.setViewportSize({ width: 844, height: 390 });
+  await till.page.reload();
+  await till.page.locator(".view-till .key-primary").click();
+  await expect(display).toHaveAttribute("data-state", "paid", { timeout: 15_000 });
+  await till.page.getByRole("button", { name: "Full screen" }).click();
+  await expect.poll(async () => await till.page.evaluate(() => document.fullscreenElement?.id ?? null)).toBe("terminal");
+  await till.page.waitForTimeout(400);
+  expect(await inside(".till-figure .num"), "landscape: the amount inside the window").toBeLessThanOrEqual(0.5);
+  expect(await inside(".till-word"), "landscape: the verdict inside the window").toBeLessThanOrEqual(0.5);
+  expect(await till.page.locator(".till-figure .num").evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(100);
+  for (const name of ["Stop the till", "Full screen"]) {
+    await expect(till.page.getByRole("button", { name })).toBeInViewport({ ratio: 1 });
+  }
+  expect(await till.page.locator(".till").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  await till.page.screenshot({ path: test.info().outputPath("till-paid-fullscreen-landscape.png") });
   await till.page.evaluate(async () => { await document.exitFullscreen(); });
   expect(till.problems).toEqual([]);
 });

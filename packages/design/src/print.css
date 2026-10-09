@@ -37,5 +37,32 @@
     #print-area[data-size="a6"] .scan-cap > span { font-size: 11px; }
     #print-area a { text-decoration: none; }
     #print-area .ext::after { display: none; }
+    /* The receipt on paper can be checked again: the full transaction hash, the CAIP-2 id and the receipt link with its
+       QR code join the slip; what only this screen knows (whose address the payee is) stays off the paper. */
+    #print-area .only-screen { display: none; }
+    #print-area .receipt dl > .only-print { display: grid; }
+    /* Set for paper: the readings smaller (a grouped address takes 37 mm), the checks on shared lines, so the slip with
+       its proof fits one 80 × 210 mm roll page and one A6 sheet. */
+    #print-area .receipt-top { padding-bottom: 6px; }
+    #print-area .receipt-amt { padding: 8px 0 2px; }
+    #print-area .receipt dl { margin-top: 4px; font-size: 10px; line-height: 1.4; }
+    #print-area .receipt dl > div { padding: 2px 0; }
+    #print-area .receipt dt { font-size: 8.5px; }
+    #print-area .receipt .addr, #print-area .receipt .hex { font-size: 10px; line-height: 1.5; }
+    #print-area .receipt .checks-mini { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 6px; padding-top: 6px; }
+    #print-area .receipt .checks-mini .lamp { font-size: 8.5px; }
+    #print-area .receipt-foot { margin-top: 6px; padding-top: 6px; font-size: 9px; }
+    #print-area .receipt .receipt-verify { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 2mm 3mm; margin-top: 6px; padding-top: 6px; text-align: center; }
+    #print-area .receipt-verify .qr-frame { padding: 1.2mm; }
+    #print-area .receipt-verify .qr { width: 28mm; padding: 1mm; }
+    #print-area .receipt-verify-cap { align-items: center; }
+    #print-area .receipt-verify-cap b { font-size: 11px; }
+    #print-area .receipt-verify-cap > span { font-size: 9px; }
+    #print-area .receipt-verify .printed-url { font-size: 6px; line-height: 1.4; }
+    #print-area[data-size="a6"] .receipt { padding: 0 1mm; }
+    #print-area[data-size="a6"] .receipt-amt .num { font-size: 40px; }
+    #print-area[data-size="a6"] .receipt dl > div { padding: 1.5px 0; }
+    #print-area[data-size="a6"] .receipt .receipt-verify { grid-template-columns: 31mm minmax(0, 1fr); justify-items: start; align-items: start; text-align: left; }
+    #print-area[data-size="a6"] .receipt-verify-cap { align-items: flex-start; }
   }
 }
