@@ -124,7 +124,7 @@ The ledger merges the device's invoices with the contract's statesOf, lists the 
 
 ### Technical demo video, pitch video, Agora demo video
 
-Scripts: [video-scripts.md](video-scripts.md) (a), (b) and (c). Links: `[TO FILL: YouTube URL, public]` for each.
+Scripts: [video-scripts.md](video-scripts.md) (a), (b) and (c). Links: the public YouTube videos titled "PayLink on Monad: get paid in dollars with a fingerprint (testnet demo)" (technical demo), "PayLink: pitch (Monad Metropolis)" (pitch) and "PayLink: passkey onboarding and AUSD payment on Monad (testnet)" (Agora demo); copy each link from YouTube Studio → Content.
 
 ### Product advertisement (optional, at most 30 s)
 
@@ -132,7 +132,7 @@ Optional. [video-scripts.md §5](video-scripts.md#5-optional-30-second-advertise
 
 ### X profile (optional)
 
-`[TO FILL: your X handle, or leave empty]`
+Leave empty.
 
 ## 3. Go-to-market and user acquisition
 
@@ -149,7 +149,7 @@ WHO WE START WITH (hypotheses)
 3. Payers abroad: clients, employers, and members of the Malagasy diaspora who pay people and small businesses at home. They never sign up; their only step is a passkey on the phone they already use. Because every invoice puts PayLink in front of a payer at the moment of paying, payers are also our main acquisition channel.
 
 HOW WE REACH THEM (planned channels)
-- Founder-led outreach in Antananarivo, where the founder lives and works: [TO FILL: the freelancer, developer and student communities you actually belong to]. Each first user is onboarded in person or on a call, in Malagasy or French; the app already speaks both.
+- Founder-led outreach in Antananarivo, where the founder lives and works: the founder's own circles of freelancers and developers in Antananarivo. Each first user is onboarded in person or on a call, in Malagasy or French; the app already speaks both.
 - The product loop: each invoice reaches a payer, and some payers are paid by others too. We measure how many payers later create their own invoice.
 - WhatsApp first: the share sheet, the wa.me link and a printed A6 card are built in, because that is where invoices already travel.
 - Monad and Agora communities, for testers and for AUSD liquidity once on mainnet.
@@ -179,16 +179,14 @@ NEXT 90 DAYS (plan)
 2. November: fix what the pilot shows; publish the open invoice specification as a standalone document others can implement.
 3. December: an external review of the contract if funding allows; Monad mainnet (chain 143 is already in our registry, disabled) only after a cash-out path and a legal review exist.
 ```
-Characters: 4,415 / 8,000
+Characters: 4,403 / 8,000
 
 ## 4. Judge access instructions
 
-Optional and private on the form. Paste it once the relayer answers (README §1, P0); until then the gasless steps cannot work, and the text says so in its first paragraph, which you delete once the relayer is up.
+Optional and private on the form. The relayer answers (its /v1/health reads "ready" on Monad testnet and Base Sepolia), so every step below works.
 
 <!-- field: monad.judges max=8000 -->
 ```text
-[TO FILL: delete this paragraph once https://paylink-relayer.raherizonambinina.workers.dev/v1/health answers. Until then: the fee service is offline, so "Get 10,000 test AUSD", gasless payments and gasless cancel do not work; the contract checks, the invoice, the receipt and the till do.]
-
 Everything runs on Monad testnet (chain 10143). Nothing to install, no wallet, no MON.
 
 WHAT YOU NEED
@@ -216,7 +214,7 @@ WHAT YOU NEED
 4. MERCHANT: THE BOOKS
 - "Ledger" (top menu): every invoice signed on this device, its state read from the contract (statesOf), the totals, and CSV export.
 - "Cancel" then "Confirm cancel" on an open invoice: one fingerprint, no gas (cancelBySig through the relayer).
-- "Payments received": [TO FILL: "from the Envio indexer" once it is deployed, else "from the chain's latest blocks only; the history service is not deployed"]. Each row has "Verify receipt".
+- "Payments received": from the chain's latest blocks only; the history service is not deployed. Each row has "Verify receipt".
 - "Ledger backup": "Back up my ledger" encrypts the books with a second key from the same passkey and downloads a file; "Restore from a file" opens it again, on any device the passkey syncs to.
 
 5. SEND AND RECEIVE
@@ -232,7 +230,7 @@ IF SOMETHING FAILS
 - "PayLink keys are not available here": open https://paylink-mg.pages.dev/monad/ in Safari or Chrome directly, not inside another app.
 - Language: EN, FR or MG at the top of every page.
 ```
-Characters: 4,859 / 8,000
+Characters: 4,504 / 8,000
 
 ## 5. Bounty answers
 

@@ -139,7 +139,7 @@ BUSINESS MODEL (hypotheses)
 - Later, referral revenue from licensed cash-out partners. None exists today.
 
 GO-TO-MARKET (plan)
-- Founder-led onboarding in Antananarivo, in Malagasy and French (the app speaks both, plus English): [TO FILL: the communities you actually belong to].
+- Founder-led onboarding in Antananarivo, in Malagasy and French (the app speaks both, plus English): the founder's own circles of freelancers and developers in Antananarivo.
 - The payer loop: we measure how many payers later issue their own invoice.
 - WhatsApp first: the share sheet, the wa.me link and the printed card are built in.
 - Base: smart-wallet payers pay in one approval, and EOA payers need no ETH, so a client who already holds USDC on Base can pay in seconds.
@@ -155,7 +155,7 @@ Activation (first paid invoice within 7 days), median time to get paid (computed
 NEXT 90 DAYS (plan)
 October: at least 6 interviews reported as "n of N"; a testnet pilot with merchants from the founder's network. November: fix what the pilot shows; publish the invoice specification as a standalone document. December: an external review of the contract if funding allows; mainnet only after a cash-out path and a legal review exist.
 ```
-Characters: 3,095 (no stated limit)
+Characters: 3,117 (no stated limit)
 
 ### Demand validation (if the form asks separately)
 
@@ -187,9 +187,9 @@ Characters: 903 (no stated limit)
 
 <!-- field: colosseum.team max=0 -->
 ```text
-Solo founder: nambininasafidison, based in Antananarivo, Madagascar. [TO FILL: one or two sentences on your background, in your own words.] The founder decides scope and design, reviews every change and owns every key, account and submission. Much of the engineering and documentation was done with Claude Code, Anthropic's AI coding tool, under the founder's direction; commits made with it carry a Co-Authored-By trailer, and the repository's AI_DISCLOSURE.md states what it did and was not allowed to do (no keys, no deployments, no submissions).
+Solo founder: nambininasafidison, based in Antananarivo, Madagascar. The founder is a software developer who also built Ranoka, a citizen water-quality app with HL7 FHIR data, submitted to the OneAquaHealth IEEE hackathon. The founder decides scope and design, reviews every change and owns every key, account and submission. Much of the engineering and documentation was done with Claude Code, Anthropic's AI coding tool, under the founder's direction; commits made with it carry a Co-Authored-By trailer, and the repository's AI_DISCLOSURE.md states what it did and was not allowed to do (no keys, no deployments, no submissions).
 ```
-Characters: 549 (no stated limit)
+Characters: 632 (no stated limit)
 
 ### Prior work and other events
 
@@ -226,7 +226,7 @@ Characters: 1,452 (no stated limit)
 | Contract, Base Sepolia | [Basescan](https://sepolia.basescan.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082), [Blockscout](https://base-sepolia.blockscout.com/address/0x448eCce9711860502806A3d5B021a4f9Ba715082) |
 | Deployment transaction | [Basescan](https://sepolia.basescan.org/tx/0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed) |
 | Open invoice specification | [docs/spec/paylink-invoice-v2.md](../spec/paylink-invoice-v2.md) and its [JSON Schema](../spec/paylink-invoice-v2.schema.json) |
-| Pitch video (2–3 min) | `[TO FILL: YouTube URL, public]`, script [video-scripts.md (d)](video-scripts.md#4-d-colosseum-pitch-23-min-and-demo-at-most-300) |
-| Demo video (at most 3 min) | `[TO FILL: YouTube URL, public]`, same section |
+| Pitch video (2–3 min) | the public YouTube video titled "PayLink: pitch (Colosseum)", link from YouTube Studio → Content; script [video-scripts.md (d)](video-scripts.md#4-d-colosseum-pitch-23-min-and-demo-at-most-300) |
+| Demo video (at most 3 min) | the public YouTube video titled "PayLink on Base: dollar invoices you share as a link (testnet demo)", same section |
 | Logo and thumbnail | `docs/submissions/assets/logo-1024.png`, `docs/submissions/assets/social-card.png` (1200 × 630) |
 | Tag | `submission/colosseum-2026-10-12` on the submitted commit, created by you when you submit |
