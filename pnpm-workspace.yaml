@@ -27,15 +27,15 @@ savePrefix: ''
 catalogMode: prefer
 catalog:
   '@openzeppelin/contracts': 5.3.0 # §3.3.5: not 5.4+ (MCOPY breaks the single paris artifact)
-  viem: 2.57.3
+  viem: 2.57.4
   typescript: 6.0.3 # typescript-eslint 8.71.1 does not support TS 7
-  vite: 8.3.2
+  vite: 8.3.4
   vite-plugin-pwa: 2.0.0
   '@category-labs/mera': 0.2.0 # preview; review the lockfile integrity diff on every bump
   '@base-org/account': 2.5.13
   hono: 4.13.13
   zod: 4.6.5
-  envio: 3.12.1
+  envio: 3.14.0
   vitest: 5.0.3
   '@vitest/coverage-v8': 5.0.3
   typescript-eslint: 8.71.1
@@ -46,17 +46,17 @@ catalog:
   fast-check: 4.10.2 # §4.1 property tests (URL codec, amounts at 6/18 decimals, error decoder)
   '@types/node': 22.20.5 # Node 22 line (.nvmrc 22.22.0); tests and scripts only, never src/
   # Deploy page (web/v2/deploy, tools/deploy-page), added on 2026-10-07.
-  rolldown: 1.2.12 # bundles the deploy page's vendored viem subset; the same version vite 8.3.2 already resolves
-  axe-core: 4.13.0 # e2e accessibility gate (spec §4.1 "axe 0 violations"); 4.14.0 was two days old at pinning
+  rolldown: 1.2.13 # bundles the deploy page's vendored viem subset; the same version vite 8.3.2 already resolves
+  axe-core: 4.14.0 # e2e accessibility gate (spec §4.1 "axe 0 violations"); 4.14.0 was two days old at pinning
   # Relayer (apps/relayer, spec §3.7), added on 2026-10-07. hono and zod are pinned above.
-  '@hono/node-server': 2.1.3 # Node adapter for local e2e against anvil; peer hono ^4
-  wrangler: 4.148.0 # `wrangler deploy --dry-run` config gate; the runbook's deploy command uses this exact version
+  '@hono/node-server': 2.1.4 # Node adapter for local e2e against anvil; peer hono ^4
+  wrangler: 4.149.0 # `wrangler deploy --dry-run` config gate; the runbook's deploy command uses this exact version
   miniflare: 5.20261006.0-alpha # the exact version wrangler 4.148.0 depends on: runs the built Worker in workerd in tests
-  '@cloudflare/workers-types': 5.20261006.1 # wrangler 4.148.0 peer range ^5.20261006.1; matches its workerd 1.20261006.1
+  '@cloudflare/workers-types': 5.20261009.1 # wrangler 4.148.0 peer range ^5.20261006.1; matches its workerd 1.20261006.1
   # Web app (apps/web, packages/design, packages/i18n, spec §3.6), added on 2026-10-07. vite-plugin-pwa and zod are pinned above.
-  idb: 8.0.3 # IndexedDB wrapper for the device store; 8.0.4 was one day old at pinning
+  idb: 8.0.4 # IndexedDB wrapper for the device store; 8.0.4 was one day old at pinning
   qrcode-generator: 2.0.4 # the MIT QR library v1 vendors as web/qrcode.js, now from npm with types
-  happy-dom: 20.14.5 # DOM for the web app's unit tests (dev only)
+  happy-dom: 20.14.6 # DOM for the web app's unit tests (dev only)
   fake-indexeddb: 6.2.5 # IndexedDB for the device-store unit tests (dev only)
   # Monad edition passkeys (apps/web, spec §3.6 "Mera"), added on 2026-10-08. The derivation follows Mera's documented
   # recipe (BIP-39 seed from the PRF output, BIP-32/BIP-44 m/44'/60'/0'/0/0); both are the versions viem 2.57.3 already
