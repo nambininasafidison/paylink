@@ -33,3 +33,7 @@ Screenshots of the review and done states (1280 px light, 390 px dark) are writt
 pnpm --filter @paylink/e2e capture              # both, in order
 pnpm --filter @paylink/e2e capture 02-artwork   # the artwork only, from the committed screenshots
 ```
+
+## Demo video recordings (not part of `pnpm test`)
+
+`video.config.ts` runs `video/record.spec.ts` on demand: the raw material of the submission videos ([video scripts](../docs/submissions/video-scripts.md)). Two phones (the seller on the left, the client on the right) drive the production build at its production origin against the same forks, relayer and virtual authenticator as the captures above; each phone's screen is filmed with CDP screencast frames, and captions, taps and fingerprints are logged on the same clock for the compositor. `VIDEO=monad|base VIDEO_OUT=<dir> pnpm --filter @paylink/e2e exec playwright test -c video.config.ts`.
