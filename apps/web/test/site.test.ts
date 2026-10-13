@@ -12,7 +12,24 @@ import { join } from "node:path";
 import { registry, scopeToEdition } from "@paylink/chains";
 import { afterAll, describe, expect, it } from "vitest";
 import { entryJsBytes } from "../scripts/build.ts";
-import { appCsp, assemble, configOrigins, DEFAULT_EDITIONS, deployCsp, KIT, kitIndexHtml, PUBLIC, renderHeaders, rpcOrigins, v1Csp, v1Files, v1ScriptHashes, WEB } from "../scripts/site.ts";
+import {
+  appCsp,
+  assemble,
+  configOrigins,
+  connectOrigins,
+  DEFAULT_EDITIONS,
+  deployCsp,
+  editionChains,
+  KIT,
+  kitIndexHtml,
+  OWN_POLICY_EDITIONS,
+  PUBLIC,
+  renderHeaders,
+  v1Csp,
+  v1Files,
+  v1ScriptHashes,
+  WEB,
+} from "../scripts/site.ts";
 
 const directives = (policy: string): Map<string, string[]> =>
   new Map(
@@ -44,7 +61,7 @@ describe("_headers", () => {
   });
 
   it("gives the app a strict policy: own scripts and styles only, Trusted Types, no framing", () => {
-    const csp = directives(appCsp([...rpcOrigins(), ...configOrigins()]));
+    const csp = directives(appCsp(connectOrigins("all")));
     expect(csp.get("default-src")).toEqual(["'none'"]);
     expect(csp.get("script-src")).toEqual(["'self'"]);
     expect(csp.get("style-src")).toEqual(["'self'"]);
@@ -59,7 +76,7 @@ describe("_headers", () => {
 
   it("lets the app connect to its own origin, the registry RPCs of the built editions and config.json's endpoints only", () => {
     const expected = new Set<string>();
-    for (const edition of DEFAULT_EDITIONS) {
+    for (const edition of DEFAULT_EDITIONS.filter((e) => !OWN_POLICY_EDITIONS.has(e))) {
       for (const chain of scopeToEdition(registry, edition).chains) {
         for (const rpc of chain.rpc) {
           expected.add(new URL(rpc.url).origin);
@@ -69,7 +86,7 @@ describe("_headers", () => {
     for (const origin of configOrigins()) {
       expected.add(origin);
     }
-    const connect = directives(appCsp([...rpcOrigins(), ...configOrigins()])).get("connect-src") ?? [];
+    const connect = directives(appCsp(connectOrigins("all"))).get("connect-src") ?? [];
     expect(connect[0]).toBe("'self'");
     expect(new Set(connect.slice(1))).toEqual(expected);
     expect(connect.slice(1).every((origin) => origin.startsWith("https://"))).toBe(true);
@@ -91,6 +108,34 @@ describe("_headers", () => {
     expect(permissions).toContain("publickey-credentials-get=(self)");
     expect(permissions).toContain("camera=()");
     expect(permissions).toContain("payment=()");
+  });
+
+  it("gives the Mezo edition a policy of its own: its chain's RPC and config.json's endpoints, the shared policy unchanged", () => {
+    const parsed = rules(renderHeaders());
+    const keys = [...parsed.keys()];
+    expect(keys.indexOf("/mezo/*")).toBeGreaterThan(keys.indexOf("/*"));
+    const mezo = parsed.get("/mezo/*") ?? [];
+    expect(mezo[0]).toBe("! Content-Security-Policy");
+    const policies = mezo.filter((l) => l.startsWith("Content-Security-Policy:"));
+    expect(policies).toHaveLength(1);
+    const mezoCsp = directives((policies[0] ?? "").slice("Content-Security-Policy: ".length));
+    const mezoRpcs = editionChains("mezo").flatMap((chain) => chain.rpc.map((rpc) => new URL(rpc.url).origin));
+    expect(editionChains("mezo").map((chain) => chain.chainId)).toEqual([31611]);
+    expect(new Set(mezoCsp.get("connect-src"))).toEqual(new Set(["'self'", ...mezoRpcs, ...configOrigins()]));
+    // Everything else is the app's policy, word for word: Trusted Types, no framing, own scripts and styles.
+    const shared = directives(appCsp(connectOrigins("all")));
+    for (const [name, values] of shared) {
+      if (name !== "connect-src") {
+        expect(mezoCsp.get(name), name).toEqual(values);
+      }
+    }
+    // The shared policy of /, /monad/ and /base/ is the one they had before the Mezo edition existed.
+    const before = rules(renderHeaders(["all", "monad", "base"])).get("/*");
+    expect(parsed.get("/*")).toEqual(before);
+    for (const origin of mezoRpcs) {
+      expect(shared.get("connect-src"), origin).not.toContain(origin);
+    }
+    expect(OWN_POLICY_EDITIONS.has("mezo")).toBe(true);
   });
 
   it("serves the frozen v1 app with exactly what it needs: its inline script by hash, its RPC", () => {

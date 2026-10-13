@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * Vite multi-page build of one edition (ADR 0006, ADR 0008). `VITE_EDITION` picks the edition (`all` at the root,
- * `monad` and `base` under their own path); scripts/build.ts builds every edition and assembles the site.
+ * `monad`, `base` and `mezo` under their own path); scripts/build.ts builds every edition and assembles the site.
  *
  * Security-relevant settings: no asset is ever inlined as a data: URI (fonts and scripts stay `'self'`); the app's
  * Content-Security-Policy is also written into every page as a `<meta>` (defence in depth if a header is lost; the
@@ -15,7 +15,7 @@ import type { Edition } from "@paylink/chains";
 import { defaultClientConditions, defineConfig } from "vite";
 import type { Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { appCsp, configOrigins, DEFAULT_EDITIONS, editionBase, rpcOrigins } from "./scripts/site.ts";
+import { appCsp, connectOrigins, DEFAULT_EDITIONS, editionBase } from "./scripts/site.ts";
 
 const EDITIONS: readonly Edition[] = ["all", "monad", "base", "mezo"];
 const edition = (process.env["VITE_EDITION"] ?? "all") as Edition;
@@ -56,7 +56,7 @@ const version = (JSON.parse(readFileSync(new URL("package.json", import.meta.url
  */
 function cspMeta(): Plugin {
   const editions = DEFAULT_EDITIONS.includes(edition) ? DEFAULT_EDITIONS : [...DEFAULT_EDITIONS, edition];
-  const policy = appCsp([...rpcOrigins(editions), ...configOrigins()], true);
+  const policy = appCsp(connectOrigins(edition, editions), true);
   const charset = '<meta charset="utf-8">';
   return {
     name: "paylink:csp-meta",

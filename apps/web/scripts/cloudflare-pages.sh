@@ -47,6 +47,7 @@ echo "node $node_version, pnpm $("${pnpm[@]}" --version), commit ${CF_PAGES_COMM
 "${pnpm[@]}" --filter @paylink/web run build
 
 test -f apps/web/dist/index.html
+test -f apps/web/dist/mezo/index.html
 test -f apps/web/dist/_headers
 test -f apps/web/dist/arc/index.html
 test -f apps/web/dist/deploy/index.html
