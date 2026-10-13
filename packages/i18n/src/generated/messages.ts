@@ -808,7 +808,52 @@ export type MessageKey =
   | "history.status.progress"
   | "history.status.syncing"
   | "history.status.missing"
-  | "history.status.noChain";
+  | "history.status.noChain"
+  | "mezo.create.kicker"
+  | "mezo.create.h1b"
+  | "mezo.create.lede"
+  | "mezo.create.step3"
+  | "mezo.pay.billLede"
+  | "mezo.pay.openLede"
+  | "mezo.pay.step2"
+  | "mezo.pay.assure"
+  | "mezo.pay.needsBtc"
+  | "mezo.pay.waitBtc"
+  | "mezo.pay.checkBtc"
+  | "mezo.ledger.cancelNoGas"
+  | "mezo.wallet.lede"
+  | "mezo.wallet.none"
+  | "mezo.notes.title"
+  | "mezo.notes.musd"
+  | "mezo.notes.musdText"
+  | "mezo.notes.fee"
+  | "mezo.notes.feeText"
+  | "mezo.notes.gasless"
+  | "mezo.notes.gaslessText"
+  | "mezo.notes.issuer"
+  | "mezo.notes.issuerText"
+  | "mezo.test.title"
+  | "mezo.test.btc"
+  | "mezo.test.btcText"
+  | "mezo.test.borrow"
+  | "mezo.test.borrowText"
+  | "mezo.test.borrowAlt"
+  | "mezo.test.pay"
+  | "mezo.test.payText"
+  | "mezo.link.faucet"
+  | "mezo.link.discord"
+  | "mezo.link.borrow"
+  | "mezo.funds.musd"
+  | "mezo.funds.btc"
+  | "mezo.fee.line"
+  | "mezo.fee.basis"
+  | "mezo.status.token"
+  | "mezo.status.tokenOk"
+  | "mezo.status.tokenErr"
+  | "mezo.status.fee"
+  | "mezo.status.feeValue"
+  | "mezo.status.gasless"
+  | "mezo.status.gaslessValue";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1615,6 +1660,51 @@ export interface MessageParams {
   readonly "history.status.syncing": { readonly block: ParamValue; readonly network: ParamValue };
   readonly "history.status.missing": { readonly network: ParamValue };
   readonly "history.status.noChain": never;
+  readonly "mezo.create.kicker": never;
+  readonly "mezo.create.h1b": never;
+  readonly "mezo.create.lede": never;
+  readonly "mezo.create.step3": never;
+  readonly "mezo.pay.billLede": never;
+  readonly "mezo.pay.openLede": never;
+  readonly "mezo.pay.step2": never;
+  readonly "mezo.pay.assure": never;
+  readonly "mezo.pay.needsBtc": never;
+  readonly "mezo.pay.waitBtc": never;
+  readonly "mezo.pay.checkBtc": never;
+  readonly "mezo.ledger.cancelNoGas": { readonly coin: ParamValue };
+  readonly "mezo.wallet.lede": never;
+  readonly "mezo.wallet.none": never;
+  readonly "mezo.notes.title": never;
+  readonly "mezo.notes.musd": never;
+  readonly "mezo.notes.musdText": never;
+  readonly "mezo.notes.fee": never;
+  readonly "mezo.notes.feeText": never;
+  readonly "mezo.notes.gasless": never;
+  readonly "mezo.notes.gaslessText": never;
+  readonly "mezo.notes.issuer": never;
+  readonly "mezo.notes.issuerText": never;
+  readonly "mezo.test.title": never;
+  readonly "mezo.test.btc": never;
+  readonly "mezo.test.btcText": never;
+  readonly "mezo.test.borrow": never;
+  readonly "mezo.test.borrowText": never;
+  readonly "mezo.test.borrowAlt": never;
+  readonly "mezo.test.pay": never;
+  readonly "mezo.test.payText": never;
+  readonly "mezo.link.faucet": never;
+  readonly "mezo.link.discord": never;
+  readonly "mezo.link.borrow": never;
+  readonly "mezo.funds.musd": never;
+  readonly "mezo.funds.btc": never;
+  readonly "mezo.fee.line": { readonly sats: ParamValue };
+  readonly "mezo.fee.basis": never;
+  readonly "mezo.status.token": never;
+  readonly "mezo.status.tokenOk": { readonly decimals: ParamValue; readonly name: ParamValue; readonly symbol: ParamValue };
+  readonly "mezo.status.tokenErr": never;
+  readonly "mezo.status.fee": never;
+  readonly "mezo.status.feeValue": { readonly sats: ParamValue };
+  readonly "mezo.status.gasless": never;
+  readonly "mezo.status.gaslessValue": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1735,3 +1825,55 @@ export type FeatureKey =
   | "history.status.syncing"
   | "history.status.missing"
   | "history.status.noChain";
+
+/** Edition catalogues, loaded only by that edition's build (`loadEditionMessages`). */
+export type EditionCatalogue =
+  | "mezo";
+
+/** Keys that live in an edition catalogue: only that edition's pages carry them. */
+export type EditionKey =
+  | "mezo.create.kicker"
+  | "mezo.create.h1b"
+  | "mezo.create.lede"
+  | "mezo.create.step3"
+  | "mezo.pay.billLede"
+  | "mezo.pay.openLede"
+  | "mezo.pay.step2"
+  | "mezo.pay.assure"
+  | "mezo.pay.needsBtc"
+  | "mezo.pay.waitBtc"
+  | "mezo.pay.checkBtc"
+  | "mezo.ledger.cancelNoGas"
+  | "mezo.wallet.lede"
+  | "mezo.wallet.none"
+  | "mezo.notes.title"
+  | "mezo.notes.musd"
+  | "mezo.notes.musdText"
+  | "mezo.notes.fee"
+  | "mezo.notes.feeText"
+  | "mezo.notes.gasless"
+  | "mezo.notes.gaslessText"
+  | "mezo.notes.issuer"
+  | "mezo.notes.issuerText"
+  | "mezo.test.title"
+  | "mezo.test.btc"
+  | "mezo.test.btcText"
+  | "mezo.test.borrow"
+  | "mezo.test.borrowText"
+  | "mezo.test.borrowAlt"
+  | "mezo.test.pay"
+  | "mezo.test.payText"
+  | "mezo.link.faucet"
+  | "mezo.link.discord"
+  | "mezo.link.borrow"
+  | "mezo.funds.musd"
+  | "mezo.funds.btc"
+  | "mezo.fee.line"
+  | "mezo.fee.basis"
+  | "mezo.status.token"
+  | "mezo.status.tokenOk"
+  | "mezo.status.tokenErr"
+  | "mezo.status.fee"
+  | "mezo.status.feeValue"
+  | "mezo.status.gasless"
+  | "mezo.status.gaslessValue";

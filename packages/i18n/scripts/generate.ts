@@ -9,6 +9,11 @@
  * (PAYLINK-V2-SPEC §4.4: 110 kB of gzipped JavaScript), does not grow with them. The list is closed: a new feature
  * catalogue is a reviewed change.
  *
+ * Edition catalogues hold the copy of one edition (`EDITION_CATALOGUES`, ADR 0008): the Mezo edition's words for MUSD
+ * and BTC fees. Only that edition's build loads them (`loadEditionMessages`), so the other editions' bundles do not
+ * change by a byte. Same rules as a feature catalogue: each key starts with the edition's name, and lives in
+ * `src/locales/<edition>.<locale>.json`.
+ *
  * Usage (from packages/i18n):  node scripts/generate.ts          write the file
  *                              node scripts/generate.ts --check  exit 1 if the file is stale
  */
@@ -21,6 +26,8 @@ export const SOURCE = resolve(PACKAGE_DIR, "src/locales/en.json");
 export const OUTPUT = resolve(PACKAGE_DIR, "src/generated/messages.ts");
 /** Feature catalogues; each key of feature `f` starts with `f.` and lives in `src/locales/f.<locale>.json`. */
 export const FEATURES = ["books", "history"] as const;
+/** Edition catalogues; each key of edition `e` starts with `e.` and lives in `src/locales/e.<locale>.json`. */
+export const EDITION_CATALOGUES = ["mezo"] as const;
 export const featureSource = (feature: string, locale = "en"): string => resolve(PACKAGE_DIR, `src/locales/${feature}.${locale}.json`);
 
 const PLURAL_CATEGORIES = ["zero", "one", "two", "few", "many", "other"] as const;
@@ -39,10 +46,14 @@ export function pluralBase(key: string, keys: ReadonlySet<string>): string | nul
 }
 
 /**
- * The generated module for the merged English messages (`messages`: the core catalogue, then each feature's) and the
- * keys of each feature catalogue (`features`).
+ * The generated module for the merged English messages (`messages`: the core catalogue, then each feature's and each
+ * edition's) and the keys of each feature catalogue (`features`) and edition catalogue (`editions`).
  */
-export function render(messages: Readonly<Record<string, string>>, features: Readonly<Record<string, readonly string[]>> = {}): string {
+export function render(
+  messages: Readonly<Record<string, string>>,
+  features: Readonly<Record<string, readonly string[]>> = {},
+  editions: Readonly<Record<string, readonly string[]>> = {},
+): string {
   const keys = Object.keys(messages);
   const keySet = new Set(keys);
   const families = new Map<string, Set<string>>();
@@ -85,30 +96,46 @@ export function render(messages: Readonly<Record<string, string>>, features: Rea
     "/** Keys that live in a feature catalogue, not in the catalogue every page carries. */",
     `export type FeatureKey =${Object.values(features).flat().length === 0 ? " never" : `\n${Object.values(features).flat().map((k) => `  | ${JSON.stringify(k)}`).join("\n")}`};`,
     "",
+    "/** Edition catalogues, loaded only by that edition's build (`loadEditionMessages`). */",
+    `export type EditionCatalogue =${Object.keys(editions).length === 0 ? " never" : `\n${Object.keys(editions).map((e) => `  | ${JSON.stringify(e)}`).join("\n")}`};`,
+    "",
+    "/** Keys that live in an edition catalogue: only that edition's pages carry them. */",
+    `export type EditionKey =${Object.values(editions).flat().length === 0 ? " never" : `\n${Object.values(editions).flat().map((k) => `  | ${JSON.stringify(k)}`).join("\n")}`};`,
+    "",
   ];
   return lines.join("\n");
 }
 
-/** The English core catalogue merged with each feature's, and the keys of each feature. Refuses a misplaced key. */
-export function sources(): { readonly messages: Record<string, string>; readonly features: Record<string, string[]> } {
+/**
+ * The English core catalogue merged with each feature's and each edition's, and the keys of each feature and edition
+ * catalogue. Refuses a misplaced key.
+ */
+export function sources(): { readonly messages: Record<string, string>; readonly features: Record<string, string[]>; readonly editions: Record<string, string[]> } {
   const messages = JSON.parse(readFileSync(SOURCE, "utf8")) as Record<string, string>;
-  const features: Record<string, string[]> = {};
-  for (const feature of FEATURES) {
-    const own = JSON.parse(readFileSync(featureSource(feature), "utf8")) as Record<string, string>;
+  const merge = (name: string): string[] => {
+    const own = JSON.parse(readFileSync(featureSource(name), "utf8")) as Record<string, string>;
     for (const key of Object.keys(own)) {
-      if (!key.startsWith(`${feature}.`) || Object.hasOwn(messages, key)) {
-        throw new Error(`${feature}.en.json: ${key} is not a ${feature} key, or is also in en.json`);
+      if (!key.startsWith(`${name}.`) || Object.hasOwn(messages, key)) {
+        throw new Error(`${name}.en.json: ${key} is not a ${name} key, or is also in another catalogue`);
       }
       messages[key] = own[key] ?? "";
     }
-    features[feature] = Object.keys(own);
+    return Object.keys(own);
+  };
+  const features: Record<string, string[]> = {};
+  for (const feature of FEATURES) {
+    features[feature] = merge(feature);
   }
-  return { messages, features };
+  const editions: Record<string, string[]> = {};
+  for (const edition of EDITION_CATALOGUES) {
+    editions[edition] = merge(edition);
+  }
+  return { messages, features, editions };
 }
 
 function main(argv: readonly string[]): number {
-  const { messages, features } = sources();
-  const content = render(messages, features);
+  const { messages, features, editions } = sources();
+  const content = render(messages, features, editions);
   let current: string;
   try {
     current = readFileSync(OUTPUT, "utf8");
