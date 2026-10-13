@@ -3,6 +3,11 @@
  * The registry the app trusts: `@paylink/chains`, scoped to the edition's enabled chains (spec §3.6: links for other
  * chains are rejected as unknown, and `?chain=` switches only among the edition's own chains).
  *
+ * The Mezo edition also takes its own chain while the registry keeps Mezo testnet `disabled`, the state in which no
+ * other edition offers it (ADR 0008: the edition is how that chain goes live). Its facts are the registry's own, the
+ * contract address included: until `protocol/deployments/31611.json` is recorded, the chain reads "Not deployed yet"
+ * and nothing can be signed or paid there. The branch is folded at build time, so other editions are unchanged.
+ *
  * End-to-end builds only: `__PAYLINK_E2E_CHAINS__` replaces chains by chain ID with definitions that point at local
  * anvil deployments and mock tokens (e2e/). Production builds define it as `null`, so the branch and its marker
  * string are removed by the minifier; `test/bundle.test.ts` checks the built files for the marker.
@@ -12,6 +17,7 @@ import type { ChainDefinition, Edition, Registry } from "@paylink/chains";
 import type { Address, Hex } from "viem";
 
 declare const __PAYLINK_E2E_CHAINS__: string | null;
+declare const __PAYLINK_EDITION__: Edition;
 
 interface E2eChain {
   readonly base: number;
@@ -75,8 +81,11 @@ function e2eChains(definitions: readonly ChainDefinition[]): ChainDefinition[] {
   });
 }
 
-/** The edition's registry (enabled chains only), validated by `createRegistry`. */
+/** The edition's registry (enabled chains only; the Mezo build also has its own chain), validated by `createRegistry`. */
 export function appRegistry(edition: Edition): Registry {
+  if (__PAYLINK_EDITION__ === "mezo") {
+    return createRegistry(e2eChains(scopeToEdition(shipped, edition, { includeDisabled: edition === "mezo" }).chains));
+  }
   return createRegistry(e2eChains(scopeToEdition(shipped, edition).chains));
 }
 

@@ -14,7 +14,12 @@ export default defineConfig({
     __PAYLINK_BUILD__: JSON.stringify({ version: "test", commit: "0000000000000000000000000000000000000000" }),
   },
   test: {
-    include: ["test/**/*.test.ts"],
+    // Two builds' worth of tests: the root edition's (`all`, as every page module sees it by default) and the Mezo
+    // edition's, whose branches the build folds on `__PAYLINK_EDITION__` and which only a Mezo define exercises.
+    projects: [
+      { extends: true, test: { name: "app", include: ["test/**/*.test.ts"], exclude: ["test/mezo/**"] } },
+      { extends: true, define: { __PAYLINK_EDITION__: JSON.stringify("mezo") }, test: { name: "mezo", include: ["test/mezo/**/*.test.ts"] } },
+    ],
     environment: "happy-dom",
     restoreMocks: true,
     testTimeout: 30_000,

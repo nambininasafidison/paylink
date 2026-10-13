@@ -6,7 +6,7 @@
  * registry deployment, allowlisted token, shape, payee = signer, signature verified with the contract's dispatch, so a
  * counterfactual smart-account payee is refused before anything is shared.
  */
-import type { ChainDefinition, Token } from "@paylink/chains";
+import type { ChainDefinition, Edition, Token } from "@paylink/chains";
 import { DEFAULT_INVOICE_TTL_SECONDS, expiresIn, hasMemo, isPayLinkError, issueInvoice, MAX_MEMO_BYTES, memoBytes, normalizeMemo, toSignedInvoiceJson } from "@paylink/sdk";
 import type { Expiry, IssuedInvoice, IssuerWarning } from "@paylink/sdk";
 import { formatDateTime } from "@paylink/i18n";
@@ -22,12 +22,15 @@ import { AppError, decodeUiError } from "../core/errors.ts";
 import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { payUrl, tillUrl, whatsappUrl } from "../core/links.ts";
+import { mezoNotes, mezoTestSteps } from "../editions/mezo/ui.ts";
 import { invoiceId } from "../store/db.ts";
 import { addr, fact, setStatus, statusLine } from "../ui/atoms.ts";
 import { bandSelector, confirmBox, segmented } from "../ui/controls.ts";
 import { h, replace } from "../ui/h.ts";
 import { copyText, printElement } from "../ui/live.ts";
 import { ticket } from "../ui/ticket.ts";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 type PaymentsChoice = "one" | "several" | "unlimited";
 type ExpiryChoice = "1d" | "7d" | "30d" | "never";
@@ -74,6 +77,10 @@ export const createPage: PageDefinition = {
         [t("create.step3.title"), t("create.step3.text")],
       ]),
     );
+    if (__PAYLINK_EDITION__ === "mezo") {
+      // MUSD and the BTC fee, then how a tester gets test BTC and borrows test MUSD (Mezo's own pages).
+      ui.aside.append(mezoNotes(app), mezoTestSteps(app));
+    }
     renderTerminal(app, ui);
   },
 };

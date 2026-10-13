@@ -5,7 +5,7 @@
  * that chain and address, ERC-5267 domain; `verifyDeploymentCode`). Then the services from `/config.json` (relayer and
  * history indexer, each optional) and this build: version, commit, configuration, device storage, offline mode.
  */
-import type { ChainDefinition } from "@paylink/chains";
+import type { ChainDefinition, Edition } from "@paylink/chains";
 import { RELEASE } from "@paylink/chains";
 import { featureTranslator } from "@paylink/i18n";
 import { verifyDeploymentCode } from "@paylink/sdk";
@@ -13,11 +13,13 @@ import type { PageDefinition } from "../app/boot.ts";
 import { networkName } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, notes } from "../app/shell.ts";
+import { mezoRelayerUrl, mezoStatus } from "../editions/mezo/status.ts";
 import { indexerFor } from "../read/indexer.ts";
 import { hexGroups } from "../ui/atoms.ts";
 import { h } from "../ui/h.ts";
 
 declare const __PAYLINK_BUILD__: { readonly version: string; readonly commit: string; readonly builtAt: string };
+declare const __PAYLINK_EDITION__: Edition;
 
 type Light = "ok" | "wait" | "err" | "busy" | "off";
 
@@ -77,7 +79,7 @@ export const statusPage: PageDefinition = {
       config.set("err", t("status.config.err", { problem: app.configProblem }));
     }
     storage.set(app.store.persistent ? "ok" : "wait", app.store.persistent ? t("status.storage.ok") : t("status.storage.memory"));
-    void service(app, app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
+    void service(app, __PAYLINK_EDITION__ === "mezo" ? mezoRelayerUrl(app) : app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
     void indexerHealth(app, indexer);
     if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.getRegistration(app.site.base).then((registration) => {
@@ -103,6 +105,10 @@ export const statusPage: PageDefinition = {
         h("div", { class: "key-row" }, h("a", { class: "key key-line", attrs: { href: "/deploy/" } }, t("status.deployLink")), h("a", { class: "key key-line", attrs: { href: "/arc/" } }, t("status.arcLink"))),
       ),
     );
+    if (__PAYLINK_EDITION__ === "mezo") {
+      // MUSD read live against the registry, the BTC fee, and why no payment on Mezo is gasless.
+      mezoStatus(app, board, relayer.element);
+    }
   },
 };
 

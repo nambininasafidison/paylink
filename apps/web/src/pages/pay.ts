@@ -20,7 +20,7 @@
  * no transaction), verifies it and shows the same "Approved" and receipt, never a red error: on the next press of the
  * Pay key (which offers to send the same signature again) and whenever the link is opened again.
  */
-import type { ChainDefinition, Token } from "@paylink/chains";
+import type { ChainDefinition, Edition, Token } from "@paylink/chains";
 import { formatDateTime, formatSeconds } from "@paylink/i18n";
 import {
   DEFAULT_AUTHORIZATION_TTL_SECONDS,
@@ -53,6 +53,7 @@ import { AppError, decodeUiError } from "../core/errors.ts";
 import { displayAmount, parseTypedAmount } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { receiptUrl } from "../core/links.ts";
+import { btcFundsRow, mezoNotes, showFee } from "../editions/mezo/ui.ts";
 import { recoverConsumedPayment, RelayFallbackError } from "../rails/authorization.ts";
 import type { PaymentOutcome, PaymentStep } from "../rails/types.ts";
 import { checkLink } from "../read/checks.ts";
@@ -63,6 +64,8 @@ import type { LampKind } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce, copyText } from "../ui/live.ts";
 import { signingDisplay } from "../ui/signing.ts";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 const SETTLEMENT_FN: Readonly<Partial<Record<PaymentPath, SettlementFunction>>> = {
   permit: "payWithPermit",
@@ -102,6 +105,9 @@ export const payPage: PageDefinition = {
         [t("pay.step3.title"), t("pay.step3.text")],
       ]),
     );
+    if (__PAYLINK_EDITION__ === "mezo") {
+      ui.aside.append(mezoNotes(app));
+    }
     const view = h("section", { class: "view view-pay", attrs: { "aria-labelledby": "pay-head" } });
     ui.views.append(view);
     const show = (): void => {
@@ -404,6 +410,15 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
         void refresh();
       },
     });
+    if (__PAYLINK_EDITION__ === "mezo") {
+      // The payer's wallet always pays the fee, in BTC: about how much under the route, Mezo's faucet when it has none.
+      // Another refresh may have replaced the choice while the balance was read.
+      const picked = choice as PathChoice | null;
+      if (picked?.ok === false && picked.reason === "needs-gas") {
+        fundsSlot.append(btcFundsRow(app, chain));
+      }
+      showFee(app, routeNote, { chain, client, path: picked?.ok === true ? picked.path : null, link, payer: account.address, amount: needed });
+    }
   };
 
   /** Re-evaluates the key from the checks, the session and the wallet's network. */

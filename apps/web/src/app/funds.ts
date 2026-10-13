@@ -2,20 +2,24 @@
 /**
  * Test dollars for a tester (PAYLINK-V2-SPEC §2.1 T1 "testnet onboarding"): in the Monad edition the relayer asks
  * Monad testnet's AUSD faucet to fund the account (`POST /v1/10143/onboard`, `requestFunds(address)`), so neither a
- * merchant nor a payer ever needs MON; elsewhere the edition links to the token issuer's own faucet page.
+ * merchant nor a payer ever needs MON; in the Mezo edition test MUSD is borrowed against test BTC (Mezo's testnet app,
+ * no faucet); elsewhere the edition links to the token issuer's own faucet page.
  *
  * Testnet only, by construction: the relayer serves onboarding only on chains whose registry entry names a faucet, and
  * refuses mainnets. The faucet has one global 60 s cooldown, so a refusal says when to try again.
  */
-import type { ChainDefinition, Token } from "@paylink/chains";
+import type { ChainDefinition, Edition, Token } from "@paylink/chains";
 import type { Address } from "viem";
 import { pollingIntervalFor } from "../core/clients.ts";
 import { displayAmount } from "../core/format.ts";
 import { RelayerProblem } from "../core/relayer.ts";
+import { musdFundsRow } from "../editions/mezo/ui.ts";
 import { ext, setStatus, statusLine } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce } from "../ui/live.ts";
 import type { App } from "./context.ts";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 /** Whether the relayer can fund accounts on this chain now. */
 export async function canOnboard(app: App, chain: ChainDefinition): Promise<boolean> {
@@ -34,6 +38,9 @@ export async function fundsRow(app: App, options: { readonly chain: ChainDefinit
   const { t } = app.i18n;
   const { chain, token, owner, balance } = options;
   const testFunds = app.edition.testFunds;
+  if (__PAYLINK_EDITION__ === "mezo" && testFunds?.kind === "borrow") {
+    return chain.testnet && token.kind === "erc20" ? musdFundsRow(app, token, balance) : null;
+  }
   if (testFunds === null || !chain.testnet || token.kind !== "erc20") {
     return null;
   }

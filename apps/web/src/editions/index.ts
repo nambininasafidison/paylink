@@ -7,6 +7,7 @@
  * |---------|------------------------------------|----------------------------------------------------------------|
  * | monad   | Mera passkeys only (spec §2.1 T1)   | relayed authorisation, own-gas authorisation, wallet           |
  * | base    | EIP-6963 wallets (EIP-5792 batches) | relayed authorisation (EOAs), EIP-5792 batch, own-gas, wallet  |
+ * | mezo    | EIP-6963 wallets (EIP-5792 batches) | EIP-5792 batch (smart accounts), wallet (permit, approve-pay)  |
  * | all     | EIP-6963 wallets                    | relayed authorisation, own-gas authorisation, wallet           |
  *
  * The PaymentRouter (`selectPaymentPath`) decides the path from the token, the payer's account and the relayer's
@@ -69,9 +70,30 @@ export function baseProfile(): EditionProfile {
   };
 }
 
-/** Mezo (later, spec §9): injected wallets and the wallet rail (MUSD is EIP-2612 only). */
+/**
+ * Mezo Buildathon (spec §9, docs/research/mezo.md): MUSD invoices on Mezo testnet, paid from EIP-6963 wallets.
+ *
+ * - MUSD supports EIP-2612 and not EIP-3009 (C), so the router's order is `payWithPermit` (one signature, one
+ *   transaction), then an exact-amount approve and `pay`; a smart account approves (an ECDSA-only permit cannot carry
+ *   its signature), in one EIP-5792 batch when its wallet offers one. The payer always pays the network fee, in BTC:
+ *   `payWithPermit` and `pay` pay from `msg.sender`, so no relayer can make them gasless (no relayed rail here).
+ * - Mezo Passport is not an account layer here: it needs React, wagmi and RainbowKit (C, npm 0.17.2), which this
+ *   framework-free app does not ship, and its Bitcoin-wallet accounts are Safe smart accounts that could not sign a
+ *   permit anyway. Mezo's docs call it optional.
+ * - Test MUSD is borrowed against test BTC (no faucet); the ariary estimate is shown, MUSD being a dollar.
+ */
 export function mezoProfile(): EditionProfile {
-  return { ...common, id: "mezo", base: editionBase("mezo"), tag: "Mezo", tabs: ["create", "ledger", "till"], accountLayers: [eip6963Layer()], rails: [walletRail()], fx: null, testFunds: null };
+  return {
+    ...common,
+    id: "mezo",
+    base: editionBase("mezo"),
+    tag: "Mezo",
+    tabs: ["create", "ledger", "send", "till"],
+    accountLayers: [eip6963Layer()],
+    rails: [batchRail(), walletRail()],
+    fx: "MGA",
+    testFunds: { kind: "borrow" },
+  };
 }
 
 /** Every chain at the root: injected wallets, gasless where the relayer serves the chain. */

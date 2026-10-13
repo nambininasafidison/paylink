@@ -4,6 +4,7 @@
  * device store, the edition's registry and account layers, the frame, and the page itself. A page that throws leaves
  * an error banner in the terminal rather than a blank screen.
  */
+import type { Edition } from "@paylink/chains";
 import { createTranslator, EN, LOCALE_INFO, loadMessages, negotiateLocale } from "@paylink/i18n";
 import type { PlainMessageKey } from "@paylink/i18n";
 import { chainClient } from "../core/clients.ts";
@@ -14,6 +15,7 @@ import { decodeUiError } from "../core/errors.ts";
 import { applyTheme, prefs } from "../core/prefs.ts";
 import { appRegistry } from "../core/registry.ts";
 import { edition } from "../editions/index.ts";
+import { loadMezoCopy, mezoTranslator } from "../editions/mezo/copy.ts";
 import type { Route } from "../editions/types.ts";
 import { registerServiceWorker } from "../pwa/register.ts";
 import { openDeviceStore } from "../store/db.ts";
@@ -22,6 +24,8 @@ import type { App } from "./context.ts";
 import { createSession } from "./session.ts";
 import { renderShell } from "./shell.ts";
 import type { PageUi } from "./shell.ts";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 export interface PageDefinition {
   readonly route: Route;
@@ -35,8 +39,10 @@ export async function boot(page: PageDefinition): Promise<void> {
   applyTheme(prefs.theme.get());
   const locale = prefs.locale.get() ?? negotiateLocale(navigator.languages);
   const profile = edition();
+  // The Mezo edition's words (MUSD, the BTC fee) load beside the core catalogue; the build drops this elsewhere.
+  const mezoCopy = __PAYLINK_EDITION__ === "mezo" ? loadMezoCopy(locale) : null;
   const [messages, configLoad, store, fx] = await Promise.all([loadMessages(locale), loadConfig("/"), openDeviceStore(), profile.fx === null ? Promise.resolve(null) : loadFx()]);
-  const i18n = createTranslator(locale, messages, { fallback: EN });
+  const i18n = __PAYLINK_EDITION__ === "mezo" && mezoCopy !== null ? mezoTranslator(locale, messages, await mezoCopy) : createTranslator(locale, messages, { fallback: EN });
   document.documentElement.lang = LOCALE_INFO[locale].tag;
   document.title = `${i18n.t(page.title)} · PayLink`;
   const registry = appRegistry(profile.id);

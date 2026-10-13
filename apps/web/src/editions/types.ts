@@ -4,7 +4,7 @@
  * is an extension point here:
  *
  *   1. the account layer: who signs (`AccountLayer`: Mera passkeys only in the Monad edition; EIP-6963 injected
- *      wallets elsewhere, with EIP-5792 batches for smart-account payers in the Base edition);
+ *      wallets elsewhere, with EIP-5792 batches for smart-account payers in the Base and Mezo editions);
  *   2. the default token: which allowlisted token the create terminal preselects on each chain;
  *   3. the payment rail: how a payment reaches the chain (`PaymentRail`: the gasless relayer, the payer's own
  *      submission of the same authorisation, an EIP-5792 batch, or the payer's wallet).
@@ -20,7 +20,7 @@ export type Route = "create" | "pay" | "receipt" | "ledger" | "send" | "till" | 
 
 export interface EditionProfile {
   readonly id: Edition;
-  /** Path prefix the edition is served under ("/" for `all`, "/monad/", "/base/"). */
+  /** Path prefix the edition is served under ("/" for `all`, "/monad/", "/base/", "/mezo/"). */
   readonly base: string;
   /** Engraved tag next to the wordmark. */
   readonly tag: string;
@@ -34,8 +34,11 @@ export interface EditionProfile {
   readonly tabs: readonly Route[];
   /** Local-currency estimate shown under dollar amounts (display only, never in a calculation), or `null`. */
   readonly fx: "MGA" | null;
-  /** How a tester gets test dollars: the relayer's faucet onboarding, a faucet's own page, or nothing. */
-  readonly testFunds: { readonly kind: "relayer" } | { readonly kind: "link"; readonly url: `https://${string}`; readonly name: string } | null;
+  /**
+   * How a tester gets test dollars: the relayer's faucet onboarding, a faucet's own page, a loan (Mezo: test MUSD is
+   * borrowed against test BTC, no faucet dispenses it), or nothing.
+   */
+  readonly testFunds: { readonly kind: "relayer" } | { readonly kind: "link"; readonly url: `https://${string}`; readonly name: string } | { readonly kind: "borrow" } | null;
   /** The EIP-5792 batch path is presented as "Pay with Base" (Base edition). */
   readonly payWithBase: boolean;
 }
