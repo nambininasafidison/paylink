@@ -817,6 +817,9 @@ export type MessageKey =
   | "mezo.pay.openLede"
   | "mezo.pay.step2"
   | "mezo.pay.assure"
+  | "mezo.pay.networkValue"
+  | "mezo.pay.thanks"
+  | "mezo.ticket.scanSub"
   | "mezo.pay.needsBtc"
   | "mezo.pay.waitBtc"
   | "mezo.pay.checkBtc"
@@ -1668,6 +1671,9 @@ export interface MessageParams {
   readonly "mezo.pay.openLede": never;
   readonly "mezo.pay.step2": never;
   readonly "mezo.pay.assure": never;
+  readonly "mezo.pay.networkValue": { readonly network: ParamValue; readonly symbol: ParamValue };
+  readonly "mezo.pay.thanks": never;
+  readonly "mezo.ticket.scanSub": { readonly symbol: ParamValue };
   readonly "mezo.pay.needsBtc": never;
   readonly "mezo.pay.waitBtc": never;
   readonly "mezo.pay.checkBtc": never;
@@ -1840,6 +1846,9 @@ export type EditionKey =
   | "mezo.pay.openLede"
   | "mezo.pay.step2"
   | "mezo.pay.assure"
+  | "mezo.pay.networkValue"
+  | "mezo.pay.thanks"
+  | "mezo.ticket.scanSub"
   | "mezo.pay.needsBtc"
   | "mezo.pay.waitBtc"
   | "mezo.pay.checkBtc"

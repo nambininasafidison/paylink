@@ -849,7 +849,10 @@
     "mezo.status.fee",
     "mezo.status.feeValue",
     "mezo.status.gasless",
-    "mezo.status.gaslessValue"
+    "mezo.status.gaslessValue",
+    "mezo.pay.networkValue",
+    "mezo.pay.thanks",
+    "mezo.ticket.scanSub"
   ],
   "pendingFormats": [
     "src/format.ts MG_MONTHS, MG_MONTHS_SHORT, MG_WEEKDAYS: CLDR mg names on fr-MG date patterns, 24-hour clock",
