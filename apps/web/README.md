@@ -15,7 +15,7 @@ The PayLink v2 web app: signed dollar invoices that a payee creates and shares i
 | `/status/` | anyone | Each chain of the edition checked live (RPC, genuine release), the relayer and indexer from `/config.json`, the build, configuration, storage and offline mode. |
 | `404.html` | anyone | Served by Pages for unknown paths. |
 
-The editions `monad` and `base` serve the same routes under `/monad/` and `/base/` ([ADR 0008](../../docs/adr/0008-editions.md)); `?chain=` picks among the edition's own chains only.
+The editions `monad`, `base` and `mezo` serve the same routes under `/monad/`, `/base/` and `/mezo/` ([ADR 0008](../../docs/adr/0008-editions.md)); `?chain=` picks among the edition's own chains only.
 
 ## Layout
 
@@ -49,6 +49,7 @@ Only `src/editions/index.ts` chooses implementations; pages ask the profile. Wha
 |---|---|---|---|
 | `monad` (`/monad/`) | PayLink keys (Mera passkeys) only | relayed authorisation, own-gas authorisation, wallet | relayer onboarding (test AUSD), gasless cancel, ariary estimate |
 | `base` (`/base/`) | EIP-6963 wallets | relayed authorisation (EOAs), EIP-5792 batch (smart accounts), own-gas authorisation, wallet | link to Circle's faucet |
+| `mezo` (`/mezo/`) | EIP-6963 wallets (no Mezo Passport: it needs React) | EIP-5792 batch (smart accounts), wallet: `payWithPermit`, then exact `approve` + `pay`; the payer pays the fee in BTC (MUSD has no EIP-3009, so nothing is relayed) | MUSD only, words on MUSD and the BTC fee (`src/editions/mezo/`, the `mezo` edition catalogue), a test-MUSD walkthrough (Mezo's faucet, Discord, testnet borrow page), the fee in sats, MUSD and the fee on Status, ariary estimate, a Content-Security-Policy of its own |
 | `all` (`/`) | EIP-6963 wallets | relayed authorisation, wallet | ariary estimate |
 
 ## Commands
@@ -65,7 +66,9 @@ pnpm --filter @paylink/web build          # the whole site into dist/ (as Cloudf
 bash apps/web/scripts/cloudflare-pages.sh # the Pages build command, from the repository root
 ```
 
-End to end: `pnpm --filter @paylink/e2e test` builds `dist-e2e/` (`build --e2e`, with a local chain swapped into the registry) and runs `e2e/specs/app.spec.ts` against anvil under the production headers; `e2e/specs/editions.spec.ts` builds `dist-e2e-editions/` and runs the Monad and Base editions against two anvil chains, the relayer process and Chromium's WebAuthn virtual authenticator with PRF ([e2e README](../../e2e/README.md)).
+End to end: `pnpm --filter @paylink/e2e test` builds `dist-e2e/` (`build --e2e`, with a local chain swapped into the registry) and runs `e2e/specs/app.spec.ts` against anvil under the production headers; `e2e/specs/editions.spec.ts` builds `dist-e2e-editions/` and runs the Monad and Base editions against two anvil chains, the relayer process and Chromium's WebAuthn virtual authenticator with PRF; `e2e/specs/mezo.spec.ts` builds `dist-e2e-mezo/` and runs the Mezo edition against an anvil fork of Mezo testnet with the real MUSD ([e2e README](../../e2e/README.md)).
+
+The Mezo edition's hooks in shared files (`boot.ts`, `funds.ts`, `registry.ts`, the create, pay and status pages) sit behind `__PAYLINK_EDITION__ === "mezo"`, which the build folds: `/`, `/monad/` and `/base/` build byte for byte as without them. Its unit tests run as a second Vitest project with that constant set (`test/mezo/`).
 
 ## Security
 
