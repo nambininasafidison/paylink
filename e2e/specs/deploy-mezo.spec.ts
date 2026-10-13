@@ -24,6 +24,7 @@ import type { Anvil } from "../fixtures/anvil.ts";
 import { axe } from "../fixtures/axe.ts";
 import { serveWeb, WEB_ROOT } from "../fixtures/server.ts";
 import type { StaticServer } from "../fixtures/server.ts";
+import { withoutRecord } from "../fixtures/deploy-data.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 
 const MEZO = 31611;
@@ -85,6 +86,8 @@ test.afterEach(async () => {
 async function deployOnMezo(page: Page, context: BrowserContext, rpc: (method: string, params: unknown[]) => Promise<unknown>, url: string, account: Address): Promise<{ record: string; limit: bigint }> {
   const wallet = await installWallet(page, { account, chainId: 1, endpoints: new Map<number, string | null>([[1, null], [MEZO, url]]), known: [1] });
   const registryLog = await routeRegistry(context, new Map([[MEZO, url]]));
+  // Once protocol/deployments/31611.json ships, the page only verifies Mezo's record; the fresh flow stays covered.
+  await withoutRecord(context, MEZO);
 
   await page.goto(`${server.origin}/v2/deploy/?chain=mezo`);
   await expect(page.getByRole("radio", { name: /Mezo testnet/ })).toHaveAttribute("aria-checked", "true");

@@ -374,7 +374,10 @@ async function deployWithKit(fork: Fork, client: PublicClient, deployer: Private
   const factory = data.release.create2.factory;
   const [factoryCode, create2Code, nonce] = await Promise.all([read.code(factory), read.code(data.release.create2.address), read.pendingNonce(deployer.address)]);
   const plan = planDeployment({ data, chain, factoryCode, create2Code, recordedCode: null, deployer: deployer.address, nonce });
-  expect(plan.kind === "deploy" && plan.method === "CREATE2", `the kit plans ${plan.kind} ${plan.method} on the fork, not a CREATE2 deployment`);
+  expect(
+    plan.kind === "deploy" && plan.method === "CREATE2",
+    `the kit plans ${plan.kind} ${plan.method} on the fork, not a CREATE2 deployment: if PayLinkV2 is already on Mezo testnet, pass --block <a block before its deployment>, or verify it with tools/verify-deployment`,
+  );
   expect(plan.expectedAddress === RELEASE.create2.address, `the kit expects ${plan.expectedAddress}, not the release address`);
   const est = await read.estimateGas({ from: deployer.address, to: plan.to, data: plan.data });
   const gasLimit = clampGasLimit(est, plan.gas);
@@ -642,7 +645,10 @@ async function measureEntryPoints(base: Context, deployer: PrivateKeyAccount, de
 
 /** Runs the whole rehearsal on a fresh fork. */
 export async function rehearse(options: { readonly block?: bigint; readonly measure?: boolean; readonly liveEstimate?: boolean } = {}): Promise<Rehearsal> {
-  const fork = await startFork(options.block === undefined ? {} : { block: options.block });
+  // Once PayLinkV2 is recorded on Mezo testnet, rehearse at the block before it (the RPC must still serve that state).
+  const recorded = mezoTestnet.deployment;
+  const block = options.block ?? (recorded === null ? undefined : recorded.blockNumber - 1n);
+  const fork = await startFork(block === undefined ? {} : { block });
   try {
     const viemChain = toViemChain(defineLocalChain({ chainId: MEZO.chainId, rpcUrl: fork.url, tokens: [], deployment: null }));
     const client = createPublicClient({ chain: viemChain, transport: http(fork.url), pollingInterval: 50 }) as PublicClient;
