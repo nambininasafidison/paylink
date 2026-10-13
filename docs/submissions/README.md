@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Competitions** | Monad Metropolis (Monad edition) and Colosseum Crypto World's Fair (Base edition). Arc Microgrants (v1), Mezo and PayPal have their own timelines (PAYLINK-V2-SPEC §1.2) and are not covered here |
+| **Competitions** | Monad Metropolis (Monad edition), Colosseum Crypto World's Fair (Base edition) and, since 2026-10-13 on the local branch `mezo`, the Mezo Buildathon wave 1 (Mezo edition, [§5](#5-mezo-buildathon-akindo-wave-1)). Arc Microgrants (v1) and PayPal have their own timelines (PAYLINK-V2-SPEC §1.2) and are not covered here |
 | **Written** | 2026-10-09 ~03:00 UTC, against the repository at `d9662c3` plus the commit that adds this folder; revised the same day after the pack's review (v2 landing README, no "audited" wording in the app, texts true with or without the indexer, the Agora "mobile app" requirement). Re-check every "Done" line that depends on something outside the repository (the live site, the relayer, the indexer) on the day you submit |
 | **Who does what** | Claude drafts, builds and checks; you push, deploy, record, paste and submit ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 
@@ -11,6 +11,7 @@
 | [monad.md](monad.md) | Every field of the Monad form: name, one-line, description, go-to-market, judge access instructions, the four bounty answers, disclosures |
 | [colosseum.md](colosseum.md) | Description, Base track framing (and why not Arbitrum yet), architecture, business plan and go-to-market, demand validation, why now, the open invoice specification as a public good, team, prior work and other events, a judge's quick test |
 | [video-scripts.md](video-scripts.md) | Shot-by-shot scripts with exact clicks, captions, preconditions and fallbacks: Monad demo, Monad pitch, Agora demo, Colosseum pitch and demo, an optional 30 s advertisement; French translations of every spoken line |
+| [mezo.md](mezo.md) | The Mezo Buildathon (AKINDO) wave 1 pack: facts with sources, every field's text, the MUSD integration, what is new in wave 1 and planned for wave 2, judge access instructions, honest limitations, a 2-minute demo video script with captions, and your checklist in French |
 | [monad-forum.md](monad-forum.md) | The questions to the Monad organisers (Q2 Agora fit, Q3 both Mera bounties and Q5 whether a PWA counts as Agora's "mobile app" are still open) |
 | [`.github/README.md`](../../.github/README.md) | The repository's v2 README, which GitHub shows on the home page ahead of v1's frozen root `README.md`: what the Monad T&C ask a README to cover |
 | `assets/` | Logo, social card and product screenshots ([§3](#3-assets)) |
@@ -132,3 +133,40 @@ None is fixed here; each is your call.
 | The Agora bounty requires "a mobile app" (**UV**, FACTS 2026-10-08); PayLink is an installable PWA, with no app-store app | If a PWA does not count, the Agora entry may not qualify; Track 02 and the other bounties are unaffected | §1 step 7: read the organisers' answer (forum Q5); keep, or untick Agora |
 | The repository's root `README.md` is v1's and says "live on Arc mainnet (chainId 5042)"; v1 is not deployed there yet (`web/config.js` has no address) | It is v1's README, kept byte for byte with the rest of v1 (ADR 0010); GitHub shows `.github/README.md` instead, which says v1 is not on Arc mainnet yet | Nothing to do once the push shows the v2 README (§1 step 1); the Arc Microgrants plan has its own go/no-go |
 | Restoring a ledger backup on a second physical phone with a synced passkey has not been tried | The Many Keys answer says "on any device the passkey syncs to", which Mera documents but we have not seen ourselves | Try it once during the rehearsal; if it fails, change that phrase in [monad.md §5.4](monad.md#54-mera-one-passkey-many-keys) |
+
+## 5. Mezo Buildathon (AKINDO), wave 1
+
+Wave 1 closes **2026-10-26** (plan to submit by Oct 24); Track 2 "Access & Distribution"; an MUSD or MEZO integration is mandatory (**UNVERIFIED**: AKINDO cannot be reached from the sandbox, [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo)). Everything below is on the **local branch `mezo`** (written 2026-10-13 at `119a7d6`, on top of `main` at `0c3bfed`); nothing is pushed, and production (`main`, `/monad/`, `/base/`) does not change while the other events are judged.
+
+### Done (on the branch `mezo`)
+
+- [x] Facts on Mezo testnet and MUSD, read on chain or in Mezo's own repositories: [research](../research/mezo.md). MUSD has EIP-2612 permits and no EIP-3009, so no MUSD payment can be gasless with PayLinkV2 ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)).
+- [x] Mezo testnet (31611) in the chain registry (still `disabled` for every other edition), a gas table measured on a fork of Mezo testnet, and the chain in the deploy kit and `tools/verify-deployment`. The deployment was rehearsed on a fork: it lands at `0x448eCce9711860502806A3d5B021a4f9Ba715082` and passes the ten checks.
+- [x] The Mezo edition at `/mezo/`: MUSD invoices paid by `payWithPermit`, exact `approve` + `pay`, or one EIP-5792 batch; the BTC fee in sats; Mezo's faucet and borrow page for test funds; MUSD checked live on Status; its own Content-Security-Policy; EN, FR, MG (the 48 Malagasy strings are drafts for your review).
+- [x] 8 end-to-end tests of the edition on an anvil fork of Mezo testnet with the real MUSD; the whole suite green (40 passed, 1 skipped by design), with 335 Foundry and 1,523 TypeScript tests.
+- [x] Paste-ready texts, judge instructions, the demo video script and your checklist: [mezo.md](mezo.md).
+
+### You must still do
+
+Follow [mezo.md §10](mezo.md#10-liste-de-contrôle-en-français), in French, in its order. The blocking steps:
+
+| # | Step | Why it blocks |
+|---|---|---|
+| 1 | Push the branch `mezo` (never `main`) and allow it as the only preview branch in Cloudflare Pages, with the three build variables for Preview ([mezo.md §2](mezo.md#2-where-judges-see-it-the-preview-of-branch-mezo)) | Judges see the edition at `https://mezo.paylink-mg.pages.dev/mezo/` only |
+| 2 | Get test BTC, then deploy PayLinkV2 on Mezo testnet from the deploy kit with your wallet, and give Claude `31611.json` and the transaction hash ([deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet)) | Until the record is committed, `/mezo/` shows "Not deployed yet" |
+| 3 | Borrow test MUSD (at least 2,000 MUSD of debt, about 0.04 test BTC of collateral) and fund a payer account ([faucets runbook §3](../runbooks/faucets.md#3-musd-on-mezo-testnet-no-faucet)) | No payment, no video without MUSD |
+| 4 | Rehearse one payment (the first real MUSD payment through PayLink), record the 2-minute video, fill the `[TO FILL: …]` placeholders, submit on AKINDO, tag the submitted commit | The submission itself |
+
+Keep alive through judging (Oct 27–Nov 1, **UNVERIFIED**): the preview of `mezo`, and some test MUSD and BTC for judges who ask.
+
+### Things noticed while writing the Mezo pack
+
+None is fixed here; each is your call.
+
+| Observation | Effect | Option |
+|---|---|---|
+| The Mezo work started on Oct 13, three days before the wave 1 build window that third-party pages give (Oct 16, **UNVERIFIED**) | A judge comparing dates may ask | The texts say "from Oct 13" and answer "existing project"; add what you build during the window to the wave 1 field |
+| The repository's landing README (`.github/README.md`) does not mention the Mezo edition, on `main` or on `mezo` | A judge who opens the repository sees the Monad and Base editions only | When Claude records the Mezo deployment it must add it there anyway (`check-docs.py` requires every deployment's address and transaction): add a short Mezo paragraph at the same time; link the branch, `…/tree/mezo`, on AKINDO |
+| The Monad and Colosseum texts call a Mezo edition "planned, not built" | They were true when written and are already submitted | Leave them; [mezo.md §9](mezo.md#9-disclosures-and-commit-range) explains |
+| The faucet's drip is unknown, and borrowing needs at least about 0.0265 test BTC | You may need several claims, or help on Discord, before you can borrow | Claim test BTC first, and ask in `#testnet` early |
+| Judges may hold no MUSD, and borrowing it takes time and test BTC | Few judges may pay an invoice themselves | The judge instructions start with what can be seen without funds, and offer to send MUSD (keep or delete that offer) |
