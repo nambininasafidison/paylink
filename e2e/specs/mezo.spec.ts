@@ -15,6 +15,7 @@
  *   offers EIP-5792 batches approves once (`wallet_sendCalls([approve, pay])`).
  * - A payer without BTC is told the fee is BTC and sent to Mezo's faucet, and pays once funded; a payer without MUSD is
  *   told test MUSD is borrowed, not dispensed.
+ * - The payee cancels an invoice from the ledger with one `cancel` transaction (no relayer serves Mezo).
  * - Status: Mezo testnet answers, the contract is the genuine release, MUSD read live matches the registry, the BTC fee
  *   in sats, and why no payment is gasless here.
  * - Headers: `/mezo/` under its own policy (Mezo's RPC), the root's without it; no CSP violation under Trusted Types;
@@ -73,10 +74,14 @@ test.beforeEach(() => {
   test.skip(unreachable !== null, `Mezo testnet's RPC cannot be forked from here: ${unreachable ?? ""}`);
 });
 
-test.afterAll(async () => {
-  for (const context of contexts) {
-    await context.close();
+// Each test's browsers close with it: a page left open keeps polling the fork while the next test runs.
+test.afterEach(async () => {
+  for (const context of contexts.splice(0)) {
+    await context.close().catch(() => undefined);
   }
+});
+
+test.afterAll(async () => {
   if (mezo !== null) {
     await server.close();
     await mezo.stop();
@@ -94,6 +99,8 @@ interface Actor {
   readonly page: Page;
   readonly wallet: MockWallet;
   readonly problems: string[];
+  /** Requests the page made to the production relayer (it serves no Mezo chain: there must be none). */
+  readonly relayer: string[];
 }
 
 /** A person at a browser with a wallet on `account`; the wallet starts on Ethereum and does not know Mezo testnet. */
@@ -105,8 +112,10 @@ async function actor(browser: Browser, account: Address, options: { phone?: bool
   });
   contexts.push(context);
   await routeMezo(context, fork());
-  // The relayer serves no Mezo chain: nothing on /mezo/ may need it.
+  // The relayer serves no Mezo chain: nothing on /mezo/ may ask it anything.
+  const relayer: string[] = [];
   await context.route("https://paylink-relayer.raherizonambinina.workers.dev/**", async (route) => {
+    relayer.push(route.request().url());
     await route.abort("connectionrefused");
   });
   const page = await context.newPage();
@@ -124,7 +133,7 @@ async function actor(browser: Browser, account: Address, options: { phone?: bool
     known: options.known === true ? [MEZO.chainId] : [1],
     ...(options.batch === true ? { batch: true } : {}),
   });
-  return { page, wallet, problems };
+  return { page, wallet, problems, relayer };
 }
 
 const account = (index: number): Address => {
@@ -292,6 +301,7 @@ test("hero flow: a 12.50 MUSD invoice, signed without gas, paid with one permit 
   expect(payee.problems).toEqual([]);
   expect(payer.problems).toEqual([]);
   expect(till.problems).toEqual([]);
+  expect([...payee.relayer, ...payer.relayer, ...till.relayer]).toEqual([]);
 });
 
 test("a smart account approves exactly the amount then pays; one whose wallet batches approves once", async ({ browser }) => {
@@ -382,8 +392,30 @@ test("a payer without BTC is sent to Mezo's faucet and pays once funded; one wit
   expect(payer.problems).toEqual([]);
 });
 
+test("cancel from the ledger: one cancel transaction from the payee's wallet (BTC fee, no relayer), and the link stops taking payments", async ({ browser }) => {
+  const payee = await actor(browser, account(1), { known: true });
+  const link = await createInvoice(payee, "5", "Withdrawn quote");
+  await payee.page.goto(`${server.origin}/mezo/ledger/`);
+  const row = payee.page.locator(".view-ledger .links > li", { hasText: "Withdrawn quote" });
+  const cancel = row.locator(".key-danger");
+  await cancel.click(); // arms
+  await expect(cancel).toContainText("Confirm cancel");
+  await cancel.click(); // confirms
+  await expect(payee.page.locator("[aria-live=polite]").last()).toContainText(/cancelled/i);
+  await expect(payee.page.locator(".view-ledger .links > li", { hasText: "Withdrawn quote" }).locator(".lamp, .pill").first()).toContainText(/cancelled/i);
+  const sent = payee.wallet.sent().map((r) => r.params[0] as { to: string });
+  expect(sent.map((tx) => tx.to.toLowerCase())).toEqual([PAYLINK.toLowerCase()]);
+  const payer = await actor(browser, account(2));
+  await payer.page.goto(link);
+  await expect(lamp(payer.page, 3)).toHaveAttribute("data-lamp", "err");
+  await expect(lamp(payer.page, 3)).toContainText("Cancelled");
+  await expect(payer.page.locator(".payform .key-primary")).toBeDisabled();
+  expect([...payee.relayer, ...payer.relayer]).toEqual([]);
+  expect(payee.problems).toEqual([]);
+});
+
 test("status: Mezo testnet answers, the genuine release, MUSD read live as the registry says, the BTC fee, no gasless payment", async ({ browser }) => {
-  const { page, problems } = await actor(browser, account(1));
+  const { page, problems, relayer } = await actor(browser, account(1));
   await page.goto(`${server.origin}/mezo/status/`);
   const board = page.locator(".board > li");
   await expect(board).toHaveCount(1);
@@ -402,6 +434,7 @@ test("status: Mezo testnet answers, the genuine release, MUSD read live as the r
   await expect(page.locator(".view-status")).toContainText("edition mezo");
   await shot(page, "11-status-1280-light");
   expect(problems).toEqual([]);
+  expect(relayer).toEqual([]);
 });
 
 test("headers: /mezo/ under its own policy with Mezo's RPC, the root's without it; no CSP violation; worker and manifest scoped to /mezo/", async ({ browser, request }) => {
@@ -478,9 +511,9 @@ test.describe("reflow and accessibility", () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`${server.origin}/mezo/`);
       await shot(page, `12-create-390-${scheme}`);
-      await page.setViewportSize({ width: 320, height: 720 });
-      await page.goto(open);
-      await shot(page, `13-pay-320-${scheme}`);
+      await payer.page.setViewportSize({ width: 320, height: 720 });
+      await openToPay(payer, open, "Pay 2.00 MUSD");
+      await shot(payer.page, `13-pay-320-${scheme}`);
       expect(payee.problems).toEqual([]);
       expect(payer.problems).toEqual([]);
     });

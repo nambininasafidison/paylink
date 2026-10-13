@@ -259,7 +259,15 @@ export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "f
       await route.fulfill({ status: 200, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: mezo.tip }) });
       return;
     }
-    const response = await fetch(forkUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
+    // anvil may close a kept-alive socket between two requests ("other side closed"): one retry on a fresh one.
+    const forward = async (): Promise<Response> => await fetch(forkUrl, { method: "POST", headers: { "content-type": "application/json" }, body });
+    let response: Response;
+    try {
+      response = await forward().catch(forward);
+    } catch {
+      await route.abort("failed").catch(() => undefined);
+      return;
+    }
     await route.fulfill({ status: response.status, headers: { ...cors, "content-type": "application/json" }, body: await response.text() });
   });
   return log;
