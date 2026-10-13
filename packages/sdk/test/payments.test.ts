@@ -127,7 +127,9 @@ describe("gas limits (spec §3.3.6)", () => {
     expect(gasLimitFor(monadTestnet, "payWithAuthorization", 223_327n)).toBe(245_660n);
     expect(gasBounds(baseSepolia, "payWithAuthorization")).toEqual({ floor: 143_000n, ceiling: 215_000n });
     expect(gasLimitFor(baseSepolia, "cancel", 40_000n)).toBe(54_000n);
-    expect(gasLimitFor(mezoTestnet, "payWithPermit", 130_000n)).toBe(143_000n);
+    // Mezo: bounds measured on an anvil fork of Mezo testnet with MUSD (ADR 0017); its payWithPermit estimate there is 160,549.
+    expect(gasBounds(mezoTestnet, "payWithPermit")).toEqual({ floor: 161_000n, ceiling: 242_000n });
+    expect(gasLimitFor(mezoTestnet, "payWithPermit", 160_549n)).toBe(176_604n);
     expect(code(() => gasBounds(arc, "pay"))).toBe("E_INVALID_ARGUMENT");
   });
 });
