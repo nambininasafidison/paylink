@@ -128,8 +128,9 @@ export function settlementGas(chain: ChainDefinition, path: PaymentPath): bigint
 /**
  * An upper estimate of a payment's network fee, in the gas coin's base units: the gas limit PayLink sets for the
  * settlement call when it uses its measured gas (`clamp(floor × 1.10, floor, ceiling)`), plus the approve's own
- * estimate × 1.10 when one comes first, times the chain's current `2 × base fee + tip`. Mezo charges at least half
- * the gas limit and at most all of it, so the payer pays no more than this at today's price.
+ * estimate × 1.10 when one comes first, times the chain's current `2 × base fee + suggested tip`. Mezo charges at
+ * least half the gas limit and at most all of it, so at the suggested tip the payer pays no more than this; a wallet
+ * that tips more pays more, and shows it before the payer approves.
  */
 export async function feeUpperBound(client: Pick<ChainClient, "estimateFees" | "estimateGas">, chain: ChainDefinition, path: PaymentPath, link: DecodedInvoiceLink, payer: Address, amount: bigint): Promise<bigint | null> {
   const settle = settlementGas(chain, path);
