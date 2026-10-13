@@ -23677,7 +23677,7 @@ const GAS_MEASUREMENTS = {
 		chainId: 31611,
 		hardfork: "London",
 		network: "ethereum",
-		appliesTo: [31611],
+		appliesTo: [],
 		measurements: {
 			cancel: {
 				estimate: 57628,
@@ -23730,6 +23730,72 @@ const GAS_MEASUREMENTS = {
 			payWithPermit_first: {
 				estimate: 159744,
 				gasUsed: 134928
+			}
+		}
+	},
+	mezo: {
+		chainId: 31611,
+		fork: {
+			rpc: "https://rpc.test.mezo.org",
+			block: 16140641,
+			blockHash: "0xbdd12ed7e2d52b787959ba45a178c51435133bd24e4610571040694de56035d8",
+			timestamp: 1791914817
+		},
+		hardfork: "Prague",
+		network: "ethereum",
+		appliesTo: [31611],
+		measurements: {
+			cancel: {
+				estimate: 57628,
+				gasUsed: 52647
+			},
+			cancelBySig: {
+				estimate: 66553,
+				gasUsed: 61578
+			},
+			cancelBySig_erc1271Payee: {
+				estimate: 71119,
+				gasUsed: 66144
+			},
+			deploy_create: {
+				estimate: 2673065,
+				gasUsed: 2673065
+			},
+			deploy_create2: {
+				estimate: 2717457,
+				gasUsed: 2678851
+			},
+			pay_first: {
+				estimate: 111711,
+				gasUsed: 101996
+			},
+			pay_repeat: {
+				estimate: 77093,
+				gasUsed: 67378
+			},
+			payNative_first: {
+				estimate: 101853,
+				gasUsed: 96933
+			},
+			payNative_repeat: {
+				estimate: 59323,
+				gasUsed: 54403
+			},
+			payWithAuthorization_erc1271Payee: {
+				estimate: 171502,
+				gasUsed: 146682
+			},
+			payWithAuthorization_first: {
+				estimate: 166918,
+				gasUsed: 142098
+			},
+			payWithAuthorization_repeat: {
+				estimate: 132336,
+				gasUsed: 107516
+			},
+			payWithPermit_first: {
+				estimate: 160549,
+				gasUsed: 135733
 			}
 		}
 	},
@@ -23821,13 +23887,40 @@ const EMULATED_GAS_LIMITS = { monad: {
 		ceiling: 134000n
 	}
 } };
+/** Gas-limit bounds of the networks measured on an anvil fork of themselves, from the fork's estimates. */
+const FORK_GAS_LIMITS = { mezo: {
+	payWithAuthorization: {
+		floor: 167000n,
+		ceiling: 251000n
+	},
+	pay: {
+		floor: 112000n,
+		ceiling: 168000n
+	},
+	payWithPermit: {
+		floor: 161000n,
+		ceiling: 242000n
+	},
+	payNative: {
+		floor: 102000n,
+		ceiling: 153000n
+	},
+	cancel: {
+		floor: 58000n,
+		ceiling: 87000n
+	},
+	cancelBySig: {
+		floor: 67000n,
+		ceiling: 101000n
+	}
+} };
 
 //#endregion
 //#region packages/chains/src/define.ts
 /** Building blocks shared by the chain definitions in `src/chains/`. */
 /**
-* Gas table of the v2 chains with Ethereum gas prices (Base, Arbitrum, Mezo): the Foundry snapshot, checked
-* against eth_estimateGas on anvil's Ethereum, Base and London profiles. Provisional until re-measured on the chain.
+* Gas table of the v2 chains with Ethereum gas prices (Base, Arbitrum): the Foundry snapshot, checked against
+* eth_estimateGas on anvil's Ethereum, Base and London profiles. Provisional until re-measured on the chain.
 */
 const SNAPSHOT_GAS_TABLE = {
 	source: "snapshot",
@@ -23844,6 +23937,18 @@ const MONAD_GAS_TABLE = {
 	provisional: true,
 	evidence: `anvil --network monad (hardfork ${GAS_MEASUREMENTS.monad.hardfork}), mock tokens: packages/chains/data/gas-measurements.json`,
 	limits: EMULATED_GAS_LIMITS.monad
+};
+/**
+* Gas table of Mezo testnet: eth_estimateGas on an anvil fork of Mezo testnet (ADR 0017), with MUSD and native BTC as
+* the chain holds them, the canonical CREATE2 factory, and the repository's mocks only where Mezo has nothing to measure
+* (an EIP-3009 token, an ERC-1271 payee). anvil prices gas like Ethereum (L for mezod, whose estimate of the CREATE2
+* deployment equals the fork's). Mezo charges at least half of the limit, which these bounds keep below the gas used.
+*/
+const MEZO_GAS_TABLE = {
+	source: "fork",
+	provisional: true,
+	evidence: `anvil fork of Mezo testnet at block ${String(GAS_MEASUREMENTS.mezo.fork.block)} (hardfork ${GAS_MEASUREMENTS.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
+	limits: FORK_GAS_LIMITS.mezo
 };
 /**
 * Relay timing of the v2 chains until inclusion latency is measured on each (invoice spec §13.3, audit finding
@@ -24127,10 +24232,12 @@ const baseSepolia = {
 //#endregion
 //#region packages/chains/src/chains/mezo-testnet.ts
 /**
-* Mezo testnet (31611): the Mezo edition, from Oct 16 after the go/no-go (PAYLINK-V2-SPEC §2.6, §3.4, §9).
-* Disabled until then. Confidence C, except the EVM level ("london", L): the paris artifact runs there
-* (protocol/test/toolchain/EvmTarget.t.sol). MUSD supports EIP-2612 only, so MUSD payments use
-* `payWithPermit` (the payer pays BTC gas) or approve + pay.
+* Mezo testnet (31611, "matsnet"): the Mezo edition (PAYLINK-V2-SPEC §9, ADR 0017). Facts from
+* docs/research/mezo.md, re-read on chain on 2026-10-13; confidence C unless a note says otherwise.
+*
+* Disabled until the Mezo edition goes live (ADR 0017): the deploy kit already targets it, because the deployment
+* has to exist first. MUSD supports EIP-2612 only, so MUSD payments use `payWithPermit` (the payer pays BTC gas) or
+* approve + pay; with PayLinkV2 no relayer can make them gasless (ADR 0017).
 */
 const mezoTestnet = {
 	chainId: 31611,
@@ -24153,7 +24260,7 @@ const mezoTestnet = {
 		url: "https://rpc.test.mezo.org",
 		confidence: "C"
 	}],
-	rpcLimits: {},
+	rpcLimits: { maxLogBlockRange: 1e4 },
 	explorers: [{
 		name: "Mezo Explorer",
 		url: "https://explorer.test.mezo.org",
@@ -24170,26 +24277,40 @@ const mezoTestnet = {
 			eip2612: true,
 			native: false
 		},
-		eip712Domain: null,
+		eip712Domain: {
+			name: "Mezo USD",
+			version: "1"
+		},
 		listing: "default",
 		confidence: "C",
 		pendingVerification: [],
-		note: "EIP-2612 only, no EIP-3009. Test MUSD cannot come from a faucet: it is borrowed (at least 2,000 MUSD)."
+		note: "Mezo's Bitcoin-backed dollar. OpenZeppelin ERC20Permit: ECDSA permits only (smart accounts approve), no EIP-3009, no fee, hook, pause or blocklist, not upgradeable. Its owner can let any address burn MUSD from any account (issuer risk). Test MUSD is borrowed against test BTC (at least 2,000 MUSD of debt), not dispensed by a faucet."
 	}, nativeToken({
 		symbol: "BTC",
 		name: "Bitcoin (native)",
 		decimals: 18,
 		listing: "listed",
-		confidence: "C"
+		confidence: "C",
+		note: "The gas coin, paid with payNative (run on an anvil fork; L against mezod itself)."
 	})],
 	deniedTokens: [],
-	contracts: { btcErc20: {
-		address: "0x7b7C000000000000000000000000000000000000",
-		confidence: "L",
-		note: "BTC ERC-20 precompile; not on the token allowlist (L)."
-	} },
-	gasModel: { chargesGasLimit: false },
-	gas: SNAPSHOT_GAS_TABLE,
+	contracts: {
+		create2Deployer: {
+			address: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+			confidence: "C",
+			note: "The canonical deterministic-deployment proxy runtime (keccak 0x2fa8…4989, as on Base Sepolia and Monad testnet): PayLinkV2 deploys at the release address 0x448e…5082."
+		},
+		btcErc20: {
+			address: "0x7b7C000000000000000000000000000000000000",
+			confidence: "L",
+			note: "BTC ERC-20 precompile; not on the token allowlist (L)."
+		}
+	},
+	gasModel: {
+		chargesGasLimit: false,
+		minChargedPercentOfLimit: 50
+	},
+	gas: MEZO_GAS_TABLE,
 	relay: DEFAULT_RELAY_TIMING,
 	deployment: recordedDeployment(31611),
 	v1: null,
@@ -24200,8 +24321,12 @@ const mezoTestnet = {
 		explorers: "C"
 	},
 	notes: [
-		"EVM level reported as london (L): the paris artifact contains no PUSH0, MCOPY or transient-storage opcodes.",
-		"Gas is paid in test BTC from faucet.test.mezo.org (captcha).",
+		"Gas is test BTC (18 decimals) at about 130 to 300 wei per gas; blocks every 4.5 to 4.9 s (C).",
+		"Mezo charges max(gas used, 50 % of the gas limit) (C): send clamp(estimate x 1.10, floor, ceiling), never a wallet default.",
+		"The chain runs Cancun opcodes (C, live probes) although Mezo's docs say london; the paris artifact runs either way.",
+		"eth_getLogs spans at most 10,000 blocks per request (C).",
+		"MUSD payments cannot be gasless with PayLinkV2: MUSD has no EIP-3009, and payWithPermit and pay pay from msg.sender (ADR 0017).",
+		"Test BTC from faucet.test.mezo.org (captcha); test MUSD is borrowed against it at testnet.mezo.org (docs/runbooks/faucets.md).",
 		"Mezo mainnet is 31612 (MUSD at a different address); not in this registry."
 	]
 };
@@ -24533,6 +24658,8 @@ function checkChain(issues, chain) {
 	chain.explorers.forEach((explorer, i) => {
 		checkUrl(issues, `${where} explorer[${i}]`, explorer.url, chain.local, true);
 	});
+	const minCharged = chain.gasModel.minChargedPercentOfLimit;
+	if (minCharged !== void 0 && (!Number.isInteger(minCharged) || minCharged < 1 || minCharged > 100 || chain.gasModel.chargesGasLimit)) issues.push(`${where}: gasModel.minChargedPercentOfLimit must be an integer in [1, 100], on a chain that does not charge the whole limit`);
 	if (chain.status === "enabled" && chain.rpc.length === 0) issues.push(`${where}: an enabled chain needs at least one RPC endpoint`);
 	const seen = /* @__PURE__ */ new Set();
 	let defaults = 0;
