@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { registry } from "@paylink/chains";
 import { describe, expect, it } from "vitest";
-import { CREATE2_PROXY_PRESIGNED_TX, DEPLOY_CHAIN_IDS, proxyDeployment, renderAll, renderReleaseData, sourceCommit } from "../scripts/generate.ts";
+import { CREATE2_PROXY_PRESIGNED_TX, DEPLOY_CHAIN_IDS, proxyDeployment, renderAll, renderChainsData, renderReleaseData, sourceCommit, STAGED_CHAIN_IDS } from "../scripts/generate.ts";
 import { buildVendor, canonicalRegions, staleFiles } from "../scripts/vendor.ts";
 
 const repo = (path: string): string => new URL(`../../../${path}`, import.meta.url).pathname;
@@ -48,11 +48,22 @@ describe("generated data (pnpm --filter @paylink/deploy-page run generate)", () 
     expect(CREATE2_PROXY_PRESIGNED_TX.startsWith("0xf8a58085174876e800830186a0")).toBe(true);
   });
 
-  it("deploys only to enabled v2 testnets of the registry", () => {
+  it("deploys only to v2 testnets of the registry that are enabled, or staged ahead of their edition (Mezo)", () => {
     for (const id of DEPLOY_CHAIN_IDS) {
       const chain = registry.getOrThrow(id);
-      expect(chain).toMatchObject({ protocol: "v2", status: "enabled", testnet: true, local: false });
+      expect(chain).toMatchObject({ protocol: "v2", testnet: true, local: false });
+      expect(chain.status === "enabled" || STAGED_CHAIN_IDS.has(id), String(id)).toBe(true);
+      expect(chain.tokens.every((t) => t.pendingVerification.length === 0), String(id)).toBe(true);
     }
+    // Staged means the registry has not enabled it yet: the edition goes live once the deployment is recorded.
+    expect([...STAGED_CHAIN_IDS]).toEqual([31611]);
+    expect(registry.getOrThrow(31611).status).toBe("disabled");
+  });
+
+  it("refuses to generate data for a chain that is neither enabled nor staged", () => {
+    expect(() => {
+      renderChainsData([143]);
+    }).toThrow(/not an enabled \(or staged\) v2 testnet/);
   });
 });
 

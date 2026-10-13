@@ -15,10 +15,10 @@
   Content-Security-Policy: default-src 'none'; script-src 'self' 'sha256-lBz+vmFCB8xtWOYkU+Aj9NGt2PbaaoGT7sUU1bEdevU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://rpc.mainnet.arc.io; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 /deploy/*
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io https://rpc.test.mezo.org; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 /v2/deploy/*
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io https://rpc.test.mezo.org; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 /mezo/*
   ! Content-Security-Policy
   Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://paylink-relayer.raherizonambinina.workers.dev https://rpc.test.mezo.org; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types paylink-sw

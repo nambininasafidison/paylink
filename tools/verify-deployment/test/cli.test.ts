@@ -61,10 +61,10 @@ async function freePort(): Promise<number> {
 }
 
 /** Starts anvil with Base Sepolia's chain id (it predeploys the CREATE2 proxy and runs Prague: EIP-7702). */
-async function startAnvil(): Promise<{ process: ChildProcess; url: string }> {
+async function startAnvil(chainId: number = CHAIN_ID): Promise<{ process: ChildProcess; url: string }> {
   const port = await freePort();
   const endpoint = `http://127.0.0.1:${String(port)}`;
-  const child = spawn(anvilBinary(), ["--port", String(port), "--chain-id", String(CHAIN_ID), "--silent"], { stdio: "ignore" });
+  const child = spawn(anvilBinary(), ["--port", String(port), "--chain-id", String(chainId), "--silent"], { stdio: "ignore" });
   for (let i = 0; i < 100; i += 1) {
     try {
       await rpcAt(endpoint, "eth_chainId");
@@ -128,7 +128,7 @@ describe("usage", () => {
     for (const chain of ["1", "143", "5042", "31337"]) {
       const r = await run("--chain", chain, "--address", CREATE2, "--rpc", url);
       expect(r.code).toBe(2);
-      expect(r.stderr).toContain(`chain ${chain} is not a PayLink v2 deployment target (allowed: 10143, 84532, 421614)`);
+      expect(r.stderr).toContain(`chain ${chain} is not a PayLink v2 deployment target (allowed: 10143, 84532, 421614, 31611)`);
     }
   });
 
@@ -217,6 +217,37 @@ describe("verification and record", () => {
  * packed as factory ‖ salt ‖ initCode; the manager calls the user's account, which calls the factory. The manager
  * swallows failures, as a batching entry point may, so a transaction can succeed although its inner deployment did not.
  */
+describe("Mezo testnet (31611), staged ahead of its edition (ADR 0017)", () => {
+  // anvil with Mezo testnet's chain id; it predeploys the CREATE2 proxy, as Mezo testnet has it (checked live).
+  let mezo: { process: ChildProcess; url: string };
+  let tx = "";
+
+  beforeAll(async () => {
+    mezo = await startAnvil(31611);
+    tx = await rpcAt<string>(mezo.url, "eth_sendTransaction", [{ from: SENDER, to: data.release.create2.factory, data: `${data.release.create2.salt}${data.initCode.slice(2)}` }]);
+    await mined(mezo.url, tx);
+  });
+
+  afterAll(() => {
+    mezo.process.kill();
+  });
+
+  it("verifies the release at its CREATE2 address and writes Mezo's record, with Mezo Explorer links", async () => {
+    const r = await run("--chain", "31611", "--address", CREATE2, "--tx", tx, "--rpc", mezo.url, "--out", "-");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stderr).toContain("PayLinkV2 2.0.0 on Mezo testnet (31611)");
+    expect(r.stderr).toContain("[ok] EIP-712 immutables bound to this chain and address");
+    const record = JSON.parse(r.stdout) as { chainId: number; caip2: string; network: string; address: string; deployment: { method: string }; explorers: { name: string; address: string; tx: string }[] };
+    expect(record).toMatchObject({ chainId: 31611, caip2: "eip155:31611", network: "Mezo testnet", address: CREATE2, deployment: { method: "CREATE2" } });
+    expect(record.explorers).toEqual([{ name: "Mezo Explorer", address: `https://explorer.test.mezo.org/address/${CREATE2}`, tx: `https://explorer.test.mezo.org/tx/${tx}` }]);
+  });
+
+  it("refuses the same code read through an RPC of another chain", async () => {
+    const r = await run("--chain", "31611", "--address", CREATE2, "--rpc", url);
+    expect(r.code).toBe(1);
+  });
+});
+
 describe("relayed deployment (EIP-7702 smart account)", () => {
   // Forwarder: CALL(gas, calldata[0:20], 0, calldata[20:]) and revert on failure. Swallower: the same without the revert.
   const FORWARDER = "0x60143603806014600037600060008260006000600035" + "60601c5af1" + "602357" + "60006000fd" + "5b00";

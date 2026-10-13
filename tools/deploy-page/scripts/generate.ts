@@ -38,10 +38,17 @@ export const SOURCES = {
 } as const;
 
 /**
- * The chains the page deploys to (the task's three testnets, PAYLINK-V2-SPEC §6.4 order). Each must be an enabled
- * v2 testnet of the registry with a measured deployment gas table; anything else is refused at generation.
+ * The chains the page deploys to: the task's three testnets (PAYLINK-V2-SPEC §6.4 order), then Mezo testnet (ADR 0017).
+ * Each must be a v2 testnet of the registry with a measured deployment gas table and no unverified token fact, and be
+ * enabled or staged (below); anything else is refused at generation.
  */
-export const DEPLOY_CHAIN_IDS: readonly number[] = [10143, 84532, 421614];
+export const DEPLOY_CHAIN_IDS: readonly number[] = [10143, 84532, 421614, 31611];
+
+/**
+ * Chains the page deploys to while the registry still has them `disabled`: an edition's chain gets its deployment
+ * before it is enabled (ADR 0017), because enabling it offers it to payers. Mezo testnet until the Mezo edition goes live.
+ */
+export const STAGED_CHAIN_IDS: ReadonlySet<number> = new Set([31611]);
 
 /**
  * The canonical presigned deployment of the deterministic-deployment proxy (github.com/Arachnid/deterministic-
@@ -123,8 +130,10 @@ const decimal = (value: bigint | undefined | null): string | null => (value === 
 
 function chainEntry(chain: ChainDefinition): Record<string, unknown> {
   const gas = deployGasFor(chain.chainId);
-  if (chain.protocol !== "v2" || chain.status !== "enabled" || !chain.testnet || chain.local || gas === null) {
-    throw new Error(`chain ${String(chain.chainId)} is not an enabled v2 testnet with a deployment gas table`);
+  const offered = chain.status === "enabled" || STAGED_CHAIN_IDS.has(chain.chainId);
+  const verified = chain.tokens.every((t) => t.pendingVerification.length === 0);
+  if (chain.protocol !== "v2" || !offered || !chain.testnet || chain.local || gas === null || !verified) {
+    throw new Error(`chain ${String(chain.chainId)} is not an enabled (or staged) v2 testnet with verified facts and a deployment gas table`);
   }
   const entry = (e: { estimate: bigint; gasUsed: bigint; floor: bigint; ceiling: bigint }): Record<string, string> => ({
     estimate: e.estimate.toString(),
@@ -147,6 +156,8 @@ function chainEntry(chain: ChainDefinition): Record<string, unknown> {
       chargesGasLimit: chain.gasModel.chargesGasLimit,
       txGasCap: decimal(chain.gasModel.txGasCap),
       reserveBalance: decimal(chain.gasModel.reserveBalance),
+      // Only where the chain has one (Mezo), so the other chains' entries stay as they were.
+      ...(chain.gasModel.minChargedPercentOfLimit === undefined ? {} : { minChargedPercentOfLimit: chain.gasModel.minChargedPercentOfLimit }),
     },
     deployGas: {
       profile: gas.profile,
@@ -166,12 +177,12 @@ function chainEntry(chain: ChainDefinition): Record<string, unknown> {
 }
 
 /** `data/chains.json`. */
-export function renderChainsData(): string {
+export function renderChainsData(chainIds: readonly number[] = DEPLOY_CHAIN_IDS): string {
   return json({
     schema: "paylink.deploy-page.chains/1",
     generator: "tools/deploy-page/scripts/generate.ts",
     source: "@paylink/chains (packages/chains)",
-    chains: DEPLOY_CHAIN_IDS.map((id) => chainEntry(registry.getOrThrow(id))),
+    chains: chainIds.map((id) => chainEntry(registry.getOrThrow(id))),
   });
 }
 

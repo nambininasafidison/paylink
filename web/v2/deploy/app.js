@@ -7,6 +7,7 @@
  * checks. Reads go to the registry's RPC (data/chains.json), falling back to the wallet's own RPC.
  */
 import {
+  chargedFor,
   clampGasLimit,
   DeployError,
   deploymentCost,
@@ -528,6 +529,7 @@ async function refreshReview() {
             baseFee: value.fees.baseFee,
             priorityFee: value.fees.priorityFee,
             chargesGasLimit: chain.gasModel.chargesGasLimit,
+            minChargedPercentOfLimit: chain.gasModel.minChargedPercentOfLimit,
           })
         : null;
     review = { status: "ready", via, viaHost: host, ...value, cost };
@@ -607,7 +609,11 @@ function renderReview() {
       row("Gas limit", h("span", { class: "bad", text: "not available" }), review.gasError ?? null);
     }
     if (review.fees !== null && review.fees !== undefined) {
-      row("Gas price", `${fmt.gwei(review.fees.baseFee + review.fees.priorityFee)} gwei`, `base ${fmt.gwei(review.fees.baseFee)} + tip ${fmt.gwei(review.fees.priorityFee)}; your wallet sets the final fee`);
+      const price = review.fees.baseFee + review.fees.priorityFee;
+      // Below 0.001 gwei (Mezo: about 150 wei) gwei would round up by thousands of times: whole wei instead.
+      const perGas = price < fmt.WEI_DISPLAY_BELOW ? fmt.wei : fmt.gwei;
+      const unit = price < fmt.WEI_DISPLAY_BELOW ? "wei" : "gwei";
+      row("Gas price", `${perGas(price)} ${unit}`, `base ${perGas(review.fees.baseFee)} + tip ${perGas(review.fees.priorityFee)}; your wallet sets the final fee`);
     }
     if (review.cost !== null && review.cost !== undefined) {
       rows.push(
@@ -624,7 +630,9 @@ function renderReview() {
               class: "sub",
               text: chain.gasModel.chargesGasLimit
                 ? `${chain.name} charges the whole gas limit, not the gas used. At most ${nativeAmount(chain, review.cost.maximum, "up")} at twice the base fee.`
-                : `Charged on the gas used. At most ${nativeAmount(chain, review.cost.maximum, "up")} at twice the base fee.`,
+                : chain.gasModel.minChargedPercentOfLimit !== null
+                  ? `Charged on the gas used, and at least ${String(chain.gasModel.minChargedPercentOfLimit)} % of the gas limit on ${chain.name}. At most ${nativeAmount(chain, review.cost.maximum, "up")} at twice the base fee.`
+                  : `Charged on the gas used. At most ${nativeAmount(chain, review.cost.maximum, "up")} at twice the base fee.`,
             }),
           ),
         ),
@@ -931,8 +939,10 @@ function renderSlip(chain, v) {
     return;
   }
   const receipt = state.receipt ?? v.receipt;
-  // What the deployment cost: the gas the chain charges (the whole limit on Monad) at the price the receipt reports.
-  const charged = v.tx === null || receipt === null ? null : chain.gasModel.chargesGasLimit ? v.tx.gas : receipt.gasUsed;
+  // What the deployment cost: the gas the chain charges (the whole limit on Monad, at least half of it on Mezo) at the
+  // price the receipt reports.
+  const charged =
+    v.tx === null || receipt === null ? null : chain.gasModel.chargesGasLimit ? v.tx.gas : chargedFor(receipt.gasUsed, v.tx.gas, chain.gasModel.minChargedPercentOfLimit);
   // A relayed deployment's gas was paid by the relayer, not by this account: no fee on the slip.
   const fee = v.route === "relayed" || state.receipt?.effectiveGasPrice === undefined || charged === null ? null : charged * state.receipt.effectiveGasPrice;
   /** @param {string} label @param {Node | string} value */

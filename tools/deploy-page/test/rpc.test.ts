@@ -240,5 +240,9 @@ describe("format", () => {
     expect(fmt.gwei(102_000_000_000n)).toBe("102");
     expect(fmt.gwei(6_000_000n)).toBe("0.006");
     expect(fmt.gwei(90_768_000n)).toBe("0.091");
+    // Mezo's gas price (about 150 wei) would read "0.001" in gwei: whole wei below 0.001 gwei.
+    expect(fmt.WEI_DISPLAY_BELOW).toBe(1_000_000n);
+    expect(fmt.wei(146n)).toBe("146");
+    expect(fmt.wei(999_999n)).toBe("999,999");
   });
 });

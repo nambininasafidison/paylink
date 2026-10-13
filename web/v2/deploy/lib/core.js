@@ -75,7 +75,8 @@ import { authorizationAuthority, delegationOf } from "./eip7702.js";
  * @property {{ name: string; symbol: string; decimals: number }} nativeCurrency
  * @property {string[]} rpc
  * @property {{ name: string; url: string }[]} explorers
- * @property {{ chargesGasLimit: boolean; txGasCap: bigint | null; reserveBalance: bigint | null }} gasModel
+ * @property {{ chargesGasLimit: boolean; txGasCap: bigint | null; reserveBalance: bigint | null; minChargedPercentOfLimit: number | null }} gasModel
+ *   `minChargedPercentOfLimit`: the chain charges max(gas used, limit × p / 100) (Mezo: 50); null when absent
  * @property {{ profile: string; hardfork: string; network: string; provisional: boolean; evidence: string;
  *   create: DeployGasEntry; create2: DeployGasEntry }} deployGas
  * @property {{ address: Address; method: "CREATE" | "CREATE2"; txHash: Hex; blockNumber: bigint; deployer: Address;
@@ -195,6 +196,22 @@ function big(value, field) {
 }
 
 /**
+ * The share of the gas limit a chain charges at least (`gasModel.minChargedPercentOfLimit`), or null when the chain
+ * data has none: an integer in [1, 100].
+ *
+ * @param {unknown} value
+ * @param {number} chainId
+ * @returns {number | null}
+ */
+function minChargedPercent(value, chainId) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  ensure(typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 100, "E_DATA", `chain data: ${String(chainId)} minChargedPercentOfLimit`);
+  return value;
+}
+
+/**
  * Parses the page's chain data: the chains a PayLinkV2 deployment may target, as generated from @paylink/chains.
  *
  * @param {unknown} json
@@ -233,6 +250,7 @@ export function parseChainsData(json) {
         chargesGasLimit: c["gasModel"]["chargesGasLimit"] === true,
         txGasCap: c["gasModel"]["txGasCap"] === null ? null : big(c["gasModel"]["txGasCap"], "txGasCap"),
         reserveBalance: c["gasModel"]["reserveBalance"] === null ? null : big(c["gasModel"]["reserveBalance"], "reserveBalance"),
+        minChargedPercentOfLimit: minChargedPercent(c["gasModel"]["minChargedPercentOfLimit"], id),
       },
       deployGas: { ...gas, create: entry(gas["create"], `${String(id)}.create`), create2: entry(gas["create2"], `${String(id)}.create2`) },
       deployment:
@@ -339,8 +357,8 @@ export function clampGasLimit(estimate, bounds) {
 
 /**
  * The deployment's cost in the native coin's base units:
- * - `expected`: what the chain charges at the current base fee plus tip. Monad charges the gas **limit**; the other
- *   chains charge the gas used, here the estimate;
+ * - `expected`: what the chain charges at the current base fee plus tip. Monad charges the gas **limit**; Mezo the
+ *   gas used but at least `minChargedPercentOfLimit` % of the limit; the other chains the gas used, here the estimate;
  * - `maximum`: gasLimit × (2 × baseFee + tip), the upper bound a wallet reserves with the usual max-fee rule;
  * - plus the native balance needed.
  * Display only: the wallet sets the fees.
@@ -351,12 +369,30 @@ export function clampGasLimit(estimate, bounds) {
  * @param {bigint} p.baseFee
  * @param {bigint} p.priorityFee
  * @param {boolean} p.chargesGasLimit
+ * @param {number | null} [p.minChargedPercentOfLimit]
  * @returns {{ chargedGas: bigint; expected: bigint; maximum: bigint; maxFeePerGas: bigint }}
  */
-export function deploymentCost({ gasLimit, estimate, baseFee, priorityFee, chargesGasLimit }) {
-  const chargedGas = chargesGasLimit ? gasLimit : estimate;
+export function deploymentCost({ gasLimit, estimate, baseFee, priorityFee, chargesGasLimit, minChargedPercentOfLimit = null }) {
+  const chargedGas = chargesGasLimit ? gasLimit : chargedFor(estimate, gasLimit, minChargedPercentOfLimit);
   const maxFeePerGas = 2n * baseFee + priorityFee;
   return { chargedGas, expected: chargedGas * (baseFee + priorityFee), maximum: gasLimit * maxFeePerGas, maxFeePerGas };
+}
+
+/**
+ * The gas a chain charges for a transaction that used `gasUsed` under `gasLimit`: the gas used, or at least
+ * `minChargedPercentOfLimit` % of the limit (rounded up) where the chain has such a minimum (Mezo: 50).
+ *
+ * @param {bigint} gasUsed
+ * @param {bigint} gasLimit
+ * @param {number | null} minChargedPercentOfLimit
+ * @returns {bigint}
+ */
+export function chargedFor(gasUsed, gasLimit, minChargedPercentOfLimit) {
+  if (minChargedPercentOfLimit === null) {
+    return gasUsed;
+  }
+  const minimum = (gasLimit * BigInt(minChargedPercentOfLimit) + 99n) / 100n;
+  return gasUsed > minimum ? gasUsed : minimum;
 }
 
 // ------------------------------------------------------------------------------------------------ verification

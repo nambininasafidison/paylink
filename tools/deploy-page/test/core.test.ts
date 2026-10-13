@@ -16,6 +16,7 @@ import {
   authorityCandidates,
   byteOffset,
   chainOrThrow,
+  chargedFor,
   clampGasLimit,
   create2InTrace,
   DeployError,
@@ -76,14 +77,15 @@ describe("release data", () => {
 });
 
 describe("chain data", () => {
-  it("lists exactly the three deploy targets, as the registry describes them", () => {
-    expect([...chains.keys()]).toEqual([10143, 84532, 421614]);
+  it("lists exactly the deploy targets (the three testnets, then Mezo testnet), as the registry describes them", () => {
+    expect([...chains.keys()]).toEqual([10143, 84532, 421614, 31611]);
     for (const c of chains.values()) {
       const r = registry.getOrThrow(c.chainId);
       expect(c.name).toBe(r.name);
       expect(c.rpc).toEqual(r.rpc.map((e) => e.url));
       expect(c.explorers).toEqual(r.explorers.map((e) => ({ name: e.name, url: e.url })));
       expect(c.gasModel.chargesGasLimit).toBe(r.gasModel.chargesGasLimit);
+      expect(c.gasModel.minChargedPercentOfLimit).toBe(r.gasModel.minChargedPercentOfLimit ?? null);
       const gas = deployGasFor(c.chainId);
       expect(c.deployGas.create).toEqual(gas?.create);
       expect(c.deployGas.create2).toEqual(gas?.create2);
@@ -91,10 +93,21 @@ describe("chain data", () => {
     }
     expect(chain(10143).gasModel.chargesGasLimit).toBe(true);
     expect(chain(84532).gasModel.chargesGasLimit).toBe(false);
+    // Mezo testnet: BTC as gas, at least half the limit charged, the deployment measured on a fork of the chain.
+    expect(chain(31611)).toMatchObject({
+      name: "Mezo testnet",
+      label: "MEZO",
+      nativeCurrency: { name: "Bitcoin", symbol: "BTC", decimals: 18 },
+      rpc: ["https://rpc.test.mezo.org"],
+      explorers: [{ name: "Mezo Explorer", url: "https://explorer.test.mezo.org" }],
+      gasModel: { chargesGasLimit: false, txGasCap: null, reserveBalance: null, minChargedPercentOfLimit: 50 },
+      deployGas: { profile: "mezo" },
+    });
+    expect(chain(84532).gasModel.minChargedPercentOfLimit).toBeNull();
   });
 
   it("refuses unknown chains", () => {
-    for (const id of [1, 143, 5042, 31337, 31611, 8453]) {
+    for (const id of [1, 143, 5042, 31337, 31612, 8453]) {
       refuses(() => chainOrThrow(chains, id), "E_UNKNOWN_CHAIN");
     }
   });
@@ -104,6 +117,15 @@ describe("chain data", () => {
     const [first] = raw.chains;
     expect(() => parseChainsData({ ...raw, chains: [{ ...first, rpc: ["http://testnet-rpc.monad.xyz"] }] })).toThrow(/rpc/);
     expect(() => parseChainsData({ ...raw, chains: [first, first] })).toThrow(/listed twice/);
+  });
+
+  it("refuses a minimum charge that is not a whole percent in [1, 100]", () => {
+    const raw = readJson("web/v2/deploy/data/chains.json") as { chains: Record<string, unknown>[] };
+    const mezo = raw.chains.find((c) => c["chainId"] === 31611) ?? {};
+    for (const bad of [0, 101, 12.5, "50"]) {
+      const patched = { ...mezo, gasModel: { ...(mezo["gasModel"] as object), minChargedPercentOfLimit: bad } };
+      expect(() => parseChainsData({ ...raw, chains: [patched] })).toThrow(/minChargedPercentOfLimit/);
+    }
   });
 });
 
@@ -171,6 +193,20 @@ describe("gas", () => {
     expect(monad.maximum).toBe(2_999_705n * 202_000_000_000n);
     const base = deploymentCost({ gasLimit: 2_996_079n, estimate: 2_723_708n, baseFee: 5_000_000n, priorityFee: 1_000_000n, chargesGasLimit: false });
     expect(base.expected).toBe(2_723_708n * 6_000_000n);
+    // Mezo: the gas used, but at least half the limit. The deployment's clamped limit keeps that minimum below the
+    // estimate, so the expected cost is the estimate's (at Mezo's ~146 wei per gas).
+    const mezo = deploymentCost({ gasLimit: 2_989_203n, estimate: 2_717_457n, baseFee: 130n, priorityFee: 16n, chargesGasLimit: false, minChargedPercentOfLimit: 50 });
+    expect(mezo.chargedGas).toBe(2_717_457n);
+    expect(mezo.expected).toBe(2_717_457n * 146n);
+    const floorBound = deploymentCost({ gasLimit: 4_000_000n, estimate: 1_000_000n, baseFee: 130n, priorityFee: 16n, chargesGasLimit: false, minChargedPercentOfLimit: 50 });
+    expect(floorBound.chargedGas).toBe(2_000_000n);
+  });
+
+  it("charges the gas used, or at least the chain's share of the limit (rounded up)", () => {
+    expect(chargedFor(150_000n, 300_000n, null)).toBe(150_000n);
+    expect(chargedFor(57_052n, 300_000n, 50)).toBe(150_000n);
+    expect(chargedFor(200_000n, 300_000n, 50)).toBe(200_000n);
+    expect(chargedFor(1n, 3n, 50)).toBe(2n);
   });
 });
 

@@ -4,7 +4,7 @@
 # web/v2/deploy/index.html repeats this policy minus frame-ancestors, and tools/deploy-page/test/csp.test.ts keeps the
 # three in step.
 /v2/*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io https://rpc.test.mezo.org; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer

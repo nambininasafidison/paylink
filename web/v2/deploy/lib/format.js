@@ -62,6 +62,21 @@ export function gwei(wei) {
 }
 
 /**
+ * Gas prices below this (0.001 gwei) are shown in whole wei: `gwei()` would round Mezo's price of about 150 wei up to
+ * "0.001", several thousand times too much.
+ */
+export const WEI_DISPLAY_BELOW = 1_000_000n;
+
+/**
+ * Gas price in whole wei, grouped by thousands.
+ * @param {bigint} value
+ * @returns {string}
+ */
+export function wei(value) {
+  return group(value.toString());
+}
+
+/**
  * @param {bigint | number} n
  * @returns {string}
  */

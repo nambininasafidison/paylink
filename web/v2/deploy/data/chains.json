@@ -183,6 +183,63 @@
         "Same PayLinkV2 artifact as Base; added only if Sepolia ETH reaches the deployer by Oct 9 (spec §2.2).",
         "Arbitrum's eth_estimateGas includes the L1 posting cost in L2 gas units (L): the snapshot ceilings cover execution only, so re-measure before relaying there."
       ]
+    },
+    {
+      "chainId": 31611,
+      "caip2": "eip155:31611",
+      "name": "Mezo testnet",
+      "label": "MEZO",
+      "tier": "later",
+      "testnet": true,
+      "nativeCurrency": {
+        "name": "Bitcoin",
+        "symbol": "BTC",
+        "decimals": 18
+      },
+      "rpc": [
+        "https://rpc.test.mezo.org"
+      ],
+      "explorers": [
+        {
+          "name": "Mezo Explorer",
+          "url": "https://explorer.test.mezo.org"
+        }
+      ],
+      "gasModel": {
+        "chargesGasLimit": false,
+        "txGasCap": null,
+        "reserveBalance": null,
+        "minChargedPercentOfLimit": 50
+      },
+      "deployGas": {
+        "profile": "mezo",
+        "hardfork": "Prague",
+        "network": "ethereum",
+        "provisional": true,
+        "evidence": "anvil fork \"mezo\" of https://rpc.test.mezo.org at block 16140641 (hardfork Prague): packages/chains/data/fork-gas-measurements.json",
+        "create": {
+          "estimate": "2673065",
+          "gasUsed": "2673065",
+          "floor": "2674000",
+          "ceiling": "4011000"
+        },
+        "create2": {
+          "estimate": "2717457",
+          "gasUsed": "2678851",
+          "floor": "2718000",
+          "ceiling": "4077000"
+        }
+      },
+      "deployment": null,
+      "notes": [
+        "Gas is test BTC (18 decimals) at about 130 to 300 wei per gas; blocks every 4.5 to 4.9 s (C).",
+        "Mezo charges max(gas used, 50 % of the gas limit) (C): send clamp(estimate x 1.10, floor, ceiling), never a wallet default.",
+        "The chain runs Cancun opcodes (C, live probes) although Mezo's docs say london; the paris artifact runs either way.",
+        "eth_getLogs spans at most 10,000 blocks per request (C).",
+        "MUSD payments cannot be gasless with PayLinkV2: MUSD has no EIP-3009, and payWithPermit and pay pay from msg.sender (ADR 0017).",
+        "Test BTC from faucet.test.mezo.org (captcha); test MUSD is borrowed against it at testnet.mezo.org (docs/runbooks/faucets.md).",
+        "Mezo mainnet is 31612 (MUSD at a different address); not in this registry."
+      ]
     }
   ]
 }
