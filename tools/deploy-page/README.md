@@ -5,12 +5,12 @@ Build tooling and tests of the **browser deploy page**, [`web/v2/deploy/`](../..
 ## What the page does
 
 1. Discovers wallets with EIP-6963 (falls back to `window.ethereum`), connects one account.
-2. Offers exactly the registry's deploy targets: **Monad testnet 10143, Base Sepolia 84532, Arbitrum Sepolia 421614**. Any other chain, from the wallet or from `?chain=`, is refused. Switches the wallet with EIP-3326 and adds the chain with EIP-3085 (registry RPC and explorers) when the wallet answers 4902.
+2. Offers exactly the registry's deploy targets: **Monad testnet 10143, Base Sepolia 84532, Arbitrum Sepolia 421614**, and **Mezo testnet 31611**, which is *staged*: the registry keeps it disabled until the Mezo edition goes live, and its deployment comes first ([ADR 0017](../../docs/adr/0017-mezo-edition-chain-layer.md)). Any other chain, from the wallet or from `?chain=`, is refused. Switches the wallet with EIP-3326 and adds the chain with EIP-3085 (registry RPC and explorers) when the wallet answers 4902.
 3. Reads the chain through the **registry's RPC** (falling back to the wallet's RPC, labelled, if the registry endpoints are unreachable) and plans the deployment exactly as [`protocol/script/Deploy.s.sol`](../../protocol/script/Deploy.s.sol) `run()` does:
    - a recorded deployment (`protocol/deployments/<chainId>.json`, here through `@paylink/chains`) is only verified;
    - with code at `0x4e59b44847b379578588920cA78FbF26c0B4956C`: CREATE2 with `salt ++ initCode`, salt `keccak256("paylink.v2.0.0")`; an occupied CREATE2 address is only verified. One strengthening: code there that is not the proxy's canonical runtime is refused instead of called;
    - otherwise CREATE from the account, at `getCreateAddress(account, nonce)`.
-4. Sets the gas limit itself: `clamp(eth_estimateGas × 1.10, floor, ceiling)` with the **measured deployment bounds** of `@paylink/chains` (`deployGasFor`), refusing an estimate above the ceiling (same rule as `@paylink/sdk` `clampGasLimit`). Monad charges the gas **limit**, so the cost shown there is `limit × (base fee + tip)`; elsewhere it is the estimate's. Shows balance, expected cost and the upper bound at twice the base fee, and locks the key when the balance does not cover the expected cost.
+4. Sets the gas limit itself: `clamp(eth_estimateGas × 1.10, floor, ceiling)` with the **measured deployment bounds** of `@paylink/chains` (`deployGasFor`), refusing an estimate above the ceiling (same rule as `@paylink/sdk` `clampGasLimit`). Monad charges the gas **limit**, so the cost shown there is `limit × (base fee + tip)`; Mezo charges the gas used but at least half the limit (`gasModel.minChargedPercentOfLimit`), which the clamped limit keeps below the estimate; elsewhere it is the estimate's. A gas price below 0.001 gwei (Mezo's is about 150 wei) is shown in wei. Shows balance, expected cost and the upper bound at twice the base fee, and locks the key when the balance does not cover the expected cost.
 5. After the receipt, verifies on-chain (the four checks of `PayLinkRelease._verifyDeployed` plus code size and CBOR metadata): code present, masked runtime hash (spec §3.3.7), the seven EIP-712 immutables bound to this chain and address, `eip712Domain()` = `{fields 0x0f, "PayLink", "2", chainId, address, no salt, no extensions}`; and the transaction: this chain, success, the factory call with `salt ++ initCode` landing on the CREATE2 address, or a creation whose address follows from sender and nonce.
 6. Prints `protocol/deployments/<chainId>.json` **byte for byte as `Deploy.s.sol record()` writes it**, with Copy and Download. A deployment sent from the browser is remembered in `localStorage`, so a reload resumes it instead of inviting a second one.
 
@@ -36,7 +36,7 @@ pnpm --filter @paylink/deploy-page run generate         # rewrite web/v2/deploy/
 pnpm --filter @paylink/deploy-page run generate:check   # exit 1 if stale (no forge build needed)
 ```
 
-- `chains.json`: from `@paylink/chains` (names, RPCs, explorers, gas model, `deployGasFor`, recorded deployments) for the three targets. Run it after recording a deployment, after `pnpm --filter @paylink/chains run generate`.
+- `chains.json`: from `@paylink/chains` (names, RPCs, explorers, gas model, `deployGasFor`, recorded deployments) for the deploy targets (`DEPLOY_CHAIN_IDS`). A target must be an enabled v2 testnet, or one of `STAGED_CHAIN_IDS` (Mezo testnet), with no unverified token fact and a measured deployment gas table. Run it after recording a deployment, after `pnpm --filter @paylink/chains run generate`.
 - `release.json`: `protocol/deployments/release.json` verbatim; the init code from `protocol/out` (refused unless its keccak256 is `initCodeHash`); `sourceCommit`, the last commit that changed `protocol/deployments/release.json` or `protocol/src` (a commit whose sources compile to the release); and the proxy runtime, **recovered from the canonical presigned transaction** of the deterministic-deployment proxy rather than typed in.
 
 `source.commit` in the records the page and the CLI write is that `sourceCommit`, so the two agree byte for byte. `forge script … record()` writes `PAYLINK_GIT_COMMIT`; set it to the same value for byte equality (the e2e parity test does).
@@ -58,6 +58,23 @@ The build refuses any package that is not in its allowlist or not MIT. `vendor:c
 pnpm --filter @paylink/deploy-page run vendor         # after a viem bump or a change to src/viem-subset.js
 pnpm --filter @paylink/deploy-page run vendor:check
 ```
+
+## Mezo testnet rehearsed on a fork
+
+[`scripts/mezo-fork.ts`](scripts/mezo-fork.ts) replays, on an anvil fork of Mezo testnet (`--hardfork prague`), what the owner will do with this page and what payers will then do with MUSD, against the chain's real CREATE2 factory and MUSD. Nothing is sent to Mezo testnet, and every key is derived from a public label and used only on the fork.
+
+1. **Deploy.** The page's own planning (`lib/core.js`) reads the fork's factory and plans CREATE2 to `0x448eCce9711860502806A3d5B021a4f9Ba715082`; the transaction carries the page's clamped gas limit; the page's verifier (`lib/verify.js`) passes all ten checks, and `tools/verify-deployment`, reading the fork on its own, prints the same record. With `--live-estimate`, Mezo testnet's own `eth_estimateGas` for the same call is compared (read-only).
+2. **Pay.** MUSD invoices issued and paid with `@paylink/sdk` as the web app's wallet rail does: the router offers `permit`, then `approve-pay`, never an authorisation; `payWithPermit` and approve + `pay` each move exactly the amount and leave no allowance; every receipt verifies with `verifyReceipt`; a hand-built `payWithAuthorization` reverts (MUSD has no EIP-3009). A native BTC invoice is paid with `payNative`, and a payee's signed cancellation is sent by a third party (`cancelBySig`).
+3. **Measure** (`--measure`). Every entry point, scenario by scenario as `packages/sdk/scripts/measure-gas.ts` measures it, written to `packages/chains/data/fork-gas-measurements.json`, from which `@paylink/chains` derives Mezo's gas table.
+
+```bash
+source ~/.paylink-toolchain/env.sh                     # anvil 1.8.5; `forge build` in protocol/ first
+NODE_USE_ENV_PROXY=1 node --conditions=@paylink/source scripts/mezo-fork.ts --live-estimate              # the rehearsal
+NODE_USE_ENV_PROXY=1 node --conditions=@paylink/source scripts/mezo-fork.ts --measure                    # then: pnpm --filter @paylink/chains run generate
+PAYLINK_FORK_MEZO=1 NODE_USE_ENV_PROXY=1 pnpm --filter @paylink/deploy-page exec vitest run test/mezo-fork.test.ts   # the same, as assertions
+```
+
+`NODE_USE_ENV_PROXY=1` is for the sandbox's egress proxy only. The fork test is skipped unless `PAYLINK_FORK_MEZO=1`, because it needs egress to `rpc.test.mezo.org`.
 
 ## Gates
 
