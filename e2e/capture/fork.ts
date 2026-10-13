@@ -57,10 +57,19 @@ export interface Fork {
   stop(): Promise<void>;
 }
 
+/**
+ * anvil arguments a forked chain needs beyond the defaults. Mezo testnet (31611): anvil's default rules for a chain it
+ * does not know (Bpo1) need blob-gas fields that Mezo's blocks do not carry, and every eth_call fails with "Excess blob
+ * gas not set"; Prague runs, matches the Cancun opcodes Mezo executes, and prices PayLink's calls as Mezo's own
+ * estimator does (tools/deploy-page/scripts/mezo-fork.ts, ADR 0017).
+ */
+export const FORK_ARGS: Readonly<Record<number, readonly string[]>> = { 31611: ["--hardfork", "prague"] };
+
 export async function startFork(chainId: number, rpcUrl: string): Promise<Fork> {
   const port = await freePort();
   const url = `http://127.0.0.1:${String(port)}`;
-  const child: ChildProcess = spawn(foundryBinary("anvil"), ["--fork-url", rpcUrl, "--port", String(port), "--mnemonic-random", "--silent"], { stdio: "ignore" });
+  const args = ["--fork-url", rpcUrl, "--port", String(port), "--mnemonic-random", "--silent", ...(FORK_ARGS[chainId] ?? [])];
+  const child: ChildProcess = spawn(foundryBinary("anvil"), args, { stdio: "ignore" });
   const rpc = async <T = unknown>(method: string, params: readonly unknown[] = []): Promise<T> => await jsonRpc<T>(url, method, params);
   for (let i = 0; ; i += 1) {
     try {
