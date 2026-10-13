@@ -312,6 +312,7 @@ export function renderGas(snapshotText: string, measurementsText: string, initCo
   const emulated: string[] = [];
   const forked: string[] = [];
   const profiles: string[] = [];
+  const provenance: string[] = [];
   const deploy: string[] = [];
   for (const [name, profile] of Object.entries(all).sort(([a], [b]) => a.localeCompare(b))) {
     const d = deriveDeployGas(name, profile);
@@ -329,6 +330,7 @@ export function renderGas(snapshotText: string, measurementsText: string, initCo
       .map(([scenario, m]) => `      ${scenario}: { estimate: ${m.estimate}, gasUsed: ${m.gasUsed} },`)
       .join("\n");
     const forkLine = fork === undefined ? "" : `\n    fork: { rpc: ${JSON.stringify(fork.rpc)}, block: ${fork.block}, blockHash: ${JSON.stringify(fork.blockHash)}, timestamp: ${fork.timestamp} },`;
+    provenance.push(`  ${name}: { hardfork: ${JSON.stringify(profile.hardfork)}${fork === undefined ? "" : `, forkBlock: ${fork.block}`} },`);
     profiles.push(
       `  ${name}: {\n    chainId: ${profile.chainId},${forkLine}\n    hardfork: ${JSON.stringify(profile.hardfork)},\n    network: ${JSON.stringify(profile.network)},\n    appliesTo: [${profile.appliesTo.join(", ")}],\n    measurements: {\n${rows}\n    },\n  },`,
     );
@@ -363,6 +365,14 @@ ${renderBounds(limits, "  ")}
 /** eth_estimateGas and receipt gasUsed per scenario, on anvil nodes emulating each network (${measured.tool}). */
 export const GAS_MEASUREMENTS = {
 ${profiles.join("\n")}
+} as const;
+
+/**
+ * What the registry's gas tables cite as evidence: each profile's anvil hardfork and, for a fork, its block. Kept apart
+ * from GAS_MEASUREMENTS so that clients, which need only the bounds, do not ship the measurements.
+ */
+export const GAS_PROFILE_PROVENANCE = {
+${provenance.join("\n")}
 } as const;
 
 /** Gas-limit bounds of the networks whose gas schedule differs from Ethereum's, from their own estimates. */

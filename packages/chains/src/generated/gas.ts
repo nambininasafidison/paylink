@@ -153,6 +153,18 @@ export const GAS_MEASUREMENTS = {
   },
 } as const;
 
+/**
+ * What the registry's gas tables cite as evidence: each profile's anvil hardfork and, for a fork, its block. Kept apart
+ * from GAS_MEASUREMENTS so that clients, which need only the bounds, do not ship the measurements.
+ */
+export const GAS_PROFILE_PROVENANCE = {
+  base: { hardfork: "Beryl" },
+  ethereum: { hardfork: "Bpo1" },
+  london: { hardfork: "London" },
+  mezo: { hardfork: "Prague", forkBlock: 16140641 },
+  monad: { hardfork: "MonadTen" },
+} as const;
+
 /** Gas-limit bounds of the networks whose gas schedule differs from Ethereum's, from their own estimates. */
 export const EMULATED_GAS_LIMITS = {
   monad: {

@@ -42,16 +42,17 @@ export const mezoTestnet: ChainDefinition = {
       listing: "default",
       confidence: "C",
       pendingVerification: [],
-      note: "Mezo's Bitcoin-backed dollar. OpenZeppelin ERC20Permit: ECDSA permits only (smart accounts approve), no EIP-3009, no fee, hook, pause or blocklist, not upgradeable. Its owner can let any address burn MUSD from any account (issuer risk). Test MUSD is borrowed against test BTC (at least 2,000 MUSD of debt), not dispensed by a faucet.",
+      note: "EIP-2612 with ECDSA permits only, no EIP-3009, no fee or hook, not upgradeable; its owner can let any address burn MUSD (issuer risk). Borrowed against test BTC (at least 2,000 MUSD of debt), never from a faucet.",
     },
-    nativeToken({ symbol: "BTC", name: "Bitcoin (native)", decimals: 18, listing: "listed", confidence: "C", note: "The gas coin, paid with payNative (run on an anvil fork; L against mezod itself)." }),
+    // The gas coin, paid with payNative (run on an anvil fork; L against mezod itself).
+    nativeToken({ symbol: "BTC", name: "Bitcoin (native)", decimals: 18, listing: "listed", confidence: "C" }),
   ],
   deniedTokens: [],
   contracts: {
     create2Deployer: {
       address: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
       confidence: "C",
-      note: "The canonical deterministic-deployment proxy runtime (keccak 0x2fa8…4989, as on Base Sepolia and Monad testnet): PayLinkV2 deploys at the release address 0x448e…5082.",
+      note: "Canonical runtime, checked live: PayLinkV2 deploys at 0x448e…5082.",
     },
     btcErc20: {
       address: "0x7b7C000000000000000000000000000000000000",
@@ -69,12 +70,8 @@ export const mezoTestnet: ChainDefinition = {
   indexing: null,
   confidence: { chainId: "C", rpc: "C", explorers: "C" },
   notes: [
-    "Gas is test BTC (18 decimals) at about 130 to 300 wei per gas; blocks every 4.5 to 4.9 s (C).",
-    "Mezo charges max(gas used, 50 % of the gas limit) (C): send clamp(estimate x 1.10, floor, ceiling), never a wallet default.",
-    "The chain runs Cancun opcodes (C, live probes) although Mezo's docs say london; the paris artifact runs either way.",
-    "eth_getLogs spans at most 10,000 blocks per request (C).",
-    "MUSD payments cannot be gasless with PayLinkV2: MUSD has no EIP-3009, and payWithPermit and pay pay from msg.sender (ADR 0017).",
-    "Test BTC from faucet.test.mezo.org (captcha); test MUSD is borrowed against it at testnet.mezo.org (docs/runbooks/faucets.md).",
-    "Mezo mainnet is 31612 (MUSD at a different address); not in this registry.",
+    "Gas is test BTC at about 130 to 300 wei; at least 50 % of the gas limit is charged (C): send clamp(estimate x 1.10, floor, ceiling).",
+    "Cancun opcodes run (C), not London as Mezo's docs say; the paris artifact runs either way. eth_getLogs spans at most 10,000 blocks (C).",
+    "No gasless MUSD payment with PayLinkV2: MUSD has no EIP-3009 (ADR 0017). Test BTC: faucet.test.mezo.org; test MUSD is borrowed against it.",
   ],
 };

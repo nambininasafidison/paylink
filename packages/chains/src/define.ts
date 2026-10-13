@@ -4,7 +4,7 @@ import { zeroAddress } from "viem";
 import { DEPLOYMENT_STATUS } from "./deployment-status.ts";
 import type { DeploymentRecord } from "./generated/deployments.ts";
 import { DEPLOYMENT_RECORDS } from "./generated/deployments.ts";
-import { EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
+import { EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_PROFILE_PROVENANCE, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
 import type { Deployment, DeploymentStatus, GasTable, NativeToken, RelayTiming, TokenListing } from "./types.ts";
 
 /**
@@ -25,7 +25,7 @@ export const SNAPSHOT_GAS_TABLE: GasTable = {
 export const MONAD_GAS_TABLE: GasTable = {
   source: "emulated",
   provisional: true,
-  evidence: `anvil --network monad (hardfork ${GAS_MEASUREMENTS.monad.hardfork}), mock tokens: packages/chains/data/gas-measurements.json`,
+  evidence: `anvil --network monad (hardfork ${GAS_PROFILE_PROVENANCE.monad.hardfork}), mock tokens: packages/chains/data/gas-measurements.json`,
   limits: EMULATED_GAS_LIMITS.monad,
 };
 
@@ -38,7 +38,7 @@ export const MONAD_GAS_TABLE: GasTable = {
 export const MEZO_GAS_TABLE: GasTable = {
   source: "fork",
   provisional: true,
-  evidence: `anvil fork of Mezo testnet at block ${String(GAS_MEASUREMENTS.mezo.fork.block)} (hardfork ${GAS_MEASUREMENTS.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
+  evidence: `anvil fork of Mezo testnet at block ${String(GAS_PROFILE_PROVENANCE.mezo.forkBlock)} (hardfork ${GAS_PROFILE_PROVENANCE.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
   limits: FORK_GAS_LIMITS.mezo,
 };
 

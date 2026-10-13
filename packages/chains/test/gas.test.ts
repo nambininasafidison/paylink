@@ -19,7 +19,7 @@ import {
   ROUNDING,
 } from "../scripts/generate.ts";
 import type { ForkProfile, MeasuredProfile } from "../scripts/generate.ts";
-import { EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, GAS_SNAPSHOT_MEASUREMENTS, mezoTestnet, RELEASE, SNAPSHOT_GAS_LIMITS } from "../src/index.ts";
+import { EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, GAS_PROFILE_PROVENANCE, GAS_SNAPSHOT_MEASUREMENTS, mezoTestnet, RELEASE, SNAPSHOT_GAS_LIMITS } from "../src/index.ts";
 import type { PayLinkFunction } from "../src/index.ts";
 
 const roundUp = (n: number): number => Math.ceil(n / 1000) * 1000;
@@ -222,6 +222,15 @@ describe("gas measured on an anvil fork of the chain itself (data/fork-gas-measu
     expect(mezo.measurements["deploy_create2"]?.estimate).toBe(2_717_457);
     // payWithPermit with MUSD, as in the research smoke test (docs/research/mezo.md §5).
     expect(mezo.measurements["payWithPermit_first"]?.gasUsed).toBe(135_733);
+  });
+
+  it("names its provenance apart from the measurements, which clients do not ship", () => {
+    for (const [name, profile] of Object.entries(GAS_MEASUREMENTS)) {
+      const cited = GAS_PROFILE_PROVENANCE[name as keyof typeof GAS_PROFILE_PROVENANCE];
+      expect(cited.hardfork, name).toBe(profile.hardfork);
+      expect("forkBlock" in cited ? cited.forkBlock : null, name).toBe("fork" in profile ? profile.fork.block : null);
+    }
+    expect(mezoTestnet.gas?.evidence).toContain(`at block ${String(mezo.fork.block)} (hardfork Prague)`);
   });
 
   it("supersedes the emulation profiles for the chains it measures, and only those", () => {

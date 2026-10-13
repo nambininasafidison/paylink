@@ -14,7 +14,7 @@ export { deployGasFor } from "./deploy-gas.ts";
 export { explorerAddressUrl, explorerBlockUrl, explorerTxUrl } from "./explorers.ts";
 export { DEPLOYMENT_RECORDS } from "./generated/deployments.ts";
 export type { DeploymentRecord } from "./generated/deployments.ts";
-export { DEPLOY_GAS, EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, GAS_SNAPSHOT_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
+export { DEPLOY_GAS, EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, GAS_PROFILE_PROVENANCE, GAS_SNAPSHOT_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
 export { RELEASE } from "./generated/release.ts";
 export { V1_CONFIG } from "./generated/v1.ts";
 export { defineLocalChain } from "./local.ts";
