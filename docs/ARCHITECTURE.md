@@ -267,7 +267,7 @@ Both show the predicted address and the `initCodeHash` before anything is signed
 | Monad testnet 10143 | Monad Metropolis edition | AUSD `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC` (6, EIP-2612 + EIP-3009); Circle USDC `0x534b2f3A21130d7a60830c2Df862319e593943A3` (6), hidden in the demo | chainId C; RPC L; AUSD C; USDC C |
 | Base Sepolia 84532 | Colosseum edition | USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (6, EIP-2612 + EIP-3009). Not the `…dCF7c` typo from the Base docs | C |
 | Arbitrum Sepolia 421614 | optional | USDC `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` (6) | C |
-| Mezo testnet 31611 | from Oct 16 | MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` (18, EIP-2612 only) | C; EVM level "london" L |
+| Mezo testnet 31611 | from Oct 16 | MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` (18, EIP-2612 only, domain `Mezo USD`/`1`) | C; Cancun opcodes run (C), not London as Mezo's docs say; charges at least 50 % of the gas limit ([ADR 0017](adr/0017-mezo-edition-chain-layer.md)) |
 | Monad mainnet 143 | ready, disabled (T2) | AUSD `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`; USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` | C |
 | Arc mainnet 5042 | v1 only | native USDC (18 decimals) | C |
 
@@ -336,7 +336,7 @@ The design behind these headers:
 - **Monad charges the gas limit, not the gas used (C).** The relayer and the UI therefore send `gasLimit = clamp(eth_estimateGas × 1.10, floor, ceiling)`. Floor and ceiling are per function and per chain in `@paylink/chains` (the floor is the measurement, the ceiling is 1.5 × the measurement, to cover ERC-1271 payees), and validated with cold slots on Monad testnet. For Ethereum-priced chains the measurement is the `forge snapshot`; for Monad it is `eth_estimateGas` on anvil 1.8.5's Monad emulation (`--network monad`, hardfork MonadTen, selected automatically for chain ID 10143), which applies Monad's opcode prices (a first gasless payment needs about 223,000 gas there, against 167,000 at Ethereum prices). Whether anvil also charges the full limit was not checked. See [`packages/chains/README.md`](../packages/chains/README.md#gas-bounds-spec-336).
 - **Monad reserve balance (C).** An EOA with 0 MON cannot send anything; the reserve is 10 MON. The relayer never sends value and is never EIP-7702-delegated. Mera merchants and payers never hold MON, because the relayer pays the gas.
 - **Monad cold access (L).** SLOAD and SSTORE cost 8,100 gas when cold, and account access 10,100. Hence one slot per key, written lazily, and `statesOf` as one batched view.
-- **Mezo (L: London-level EVM).** The `paris` artefact contains no PUSH0, MCOPY or transient-storage opcodes. `protocol/test/toolchain/EvmTarget.t.sol` enforces that on the compiled bytecode.
+- **Mezo (C: Cancun opcodes run, checked live 2026-10-13; Mezo's docs still say to compile for London).** The `paris` artefact contains no PUSH0, MCOPY or transient-storage opcodes, so it runs either way. `protocol/test/toolchain/EvmTarget.t.sol` enforces that on the compiled bytecode.
 - **Arc (C).** The native USDC uses 18 decimals, and its ERC-20 interface at `0x3600000000000000000000000000000000000000` uses 6. v2 on Arc is tier T2. v1 uses native value only.
 
 ## 11. Failure modes and degradation
@@ -378,3 +378,4 @@ The blocking gates, the nightly evidence jobs and the commit conventions are sum
 | [0014](adr/0014-web-app-and-single-pages-site.md) | The v2 web app, and one Pages site for v2, its editions, v1 and the deploy kit |
 | [0015](adr/0015-editions-t1-passkeys-gasless-rails.md) | Editions at T1: Mera passkeys, gasless rails and "Pay with Base" |
 | [0016](adr/0016-ledger-backup-second-prf-namespace.md) | Ledger backup with the passkey's second key (PRF namespace `paylink.books.v1`) |
+| [0017](adr/0017-mezo-edition-chain-layer.md) | The Mezo edition's chain layer: MUSD by permit or approval, no relayed payments, the deployment before the edition |

@@ -12,7 +12,7 @@ Isomorphic TypeScript (browser, Cloudflare Worker, Node). Depends only on viem.
 | Monad mainnet | 143 | disabled, T2 | v2 | AUSD, USDC: addresses only; decimals and capabilities flagged as unverified | Monad emulation |
 | Base Sepolia | 84532 | enabled, T0 | v2 | USDC (6, EIP-3009 + EIP-2612) | snapshot |
 | Arbitrum Sepolia | 421614 | enabled, T1 | v2 | USDC (6; capabilities not stated by the spec, so approve + pay only) | snapshot |
-| Mezo testnet | 31611 | disabled until the Oct 16 go/no-go | v2 | MUSD (18, EIP-2612 only) default; native BTC (18) | snapshot |
+| Mezo testnet | 31611 | disabled until the Mezo edition goes live; a deploy-kit target before that ([ADR 0017](../../docs/adr/0017-mezo-edition-chain-layer.md)) | v2 | MUSD (18, EIP-2612 only, domain `Mezo USD`/`1`) default; native BTC (18) | measured on a fork of Mezo testnet |
 | Arc mainnet | 5042 | enabled | **v1 only** | native USDC (18) and its 6-decimal ERC-20 view (EIP-3009, `USDC`/`2`) | none (v1) |
 
 Every fact carries the confidence tag it has in PAYLINK-V2-SPEC §3.4 (`UV`, `C`, `L`, `U`). Facts the spec does not state are not invented: unstated capabilities are `false`, an unstated EIP-712 domain is `null` (read from the chain), and assumed values are listed in `pendingVerification`, which `createRegistry` refuses on an enabled chain.
@@ -25,7 +25,7 @@ No chain has a recorded PayLinkV2 deployment yet, so `registry.v2Target(chainId)
 - **Allowlist parity.** Every registry address is in [`docs/tools/address-allowlist.json`](../../docs/tools/address-allowlist.json) with the same chain, use and confidence, and every spec address of a covered chain is in the registry.
 - **Spec facts restated independently** in `test/registry.test.ts`, so a typo in either place fails.
 - **Deploy-script parity.** Chain names and explorer origins equal the table that `protocol/script/utils/PayLinkRelease.sol` writes into deployment records.
-- **Validation of any registry.** `createRegistry` rejects mis-checksummed addresses, non-HTTPS endpoints (except `local` anvil chains), endpoints with credentials or queries, more than one default token, native tokens with a non-zero address, a token equal to the deployment, denied tokens on the allowlist, invalid gas bounds, a v2 chain without relay timing (or a margin outside [1, 300] s), and unverified facts on an enabled chain. Registries are deeply frozen.
+- **Validation of any registry.** `createRegistry` rejects mis-checksummed addresses, non-HTTPS endpoints (except `local` anvil chains), endpoints with credentials or queries, more than one default token, native tokens with a non-zero address, a token equal to the deployment, denied tokens on the allowlist, invalid gas bounds, a minimum charge (`gasModel.minChargedPercentOfLimit`) outside [1, 100] or on a chain that charges the whole limit, a v2 chain without relay timing (or a margin outside [1, 300] s), and unverified facts on an enabled chain. Registries are deeply frozen.
 - **Coverage: 100 %** statements, branches, functions and lines (spec §4.1).
 
 ## Generated data
@@ -34,7 +34,7 @@ No chain has a recorded PayLinkV2 deployment yet, so `registry.v2Target(chainId)
 
 | File | Source |
 |---|---|
-| `gas.ts` | `protocol/snapshots/PayLinkV2.json` (Foundry, Ethereum gas prices) and `data/gas-measurements.json` (anvil, per network) |
+| `gas.ts` | `protocol/snapshots/PayLinkV2.json` (Foundry, Ethereum gas prices), `data/gas-measurements.json` (anvil, per network) and `data/fork-gas-measurements.json` (anvil forks of the chains themselves: Mezo testnet) |
 | `release.ts` | `protocol/deployments/release.json`: init-code hash, masked runtime hash, immutable ranges |
 | `deployments.ts` | `protocol/deployments/<chainId>.json`, each validated against the release (refused if it is not the audited artifact) |
 | `v1.ts` | `web/config.js` of the frozen v1 app |
@@ -50,16 +50,18 @@ A deployment's lifecycle (`active`, `deprecated`, `revoked`) is set in `src/depl
 
 Clients send `gasLimit = clamp(eth_estimateGas × 1.10, floor, ceiling)` (`gasLimitFor` in `@paylink/sdk`). Rule: floor = the largest EOA-payee measurement of the function, ceiling = 1.5 × floor, both rounded up to 1,000; each ERC-1271-payee measurement plus the 10 % margin must fit under the ceiling.
 
-| Function | Snapshot (Base, Arbitrum, Mezo) | Monad (emulated) |
-|---|---|---|
-| `payWithAuthorization` | 143,000 – 215,000 | 224,000 – 336,000 |
-| `pay` | 102,000 – 153,000 | 159,000 – 239,000 |
-| `payWithPermit` | 136,000 – 204,000 | 217,000 – 326,000 |
-| `payNative` | 98,000 – 147,000 | 125,000 – 188,000 |
-| `cancel` | 54,000 – 81,000 | 70,000 – 105,000 |
-| `cancelBySig` | 62,000 – 93,000 | 89,000 – 134,000 |
+| Function | Snapshot (Base, Arbitrum) | Monad (emulated) | Mezo (fork) |
+|---|---|---|---|
+| `payWithAuthorization` | 143,000 – 215,000 | 224,000 – 336,000 | 167,000 – 251,000 |
+| `pay` | 102,000 – 153,000 | 159,000 – 239,000 | 112,000 – 168,000 |
+| `payWithPermit` | 136,000 – 204,000 | 217,000 – 326,000 | 161,000 – 242,000 |
+| `payNative` | 98,000 – 147,000 | 125,000 – 188,000 | 102,000 – 153,000 |
+| `cancel` | 54,000 – 81,000 | 70,000 – 105,000 | 58,000 – 87,000 |
+| `cancelBySig` | 62,000 – 93,000 | 89,000 – 134,000 | 67,000 – 101,000 |
 
-**Why Monad has its own table.** anvil 1.8.5 runs chain 10143 as network `monad` (hardfork `MonadTen`), with Monad's prices: in a trace, `ecrecover` costs 6,000 and a cold `balanceOf` about 8,570. There, a first gasless payment needs `eth_estimateGas` = 223,327, above the snapshot ceiling of 215,000: with snapshot bounds the relayer would refuse every first `payWithAuthorization`, `payWithPermit`, `pay` and `cancelBySig` on Monad. `packages/sdk/scripts/measure-gas.ts` measures every entry point as real transactions on four anvil profiles (Ethereum, Monad, Base, London for Mezo) and writes `data/gas-measurements.json`. The generator refuses the snapshot table unless every Ethereum-priced estimate fits under it.
+**Why Monad has its own table.** anvil 1.8.5 runs chain 10143 as network `monad` (hardfork `MonadTen`), with Monad's prices: in a trace, `ecrecover` costs 6,000 and a cold `balanceOf` about 8,570. There, a first gasless payment needs `eth_estimateGas` = 223,327, above the snapshot ceiling of 215,000: with snapshot bounds the relayer would refuse every first `payWithAuthorization`, `payWithPermit`, `pay` and `cancelBySig` on Monad. `packages/sdk/scripts/measure-gas.ts` measures every entry point as real transactions on four anvil profiles (Ethereum, Monad, Base, London) and writes `data/gas-measurements.json`. The generator refuses the snapshot table unless every Ethereum-priced estimate fits under it.
+
+**Why Mezo has its own table.** Mezo's bounds come from `eth_estimateGas` on an anvil fork of Mezo testnet (`data/fork-gas-measurements.json`, written by `tools/deploy-page/scripts/mezo-fork.ts`): the real MUSD for `pay`, `payWithPermit` and the cancellations, native BTC for `payNative`, the real CREATE2 factory for the deployment, and the repository's mocks only where Mezo has nothing to measure (an EIP-3009 token, an ERC-1271 payee). The fork runs anvil's `prague` rules, because anvil's default for an unknown chain needs blob-gas fields that Mezo's blocks lack; Mezo testnet's own estimate of the CREATE2 deployment (2,717,457) equals the fork's. A fork's measurement of a chain supersedes the emulation profiles for it: the London profile of `measure-gas.ts` now applies to no chain and only feeds the snapshot check. Mezo charges `max(gas used, 50 % of the limit)` (`gasModel.minChargedPercentOfLimit`, mezod `MinGasMultiplier`); `test/gas.test.ts` checks that the clamped limit of every measured call keeps that minimum below its gas used.
 
 All tables are **provisional**: re-measure on each testnet with cold slots and the real tokens (AUSD and USDC are proxies with more storage reads than the mocks). On Arbitrum, `eth_estimateGas` also includes the L1 posting cost (L), which the execution-based ceilings do not cover; re-measure before relaying there. The snapshot cancelBySig bounds (62,000 – 93,000) differ from the 67,000 – 101,000 in `protocol/audit/gas.md` §3, which applied the rule to the ERC-1271 measurement for this one function only.
 
@@ -72,7 +74,8 @@ All tables are **provisional**: re-measure on each testnet with cold slots and t
 | monad (10143, 143) | 2,720,773 → 2,721,000 – 4,082,000 | 2,677,645 → 2,678,000 – 4,017,000 |
 | base (84532) | 2,717,457 → 2,718,000 – 4,077,000 | 2,673,065 → 2,674,000 – 4,011,000 |
 | ethereum (421614) | 2,717,457 → 2,718,000 – 4,077,000 | 2,673,065 → 2,674,000 – 4,011,000 |
-| london (31611) | 2,716,645 → 2,717,000 – 4,076,000 | 2,673,065 → 2,674,000 – 4,011,000 |
+| london (none: superseded by the Mezo fork) | 2,716,645 → 2,717,000 – 4,076,000 | 2,673,065 → 2,674,000 – 4,011,000 |
+| mezo, a fork of Mezo testnet (31611) | 2,717,457 → 2,718,000 – 4,077,000 | 2,673,065 → 2,674,000 – 4,011,000 |
 
 On the live testnets (2026-10-07, `eth_estimateGas` from the owner's address through the registry RPCs) the CREATE2 deployment estimated 2,727,004 gas on Monad testnet and 2,723,708 on Base Sepolia and Arbitrum Sepolia: geth-style estimators stop within 1.5 % of the minimum, so they read slightly above anvil's exact search, well inside the bounds.
 

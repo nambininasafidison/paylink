@@ -13,7 +13,7 @@ Step-by-step instructions for the owner: what to do in the wallet, in GitHub and
 5. [After every deployment](#5-after-every-deployment)
 6. [Arc v1 on mainnet](#6-arc-v1-on-mainnet)
 7. [Monad mainnet 143 (conditional)](#7-monad-mainnet-143-conditional)
-8. [Mezo testnet (from Oct 13)](#8-mezo-testnet-from-oct-13)
+8. [Mezo testnet](#8-mezo-testnet)
 9. [Web app, relayer and indexer](#9-web-app-relayer-and-indexer)
 10. [Rollback](#10-rollback)
 
@@ -99,9 +99,9 @@ No manual RPC or bytecode handling.
 
 The deploy page ([ADR 0013](../adr/0013-browser-deploy-page.md), [tools/deploy-page](../../tools/deploy-page/README.md)) is served by the current Cloudflare Pages configuration (root `web`, no build) as soon as it is on `main`. It runs the same three steps in the browser, with your wallet signing the one transaction.
 
-1. Open `https://paylink-mg.pages.dev/v2/deploy/` (on the phone: in MetaMask's own browser). `?chain=monad`, `?chain=base` or `?chain=arb` preselects a network; any other chain is refused.
+1. Open `https://paylink-mg.pages.dev/v2/deploy/` (on the phone: in MetaMask's own browser). `?chain=monad`, `?chain=base`, `?chain=arb` or `?chain=mezo` preselects a network; any other chain is refused. Mezo testnet is in the kit only on builds that carry [ADR 0017](../adr/0017-mezo-edition-chain-layer.md): see [§8](#8-mezo-testnet).
 2. **Release identity, before any prompt:** check that the `initCodeHash` on the page equals `release.json` (`0x289dcd64…7ac5` for 2.0.0) and that the CREATE2 address is `0x448eCce9711860502806A3d5B021a4f9Ba715082`. If either differs, stop.
-3. **Wallet:** pick your wallet (EIP-6963 list). **Network:** pick MONAD, BASE or ARB; if the wallet is elsewhere, press *Switch wallet*. A wallet that does not know the chain is asked to add it with the registry's RPC and explorers.
+3. **Wallet:** pick your wallet (EIP-6963 list). **Network:** pick MONAD, BASE, ARB or MEZO; if the wallet is elsewhere, press *Switch wallet*. A wallet that does not know the chain is asked to add it with the registry's RPC and explorers.
 4. **Review:** the display window shows the method (CREATE2 through `0x4e59b44847b379578588920cA78FbF26c0B4956C` on all three testnets as of 2026-10-07), the contract address, the gas limit (`clamp(estimate × 1.10, floor, ceiling)` from the measured table), the cost and your balance after. On Monad the whole limit is charged: about 3.0M gas × ~102 gwei ≈ **0.31 MON**. Every lamp must be green (amber "Route" only on a chain without the proxy). The key stays locked if the balance does not cover the cost.
 5. **Deploy**, then confirm in the wallet. The wallet must show the same target and gas limit. Do not edit the gas limit in the wallet.
 6. The page waits for the receipt, verifies the contract (code, masked runtime hash, CBOR metadata, EIP-712 immutables, `eip712Domain()`) and the transaction, and prints `protocol/deployments/<chainId>.json`. **Download** it (or **Copy**) and send it to Claude, or paste it in a GitHub issue.
@@ -189,12 +189,30 @@ Testnet is the intended path: the Metropolis dashboard provides a MON testnet fa
 - The contract has no owner, so a third party can broadcast the deploy.
 - Registry: AUSD `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`, USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` (**C**). The deployment stays disabled in the UI unless you decide otherwise.
 
-## 8. Mezo testnet (from Oct 13)
+## 8. Mezo testnet
 
-1. Claim test BTC at `faucet.test.mezo.org` (captcha) ([faucets runbook](faucets.md)).
-2. Borrow at least 2,000 MUSD (1,800 plus a 200 gas deposit) at ≥ 110 % collateral at `mezo.org/feature/borrow` on testnet.
-3. Optional and informational only: deploy the PUSH0 probe (init code `0x5f5ff3`) to see whether the chain supports Shanghai. The `paris` artefact does not need PUSH0.
-4. Deploy v2 to 31611 through route A or B.
+The deploy kit offers Mezo testnet (31611) before the registry enables it, because the edition needs the deployment first ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)). As of 2026-10-13, PayLinkV2 is not on Mezo testnet; the canonical CREATE2 proxy is, with its canonical runtime (**C**). The deployment below was rehearsed on an anvil fork of Mezo testnet, with the real proxy, and lands at `0x448eCce9711860502806A3d5B021a4f9Ba715082` (`tools/deploy-page/scripts/mezo-fork.ts`, `e2e/specs/deploy-mezo.spec.ts`).
+
+1. **Test BTC for W-deploy.** Claim it at `faucet.test.mezo.org` (captcha), or ask in the `#testnet` channel of the Mezo Discord ([faucets runbook](faucets.md)). The deployment uses about 2.7M gas at 130 to 300 wei per gas: under a billionth of a BTC, so any drip covers it (drip size **UNVERIFIED**). No MUSD is needed to deploy.
+2. **Open the kit on a build that has Mezo.** Until this work reaches `main`, use one of:
+   - the Cloudflare Pages preview of the branch `mezo`, once you have pushed it: `https://mezo.paylink-mg.pages.dev/v2/deploy/?chain=mezo` (preview deployments must be enabled for the project);
+   - or the kit served from your own computer, in the browser where MetaMask runs: `python3 -m http.server 8080 --directory web` in a checkout of the branch, then `http://localhost:8080/v2/deploy/?chain=mezo`.
+3. **Release identity, before any prompt:** the `initCodeHash` is `0x289dcd64…7ac5` and the CREATE2 address `0x448eCce9711860502806A3d5B021a4f9Ba715082`. If either differs, stop.
+4. **Wallet:** W-deploy as a standard account. Turn MetaMask's smart-account mode off for this deployment: a relayed (EIP-7702) deployment on Mezo is untested (**UNVERIFIED**). **Network:** MEZO, then *Switch wallet to Mezo testnet*. MetaMask asks to add the network with exactly: chain ID 31611 (`0x7b7b`), name *Mezo testnet*, currency *BTC* (18 decimals), RPC `https://rpc.test.mezo.org`, explorer `https://explorer.test.mezo.org`. Approve it.
+5. **Review:** Method *CREATE2* through `0x4e59…956C`; Contract `0x448e…5082`; Gas limit about 2,989,203 (estimate 2,717,457 × 1.10, inside the measured 2,718,000 – 4,077,000); Cost "Charged on the gas used, and at least 50 % of the gas limit on Mezo testnet"; the *Chain data* lamp reads "Read from the registry RPC rpc.test.mezo.org". Every lamp must be green.
+6. **Deploy**, then confirm in MetaMask. Do not change the gas limit: Mezo charges at least half of it.
+7. The page verifies the contract and the transaction (ten checks) and prints the record `protocol/deployments/<chainId>.json` for 31611. **Download** it (`31611.json`) and send it to Claude, with the transaction hash.
+8. Claude re-verifies independently and commits the record (`NODE_USE_ENV_PROXY=1` only in the Claude Code sandbox):
+
+   ```bash
+   NODE_USE_ENV_PROXY=1 node tools/verify-deployment/verify-deployment.mjs --chain 31611 --address 0x448eCce9711860502806A3d5B021a4f9Ba715082 --tx <txHash> --compare <the downloaded 31611.json>
+   pnpm --filter @paylink/chains run generate && pnpm --filter @paylink/deploy-page run generate && pnpm --filter @paylink/relayer run build
+   ```
+
+   then adds the deployment to [`docs/tools/address-allowlist.json`](../tools/address-allowlist.json) (chain 31611, `"use": "registry"`, the new record as its source) and runs the gates. The kit then only verifies Mezo, and the Mezo edition reads the deployment from the registry.
+9. **Afterwards:** the [§5](#5-after-every-deployment) checklist, with the source verified on `explorer.test.mezo.org` (Blockscout; its API is `https://api.explorer.test.mezo.org/api`, per Mezo's own Hardhat configuration, not reachable from the sandbox). For the smoke test, borrow test MUSD ([faucets runbook §3](faucets.md#3-musd-on-mezo-testnet-no-faucet)), sign an invoice in MUSD on `/mezo/`, and pay it from a second account that holds MUSD and a little test BTC (payWithPermit; no payment on Mezo is gasless).
+
+The registry keeps Mezo testnet `disabled` after the deployment; enabling it (which lists it in `/` and lets the relayer serve it) is a separate decision ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)). Routes A and C (§4) work for 31611 too: `Deploy.s.sol` writes Mezo testnet's name and explorer into the record.
 
 ## 9. Web app, relayer and indexer
 

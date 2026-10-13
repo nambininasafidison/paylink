@@ -1,0 +1,54 @@
+# ADR 0017: The Mezo edition's chain layer: MUSD by permit or approval, no relayed payments, the deployment before the edition
+
+- **Status:** accepted
+- **Date:** 2026-10-13
+- **Deciders:** nambininasafidison (owner), Claude Code (engineering)
+- **Related:** PAYLINK-V2-SPEC §2.6, §3.3.6, §3.4, §3.7, §9; [research: Mezo testnet, MUSD and the buildathon](../research/mezo.md); ADR 0002 (one paris bytecode); ADR 0004 (immutable contract); ADR 0007 (relayer); ADR 0008 (editions); ADR 0013 (browser deploy page)
+
+## Context
+
+The Mezo Buildathon asks for an MUSD or MEZO integration (**UV**, [ADR 0008](0008-editions.md)). PayLink's Mezo edition lets freelancers and small shops in Madagascar invoice in MUSD, the Bitcoin-backed dollar, with the same immutable PayLinkV2 2.0.0 ([ADR 0004](0004-immutable-ownerless-feeless.md)). The facts below are from [docs/research/mezo.md](../research/mezo.md) and were read on chain again on 2026-10-13 (**C** unless tagged):
+
+- Mezo testnet is chain 31611 (`0x7b7b`), gas coin BTC with 18 decimals, at about 130 to 300 wei per gas. mezod charges `max(gas used, 50 % of the gas limit)` (`MinGasMultiplier` 0.5). `eth_getLogs` spans at most 10,000 blocks. The chain runs Cancun opcodes; the paris artifact runs there.
+- The canonical CREATE2 factory `0x4e59b44847b379578588920cA78FbF26c0B4956C` is there with the canonical runtime; `0x448eCce9711860502806A3d5B021a4f9Ba715082` holds no code yet. Mezo testnet's own `eth_estimateGas` for the CREATE2 deployment is 2,717,457.
+- MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`: "Mezo USD", 18 decimals, EIP-712 domain `Mezo USD` / `1`. OpenZeppelin `ERC20Permit`: EIP-2612 with ECDSA signatures only, so smart accounts cannot sign a permit. **No EIP-3009.** No fee, hook, pause or blocklist; not upgradeable. Its owner can let any address burn MUSD from any account. Test MUSD is borrowed against test BTC (at least 2,000 MUSD of debt), not dispensed by a faucet.
+- PayLinkV2's `payWithPermit` and `pay` take the payer from `msg.sender`. Its only relayable payment, `payWithAuthorization`, needs EIP-3009. The relayer signs only `payWithAuthorization`, `cancelBySig`, the AUSD faucet's `requestFunds` and zero-value self-transfers, and never sends value (`apps/relayer/src/core/chains.ts`).
+- anvil cannot run Mezo's Go precompiles (the BTC and MEZO tokens), so a payment in MEZO through PayLinkV2 cannot be rehearsed on a fork (**UNVERIFIED**).
+- The registry listed Mezo testnet as `disabled`, with a draft whose gas table was the Ethereum snapshot and whose notes said the chain was London-level (**L**, now known to be wrong).
+- Monad Metropolis and Colosseum are judging `/monad/` and `/base/` on `main` now: production, those editions and the relayer must not change.
+
+Questions: how does Mezo testnet enter the registry, the deploy kit and the relayer without changing the editions under judging; which payment routes does MUSD get; can the relayer make them gasless; and where do Mezo's gas bounds come from?
+
+## Options
+
+1. **Registry status.** (a) Enable Mezo testnet now. Every enabled v2 chain is offered by `/` (all editions) and served by the relayer, so `/`, the app's CSP and the production relayer would change during judging, and payers would see a chain with no deployment. (b) Keep it `disabled`: the Mezo edition takes it explicitly, and the deploy kit targets it before the registry enables it.
+2. **Relayer.** (a) Relay MUSD payments: impossible with PayLinkV2. A relayer that sent `payWithPermit` or `pay` would pay from its own balance, since the payer is `msg.sender`; `payWithAuthorization` needs EIP-3009, which MUSD lacks. (b) Relay `cancelBySig` only (possible, but it needs Mezo enabled and a relayer key funded in BTC). (c) No Mezo in the relayer for now.
+3. **Gas bounds.** (a) The Ethereum snapshot, checked against anvil's London profile with mock tokens. (b) A table measured on an anvil fork of Mezo testnet, with the real MUSD and factory.
+4. **MEZO token.** (a) List it beside MUSD. (b) Leave it out until a payment in MEZO is proven.
+
+## Decision
+
+1. **Registry (1b).** Mezo testnet 31611 stays `disabled` in `@paylink/chains`, with the corrected facts: MUSD's domain stated (`Mezo USD`/`1`), `gasModel.minChargedPercentOfLimit: 50` (new optional field, validated in [1, 100] and refused on a chain that charges the whole limit), `rpcLimits.maxLogBlockRange: 10000`, the CREATE2 factory as a helper, and notes without the London claim. The Mezo edition takes the chain explicitly (`apps/web`); `/`, `/monad/`, `/base/` and the relayer's chains do not change. Enabling it in the registry is a separate, later decision, which would list it in `/`, add its RPC to the app's CSP and let the relayer serve it.
+2. **Deploy kit (staged target).** `tools/deploy-page` generates Mezo testnet into `web/v2/deploy/data/chains.json` as a *staged* target (`STAGED_CHAIN_IDS`): a v2 testnet with verified facts and measured deployment gas that the registry has not enabled yet, because the deployment must exist before the edition goes live. Any other disabled chain is still refused. The page's CSP adds `https://rpc.test.mezo.org`; it shows Mezo's minimum charge and prices below 0.001 gwei in wei; `tools/verify-deployment` accepts `--chain 31611`.
+3. **Payment routes.** MUSD is the default token, native BTC is listed. A code-less payer uses `payWithPermit` (one EIP-2612 permit for exactly the amount, PayLinkV2 as spender), then exact `approve` + `pay` as the fallback; a smart account uses approve + `pay`, or an EIP-5792 batch. `selectPaymentPath` already produces this from `{ eip3009: false, eip2612: true }`; nothing in the SDK changes.
+4. **Relayer (2c).** No Mezo chain in `apps/relayer`, no local config, no new test: it cannot make MUSD payments gasless with this contract (above), and gasless `cancelBySig` alone does not justify enabling the chain and funding a BTC key during judging. The payer pays the BTC fee, 2 to 4 × 10⁻¹¹ BTC per payment at today's prices, and must hold some test BTC. The relayer bundle is rebuilt only because it embeds the registry.
+5. **Gas (3b).** `packages/chains/data/fork-gas-measurements.json` holds every entry point measured on an anvil fork of Mezo testnet (`tools/deploy-page/scripts/mezo-fork.ts --measure`), with the real MUSD for `pay`, `payWithPermit` and the cancellations, native BTC for `payNative`, the real factory for the deployment, and the repository's mocks only where Mezo has nothing to measure (an EIP-3009 token, an ERC-1271 payee). Mezo's table (`MEZO_GAS_TABLE`, source `fork`) is derived from it with the spec rule (floor = largest estimate, ceiling = 1.5 × floor). A fork's measurement of a chain supersedes the emulation profiles for it, so the London profile applies to no chain any more. The fork runs anvil's `prague` rules: the default for an unknown chain needs blob-gas fields Mezo's blocks do not carry.
+6. **MEZO (4b).** Not listed. The research gives its address and EIP-2612 support (**C**), but a payment in MEZO through PayLinkV2 is untested (**UNVERIFIED**).
+
+## Consequences
+
+- Good: the owner can deploy PayLinkV2 on Mezo testnet at its CREATE2 address from MetaMask with the deploy kit, and the kit and the CLI verify it and print the same record, before anyone sees the edition.
+- Good: on a fork of Mezo testnet, with the real MUSD and factory, the kit's deployment lands at `0x448eCce9711860502806A3d5B021a4f9Ba715082` and passes all ten checks; `payWithPermit` and approve + `pay` each move exactly the invoice amount, leave PayLinkV2 empty and no allowance, and their receipts verify; a second payment is `SoldOut`; `payWithAuthorization` reverts; the SDK refuses an authorisation for MUSD (`E_TOKEN_NOT_EIP3009`).
+- Good: the registry's bounds keep Mezo's 50 % minimum charge below the gas used of every measured call, so a payer never pays for gas the call did not use.
+- Bad: no gasless payment on Mezo. Each payer needs test BTC (faucet or another tester), and a merchant cancels an invoice with a `cancel` transaction. Gasless options for wave 2 (EIP-7702 sponsored execution, ERC-4337 with a paymaster, a new contract) each need their own decision ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
+- Bad: the fork prices gas with anvil's Ethereum schedule (**L** for mezod); only the deployment's estimate is confirmed equal on Mezo testnet itself. The table stays provisional until re-measured on the chain.
+- Bad: Mezo's definition and the fork measurements are bundled in every edition and in the relayer, so those bundles change bytes, though not behaviour.
+- Neutral: once Mezo's record (`protocol/deployments/<chainId>.json` for 31611) is committed, the kit only verifies Mezo, and the rehearsals fork the block before the deployment.
+
+## Confirmation
+
+- `packages/chains`: `test/registry.test.ts` (Mezo's facts, minimum-charge validation), `test/gas.test.ts` (fork parsing, precedence, the derived table and the 50 % check), `test/deploy-gas.test.ts` (Mezo's deployment gas, 2,717,457).
+- `tools/deploy-page`: `test/core.test.ts`, `test/data.test.ts` (staged target, CSP), `test/rpc.test.ts` (wei display); `test/mezo-fork.test.ts` runs the fork rehearsal with `PAYLINK_FORK_MEZO=1`.
+- `tools/verify-deployment`: `test/cli.test.ts` writes Mezo's record against an anvil chain with id 31611.
+- `e2e/specs/deploy-mezo.spec.ts`: the page on anvil 31611 offline, and on a fork of Mezo testnet with `PAYLINK_FORK_MEZO=1`.
+- [Deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet) lists the owner's steps.
