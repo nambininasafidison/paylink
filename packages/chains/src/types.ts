@@ -191,9 +191,11 @@ export interface GasTable {
    * Ethereum gas prices), and checked against eth_estimateGas on an anvil node emulating the chain;
    * `emulated`: derived from eth_estimateGas on an anvil node that emulates the chain's own gas schedule
    * (`data/gas-measurements.json`), used where the schedule differs from Ethereum's (Monad);
+   * `fork`: derived from eth_estimateGas on an anvil fork of the chain itself, against its real tokens and contracts
+   * where it has them (`data/fork-gas-measurements.json`); anvil prices gas like Ethereum, so this stays provisional;
    * `testnet`: re-measured on the chain itself with cold slots and the real tokens (spec §3.3.6).
    */
-  readonly source: "snapshot" | "emulated" | "testnet";
+  readonly source: "snapshot" | "emulated" | "fork" | "testnet";
   /** True until the values are re-measured on the chain itself. */
   readonly provisional: boolean;
   /** Where the numbers come from, for reviewers. */
@@ -205,6 +207,13 @@ export interface GasTable {
 export interface GasModel {
   /** Monad charges the gas **limit**, not the gas used (C): limits must be tight. */
   readonly chargesGasLimit: boolean;
+  /**
+   * Share of the gas limit, in percent, that the chain charges at least: the fee is `max(gas used, limit × p / 100)`.
+   * Mezo: 50 (mezod `MinGasMultiplier` 0.5, C). With `clamp(estimate × 1.10, floor, ceiling)` the minimum stays below
+   * the gas used of every measured call, so it costs nothing; a wallet's default limit could cost more. Absent when the
+   * chain charges the gas used only, and meaningless with `chargesGasLimit`.
+   */
+  readonly minChargedPercentOfLimit?: number;
   /** Per-transaction gas cap, when the spec gives one. */
   readonly txGasCap?: bigint;
   /** Minimum native balance an EOA must keep (Monad reserve balance, C). */

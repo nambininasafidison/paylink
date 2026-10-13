@@ -4,12 +4,12 @@ import { zeroAddress } from "viem";
 import { DEPLOYMENT_STATUS } from "./deployment-status.ts";
 import type { DeploymentRecord } from "./generated/deployments.ts";
 import { DEPLOYMENT_RECORDS } from "./generated/deployments.ts";
-import { EMULATED_GAS_LIMITS, GAS_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
+import { EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, SNAPSHOT_GAS_LIMITS } from "./generated/gas.ts";
 import type { Deployment, DeploymentStatus, GasTable, NativeToken, RelayTiming, TokenListing } from "./types.ts";
 
 /**
- * Gas table of the v2 chains with Ethereum gas prices (Base, Arbitrum, Mezo): the Foundry snapshot, checked
- * against eth_estimateGas on anvil's Ethereum, Base and London profiles. Provisional until re-measured on the chain.
+ * Gas table of the v2 chains with Ethereum gas prices (Base, Arbitrum): the Foundry snapshot, checked against
+ * eth_estimateGas on anvil's Ethereum, Base and London profiles. Provisional until re-measured on the chain.
  */
 export const SNAPSHOT_GAS_TABLE: GasTable = {
   source: "snapshot",
@@ -27,6 +27,19 @@ export const MONAD_GAS_TABLE: GasTable = {
   provisional: true,
   evidence: `anvil --network monad (hardfork ${GAS_MEASUREMENTS.monad.hardfork}), mock tokens: packages/chains/data/gas-measurements.json`,
   limits: EMULATED_GAS_LIMITS.monad,
+};
+
+/**
+ * Gas table of Mezo testnet: eth_estimateGas on an anvil fork of Mezo testnet (ADR 0017), with MUSD and native BTC as
+ * the chain holds them, the canonical CREATE2 factory, and the repository's mocks only where Mezo has nothing to measure
+ * (an EIP-3009 token, an ERC-1271 payee). anvil prices gas like Ethereum (L for mezod, whose estimate of the CREATE2
+ * deployment equals the fork's). Mezo charges at least half of the limit, which these bounds keep below the gas used.
+ */
+export const MEZO_GAS_TABLE: GasTable = {
+  source: "fork",
+  provisional: true,
+  evidence: `anvil fork of Mezo testnet at block ${String(GAS_MEASUREMENTS.mezo.fork.block)} (hardfork ${GAS_MEASUREMENTS.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
+  limits: FORK_GAS_LIMITS.mezo,
 };
 
 /**

@@ -23,6 +23,16 @@ describe("deployGasFor", () => {
     expect(deployGasFor(10143)?.hardfork).toBe("MonadTen");
     expect(deployGasFor(84532)?.profile).toBe("base");
     expect(deployGasFor(421614)?.profile).toBe("ethereum");
+    expect(deployGasFor(31611)).toMatchObject({ profile: "mezo", hardfork: "Prague" });
+    expect(deployGasFor(31611)?.evidence).toMatch(/^anvil fork "mezo" of https:\/\/rpc\.test\.mezo\.org at block \d+/);
+  });
+
+  it("measures Mezo testnet's deployment on its fork, through the real factory", () => {
+    // 2,717,457 is also what Mezo testnet's own eth_estimateGas returns for the CREATE2 deployment.
+    expect(deployGasFor(31611)).toMatchObject({
+      create: { estimate: 2_673_065n, floor: 2_674_000n, ceiling: 4_011_000n },
+      create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
+    });
   });
 
   it("returns null for chains no profile measures", () => {

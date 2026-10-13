@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  applyForkPrecedence,
   CEILING_FACTOR,
   checkCoverage,
   deriveEmulatedBounds,
@@ -13,11 +14,12 @@ import {
   EMULATED_PROFILES,
   ESTIMATE_MARGIN,
   GAS_FUNCTIONS,
+  parseForkMeasurements,
   parseMeasurements,
   ROUNDING,
 } from "../scripts/generate.ts";
-import type { MeasuredProfile } from "../scripts/generate.ts";
-import { EMULATED_GAS_LIMITS, GAS_MEASUREMENTS, GAS_SNAPSHOT_MEASUREMENTS, RELEASE, SNAPSHOT_GAS_LIMITS } from "../src/index.ts";
+import type { ForkProfile, MeasuredProfile } from "../scripts/generate.ts";
+import { EMULATED_GAS_LIMITS, FORK_GAS_LIMITS, GAS_MEASUREMENTS, GAS_SNAPSHOT_MEASUREMENTS, mezoTestnet, RELEASE, SNAPSHOT_GAS_LIMITS } from "../src/index.ts";
 import type { PayLinkFunction } from "../src/index.ts";
 
 const roundUp = (n: number): number => Math.ceil(n / 1000) * 1000;
@@ -100,6 +102,9 @@ describe("deriveGasBounds", () => {
   });
 });
 
+const forkText = readFileSync(new URL("../data/fork-gas-measurements.json", import.meta.url), "utf8");
+const forks = parseForkMeasurements(forkText, RELEASE.initCodeHash);
+
 describe("gas measured on anvil per network (data/gas-measurements.json)", () => {
   const measured = parseMeasurements(readFileSync(new URL("../data/gas-measurements.json", import.meta.url), "utf8"), RELEASE.initCodeHash);
   const profileOf = (name: string): MeasuredProfile => {
@@ -129,8 +134,8 @@ describe("gas measured on anvil per network (data/gas-measurements.json)", () =>
   });
 
   it("estimates are the gas limits clients need: at least the receipt's gas used", () => {
-    expect(Object.keys(GAS_MEASUREMENTS).sort()).toEqual(Object.keys(measured.profiles).sort());
-    for (const profile of Object.values(measured.profiles)) {
+    expect(Object.keys(GAS_MEASUREMENTS).sort()).toEqual([...Object.keys(measured.profiles), ...Object.keys(forks)].sort());
+    for (const profile of [...Object.values(measured.profiles), ...Object.values(forks)]) {
       for (const m of Object.values(profile.measurements)) {
         expect(m.estimate).toBeGreaterThanOrEqual(m.gasUsed);
       }
@@ -160,5 +165,93 @@ describe("gas measured on anvil per network (data/gas-measurements.json)", () =>
     expect(() => {
       checkCoverage("x", lone, new Map());
     }).toThrow(/no function bounds/);
+  });
+});
+
+describe("gas measured on an anvil fork of the chain itself (data/fork-gas-measurements.json)", () => {
+  const found = forks["mezo"];
+  if (found === undefined) {
+    throw new Error("fork profile mezo missing");
+  }
+  const mezo: ForkProfile = found;
+  const margin = (gas: number): bigint => (BigInt(gas) * ESTIMATE_MARGIN.numerator + ESTIMATE_MARGIN.denominator - 1n) / ESTIMATE_MARGIN.denominator;
+  const clamp = (estimate: number, bounds: { floor: bigint; ceiling: bigint }): bigint => {
+    const limit = margin(estimate);
+    return limit < bounds.floor ? bounds.floor : limit > bounds.ceiling ? bounds.ceiling : limit;
+  };
+
+  it("measures Mezo testnet at a recorded block, through its own RPC, with every entry point", () => {
+    expect(mezo).toMatchObject({ chainId: 31611, appliesTo: [31611], fork: { rpc: "https://rpc.test.mezo.org" } });
+    expect(mezo.fork.block).toBeGreaterThan(16_000_000);
+    expect(Object.keys(mezo.measurements).sort()).toEqual(Object.keys(GAS_MEASUREMENTS.ethereum.measurements).sort());
+  });
+
+  it("derives Mezo's bounds from the fork's estimates with the spec rule, ERC-1271 payees included", () => {
+    const derived = deriveEmulatedBounds(mezo).limits;
+    expect(Object.fromEntries(derived)).toEqual(FORK_GAS_LIMITS.mezo);
+    expect(mezoTestnet.gas?.limits).toEqual(FORK_GAS_LIMITS.mezo);
+    expect(() => {
+      checkCoverage("mezo", mezo, derived);
+    }).not.toThrow();
+  });
+
+  it("keeps Mezo's 50 % minimum charge below the gas used of every measured payment and cancellation", () => {
+    // Mezo charges max(gas used, 50 % of the limit) (mezod MinGasMultiplier 0.5): with the clamp, never more than used.
+    expect(mezoTestnet.gasModel.minChargedPercentOfLimit).toBe(50);
+    const percent = BigInt(mezoTestnet.gasModel.minChargedPercentOfLimit ?? 100);
+    for (const [scenario, m] of Object.entries(mezo.measurements)) {
+      const fn = scenario.split("_")[0] as PayLinkFunction | "deploy";
+      if (fn === "deploy") {
+        continue;
+      }
+      const limit = clamp(m.estimate, FORK_GAS_LIMITS.mezo[fn]);
+      expect((limit * percent + 99n) / 100n, scenario).toBeLessThanOrEqual(BigInt(m.gasUsed));
+    }
+  });
+
+  it("pins the values (a change needs a reviewed re-measurement)", () => {
+    expect(FORK_GAS_LIMITS.mezo).toEqual({
+      payWithAuthorization: { floor: 167_000n, ceiling: 251_000n },
+      pay: { floor: 112_000n, ceiling: 168_000n },
+      payWithPermit: { floor: 161_000n, ceiling: 242_000n },
+      payNative: { floor: 102_000n, ceiling: 153_000n },
+      cancel: { floor: 58_000n, ceiling: 87_000n },
+      cancelBySig: { floor: 67_000n, ceiling: 101_000n },
+    });
+    // The CREATE2 deployment as Mezo testnet's own eth_estimateGas gave it (docs/research/mezo.md §3).
+    expect(mezo.measurements["deploy_create2"]?.estimate).toBe(2_717_457);
+    // payWithPermit with MUSD, as in the research smoke test (docs/research/mezo.md §5).
+    expect(mezo.measurements["payWithPermit_first"]?.gasUsed).toBe(135_733);
+  });
+
+  it("supersedes the emulation profiles for the chains it measures, and only those", () => {
+    const anvil = parseMeasurements(readFileSync(new URL("../data/gas-measurements.json", import.meta.url), "utf8"), RELEASE.initCodeHash).profiles;
+    expect(anvil["london"]?.appliesTo).toEqual([31611]);
+    const merged = applyForkPrecedence(anvil, forks);
+    expect(merged["london"]?.appliesTo).toEqual([]);
+    expect(merged["base"]?.appliesTo).toEqual([84532]);
+    expect(merged["mezo"]).toBe(mezo);
+    const london = anvil["london"];
+    expect(london).toBeDefined();
+    expect(() => applyForkPrecedence(london === undefined ? {} : { mezo: london }, forks)).toThrow(/both an anvil profile and a fork/);
+  });
+
+  const forkFile = (patch: (f: Record<string, unknown>) => void): string => {
+    const f = JSON.parse(forkText) as Record<string, unknown>;
+    patch(f);
+    return JSON.stringify(f);
+  };
+  const profile = (f: Record<string, unknown>): Record<string, unknown> => (f["profiles"] as Record<string, Record<string, unknown>>)["mezo"] ?? {};
+
+  it.each<[string, (f: Record<string, unknown>) => void, RegExp]>([
+    ["schema", (f) => (f["schema"] = "paylink.gas-measurements/1"), /schema/],
+    ["build", (f) => (f["initCodeHash"] = "0x00"), /another build/],
+    ["tool", (f) => (f["tool"] = null), /tool missing/],
+    ["fork point", (f) => (profile(f)["fork"] = { rpc: "http://127.0.0.1:8545", block: 1, blockHash: `0x${"00".repeat(32)}`, timestamp: 1 }), /needs fork/],
+    ["fork block", (f) => (profile(f)["fork"] = { ...(profile(f)["fork"] as object), block: 0 }), /needs fork/],
+    ["twice", (f) => ((f["profiles"] as Record<string, unknown>)["other"] = profile(f)), /measured on two forks/],
+    ["measurement", (f) => ((profile(f)["measurements"] as Record<string, unknown>)["cancel"] = { estimate: 1, gasUsed: 0 }), /positive estimate/],
+  ])("refuses a bad %s", (_what, patch, pattern) => {
+    expect(() => parseForkMeasurements(forkFile(patch), RELEASE.initCodeHash)).toThrow(pattern);
   });
 });

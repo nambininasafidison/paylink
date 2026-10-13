@@ -5,8 +5,9 @@
  *
  * | Output                        | Source                                         |
  * |-------------------------------|------------------------------------------------|
- * | src/generated/gas.ts          | protocol/snapshots/PayLinkV2.json (forge gas)  |
- * |                               | and data/gas-measurements.json (anvil, per net)|
+ * | src/generated/gas.ts          | protocol/snapshots/PayLinkV2.json (forge gas), |
+ * |                               | data/gas-measurements.json (anvil, per net)    |
+ * |                               | and data/fork-gas-measurements.json (forks)    |
  * | src/generated/release.ts      | protocol/deployments/release.json              |
  * | src/generated/deployments.ts  | protocol/deployments/<chainId>.json            |
  * | src/generated/v1.ts           | web/config.js (frozen v1 app, Arc mainnet)     |
@@ -30,6 +31,7 @@ const REPO_DIR = resolve(PACKAGE_DIR, "../..");
 export const SOURCES = {
   gasSnapshot: "protocol/snapshots/PayLinkV2.json",
   gasMeasurements: "packages/chains/data/gas-measurements.json",
+  forkGasMeasurements: "packages/chains/data/fork-gas-measurements.json",
   release: "protocol/deployments/release.json",
   deploymentsDir: "protocol/deployments",
   v1Config: "web/config.js",
@@ -180,6 +182,65 @@ export function parseMeasurements(text: string, initCodeHash: string): Measureme
   return { tool: file["tool"], profiles: profiles as unknown as Record<string, MeasuredProfile> };
 }
 
+/** Where a fork profile was measured: the chain's own RPC, at one block. */
+export interface ForkPoint {
+  readonly rpc: string;
+  readonly block: number;
+  readonly blockHash: string;
+  readonly timestamp: number;
+}
+
+/**
+ * A profile measured on an anvil fork of the chain itself (data/fork-gas-measurements.json, written by
+ * tools/deploy-page/scripts/mezo-fork.ts): the chain's real tokens and contracts, anvil's gas schedule.
+ */
+export interface ForkProfile extends MeasuredProfile {
+  readonly fork: ForkPoint;
+}
+
+/**
+ * Validates data/fork-gas-measurements.json against the release. Each chain is measured on at most one fork, and a
+ * fork's measurement of a chain supersedes the emulation profiles of data/gas-measurements.json for it
+ * (`applyForkPrecedence`): the fork runs against the chain's own state.
+ */
+export function parseForkMeasurements(text: string, initCodeHash: string): Readonly<Record<string, ForkProfile>> {
+  const file = JSON.parse(text) as Record<string, unknown>;
+  expect(file["schema"] === "paylink.fork-gas-measurements/1", "fork gas measurements: schema must be paylink.fork-gas-measurements/1");
+  expect(file["initCodeHash"] === initCodeHash, "fork gas measurements: measured on another build than release.json (re-run the fork script)");
+  expect(typeof file["tool"] === "string", "fork gas measurements: tool missing");
+  const profiles = file["profiles"] as Record<string, Record<string, unknown>>;
+  const seen = new Set<number>();
+  for (const [name, profile] of Object.entries(profiles)) {
+    const fork = profile["fork"] as Record<string, unknown> | undefined;
+    expect(
+      fork !== undefined && typeof fork["rpc"] === "string" && fork["rpc"].startsWith("https://") && positive(fork["block"]) && positive(fork["timestamp"]) && typeof fork["blockHash"] === "string" && HEX32.test(fork["blockHash"]),
+      `fork gas measurements: profile ${name} needs fork { rpc (https), block, blockHash, timestamp }`,
+    );
+    for (const chainId of profile["appliesTo"] as unknown[]) {
+      expect(!seen.has(chainId as number), `fork gas measurements: chain ${String(chainId)} is measured on two forks`);
+      seen.add(chainId as number);
+    }
+  }
+  // The rest of a profile has the shape of data/gas-measurements.json's.
+  parseMeasurements(JSON.stringify({ schema: "paylink.gas-measurements/1", initCodeHash, tool: file["tool"], profiles }), initCodeHash);
+  return profiles as unknown as Record<string, ForkProfile>;
+}
+
+/**
+ * Removes the chains measured on a fork from the emulation profiles' `appliesTo`: for those chains the fork's own
+ * measurement sets the deployment gas and the entry-point bounds. The emulation profiles keep their measurements (the
+ * snapshot coverage check still runs on them). Profile names must not collide.
+ */
+export function applyForkPrecedence(profiles: Readonly<Record<string, MeasuredProfile>>, forks: Readonly<Record<string, ForkProfile>>): Readonly<Record<string, MeasuredProfile>> {
+  const forked = new Set(Object.values(forks).flatMap((f) => f.appliesTo));
+  const adjusted: Record<string, MeasuredProfile> = {};
+  for (const [name, profile] of Object.entries(profiles)) {
+    expect(!(name in forks), `gas measurements: profile ${name} is both an anvil profile and a fork`);
+    adjusted[name] = { ...profile, appliesTo: profile.appliesTo.filter((id) => !forked.has(id)) };
+  }
+  return { ...adjusted, ...forks };
+}
+
 /** Bounds derived from a profile's estimates, with the same rule as the snapshot. */
 export function deriveEmulatedBounds(profile: MeasuredProfile): DerivedGas {
   return deriveGasBounds(Object.fromEntries(Object.entries(profile.measurements).map(([name, m]) => [name, String(m.estimate)])));
@@ -242,20 +303,24 @@ const renderBounds = (limits: ReadonlyMap<PayLinkFunction, { floor: bigint; ceil
     return `${indent}${fn}: { floor: ${gasLiteral(b.floor)}, ceiling: ${gasLiteral(b.ceiling)} },`;
   }).join("\n");
 
-export function renderGas(snapshotText: string, measurementsText: string, initCodeHash: string): string {
+export function renderGas(snapshotText: string, measurementsText: string, initCodeHash: string, forkText?: string): string {
   const snapshot = JSON.parse(snapshotText) as Record<string, unknown>;
   const { measurements, limits } = deriveGasBounds(snapshot);
   const measured = parseMeasurements(measurementsText, initCodeHash);
+  const forks = forkText === undefined ? {} : parseForkMeasurements(forkText, initCodeHash);
+  const all = applyForkPrecedence(measured.profiles, forks);
   const emulated: string[] = [];
+  const forked: string[] = [];
   const profiles: string[] = [];
   const deploy: string[] = [];
-  for (const [name, profile] of Object.entries(measured.profiles).sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [name, profile] of Object.entries(all).sort(([a], [b]) => a.localeCompare(b))) {
     const d = deriveDeployGas(name, profile);
     deploy.push(`  ${name}: {\n    appliesTo: [${profile.appliesTo.join(", ")}],\n    create: ${renderDeployEntry(d.create)},\n    create2: ${renderDeployEntry(d.create2)},\n  },`);
-    if (EMULATED_PROFILES.has(name)) {
+    const fork = forks[name]?.fork;
+    if (EMULATED_PROFILES.has(name) || fork !== undefined) {
       const derived = deriveEmulatedBounds(profile);
       checkCoverage(name, profile, derived.limits);
-      emulated.push(`  ${name}: {\n${renderBounds(derived.limits, "    ")}\n  },`);
+      (fork === undefined ? emulated : forked).push(`  ${name}: {\n${renderBounds(derived.limits, "    ")}\n  },`);
     } else {
       checkCoverage(name, profile, limits);
     }
@@ -263,21 +328,26 @@ export function renderGas(snapshotText: string, measurementsText: string, initCo
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([scenario, m]) => `      ${scenario}: { estimate: ${m.estimate}, gasUsed: ${m.gasUsed} },`)
       .join("\n");
+    const forkLine = fork === undefined ? "" : `\n    fork: { rpc: ${JSON.stringify(fork.rpc)}, block: ${fork.block}, blockHash: ${JSON.stringify(fork.blockHash)}, timestamp: ${fork.timestamp} },`;
     profiles.push(
-      `  ${name}: {\n    chainId: ${profile.chainId},\n    hardfork: ${JSON.stringify(profile.hardfork)},\n    network: ${JSON.stringify(profile.network)},\n    appliesTo: [${profile.appliesTo.join(", ")}],\n    measurements: {\n${rows}\n    },\n  },`,
+      `  ${name}: {\n    chainId: ${profile.chainId},${forkLine}\n    hardfork: ${JSON.stringify(profile.hardfork)},\n    network: ${JSON.stringify(profile.network)},\n    appliesTo: [${profile.appliesTo.join(", ")}],\n    measurements: {\n${rows}\n    },\n  },`,
     );
   }
   const snapshotRows = [...measurements].map(([name, gas]) => `  ${name}: ${gasLiteral(gas)},`).join("\n");
-  return `${HEADER(`${SOURCES.gasSnapshot} and ${SOURCES.gasMeasurements}`)}//
+  const sources = forkText === undefined ? `${SOURCES.gasSnapshot} and ${SOURCES.gasMeasurements}` : `${SOURCES.gasSnapshot}, ${SOURCES.gasMeasurements} and ${SOURCES.forkGasMeasurements}`;
+  return `${HEADER(sources)}//
 // Rule (PAYLINK-V2-SPEC §3.3.6): floor = the largest EOA-payee measurement of the function (first and repeat
 // payments), ceiling = 1.5 x floor, both rounded up to the next 1,000 gas. Each ERC-1271-payee measurement plus
 // the 10 % estimate margin fits under the ceiling.
 // - Snapshot bounds: Foundry in-test gas with Ethereum prices against mock tokens (protocol/audit/gas.md). The
 //   generator refuses them unless every eth_estimateGas measured on the Ethereum-priced anvil profiles (Ethereum,
-//   Base, London for Mezo) plus 10 % fits under the ceiling.
+//   Base, London) plus 10 % fits under the ceiling.
 // - Emulated bounds (Monad): the same rule applied to eth_estimateGas on anvil's Monad emulation (MonadTen),
 //   because Monad prices cold state and ecrecover differently and charges the gas limit.
-// Both are provisional until re-measured on each testnet with cold slots and the real tokens.
+// - Fork bounds (Mezo): the same rule applied to eth_estimateGas on an anvil fork of the chain, against its real
+//   tokens (MUSD, native BTC) where it has them; a fork's measurement of a chain supersedes the emulation profiles
+//   for it (appliesTo), which keep their measurements for the snapshot check.
+// All are provisional until re-measured on each testnet with cold slots and the real tokens.
 import type { DeployGasBounds, GasBounds, PayLinkFunction } from "../types.ts";
 
 /** Raw per-call gas measurements written by \`protocol/test/gas/Gas.t.sol\`. */
@@ -298,6 +368,11 @@ ${profiles.join("\n")}
 /** Gas-limit bounds of the networks whose gas schedule differs from Ethereum's, from their own estimates. */
 export const EMULATED_GAS_LIMITS = {
 ${emulated.join("\n")}
+} as const satisfies Readonly<Record<string, Readonly<Record<PayLinkFunction, GasBounds>>>>;
+
+/** Gas-limit bounds of the networks measured on an anvil fork of themselves, from the fork's estimates. */
+export const FORK_GAS_LIMITS = {
+${forked.join("\n")}
 } as const satisfies Readonly<Record<string, Readonly<Record<PayLinkFunction, GasBounds>>>>;
 
 /**
@@ -553,7 +628,7 @@ export function renderAll(repoDir: string = REPO_DIR): ReadonlyMap<string, strin
     .filter((name) => /^[1-9][0-9]*\.json$/.test(name))
     .map((name) => parseDeploymentRecord(read(`${SOURCES.deploymentsDir}/${name}`), Number(name.slice(0, -5)), release));
   return new Map([
-    ["src/generated/gas.ts", renderGas(read(SOURCES.gasSnapshot), read(SOURCES.gasMeasurements), release.bytecode.initCodeHash)],
+    ["src/generated/gas.ts", renderGas(read(SOURCES.gasSnapshot), read(SOURCES.gasMeasurements), release.bytecode.initCodeHash, read(SOURCES.forkGasMeasurements))],
     ["src/generated/release.ts", renderRelease(releaseText)],
     ["src/generated/deployments.ts", renderDeployments(records)],
     ["src/generated/v1.ts", renderV1(read(SOURCES.v1Config))],

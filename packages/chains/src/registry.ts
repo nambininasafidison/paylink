@@ -150,6 +150,10 @@ function checkChain(issues: string[], chain: ChainDefinition): void {
   chain.explorers.forEach((explorer, i) => {
     checkUrl(issues, `${where} explorer[${i}]`, explorer.url, chain.local, true);
   });
+  const minCharged = chain.gasModel.minChargedPercentOfLimit;
+  if (minCharged !== undefined && (!Number.isInteger(minCharged) || minCharged < 1 || minCharged > 100 || chain.gasModel.chargesGasLimit)) {
+    issues.push(`${where}: gasModel.minChargedPercentOfLimit must be an integer in [1, 100], on a chain that does not charge the whole limit`);
+  }
   if (chain.status === "enabled" && chain.rpc.length === 0) {
     issues.push(`${where}: an enabled chain needs at least one RPC endpoint`);
   }

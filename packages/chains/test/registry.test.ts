@@ -20,6 +20,8 @@ import {
   SNAPSHOT_GAS_TABLE,
   MONAD_GAS_TABLE,
   EMULATED_GAS_LIMITS,
+  FORK_GAS_LIMITS,
+  MEZO_GAS_TABLE,
   RELEASE,
   GAS_MEASUREMENTS,
   toChecksumAddress,
@@ -128,18 +130,30 @@ describe("spec §3.4 facts", () => {
     ]);
   });
 
-  it("Mezo testnet: MUSD (18, 2612 only) and native BTC (18); disabled until the go/no-go", () => {
+  it("Mezo testnet: MUSD (18, 2612 only, Mezo USD/1) and native BTC (18); disabled until the edition goes live", () => {
+    // docs/research/mezo.md §2-§4, re-read on chain on 2026-10-13.
     expect(mezoTestnet.status).toBe("disabled");
     expect(mezoTestnet.rpc.map((r) => r.url)).toEqual(["https://rpc.test.mezo.org"]);
+    expect(mezoTestnet.explorers.map((e) => [e.name, e.url])).toEqual([["Mezo Explorer", "https://explorer.test.mezo.org"]]);
+    expect(mezoTestnet.nativeCurrency).toEqual({ name: "Bitcoin", symbol: "BTC", decimals: 18 });
+    expect(mezoTestnet.rpcLimits.maxLogBlockRange).toBe(10_000);
     const musd = erc20(mezoTestnet, "MUSD");
-    expect([musd.address, musd.decimals, musd.capabilities]).toEqual([
+    expect([musd.address, musd.decimals, musd.listing, musd.capabilities, musd.eip712Domain, musd.pendingVerification]).toEqual([
       "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
       18,
+      "default",
       { eip3009: false, eip2612: true, native: false },
+      { name: "Mezo USD", version: "1" },
+      [],
     ]);
     const btc = mezoTestnet.tokens.find((t) => t.kind === "native");
     expect([btc?.symbol, btc?.decimals, btc?.address]).toEqual(["BTC", 18, zeroAddress]);
+    expect(mezoTestnet.tokens).toHaveLength(2);
     expect(mezoTestnet.contracts.btcErc20?.confidence).toBe("L");
+    expect(mezoTestnet.contracts.create2Deployer).toMatchObject({ address: RELEASE.create2.factory, confidence: "C" });
+    // max(gas used, 50 % of the limit): mezod MinGasMultiplier 0.5.
+    expect(mezoTestnet.gasModel).toEqual({ chargesGasLimit: false, minChargedPercentOfLimit: 50 });
+    expect(mezoTestnet.notes.join(" ")).not.toMatch(/london \(L\)/);
   });
 
   it("Arc mainnet: v1 only, native USDC (18) and its 6-decimal ERC-20 view, facts from web/config.js", () => {
@@ -164,14 +178,16 @@ describe("spec §3.4 facts", () => {
     ]);
   });
 
-  it("Monad uses the bounds of its own gas schedule; the other v2 chains the snapshot (all provisional)", () => {
+  it("Monad uses the bounds of its own gas schedule, Mezo those of its fork; the other v2 chains the snapshot (all provisional)", () => {
     for (const chain of registry.chains.filter((c) => c.protocol === "v2")) {
-      const expected = chain.key === "monad" || chain.key === "monad-testnet" ? MONAD_GAS_TABLE : SNAPSHOT_GAS_TABLE;
+      const expected = chain.key === "monad" || chain.key === "monad-testnet" ? MONAD_GAS_TABLE : chain.key === "mezo-testnet" ? MEZO_GAS_TABLE : SNAPSHOT_GAS_TABLE;
       expect(chain.gas).toBe(expected);
       expect(chain.gas?.provisional).toBe(true);
     }
     expect(MONAD_GAS_TABLE).toMatchObject({ source: "emulated", limits: EMULATED_GAS_LIMITS.monad });
     expect(MONAD_GAS_TABLE.evidence).toContain("MonadTen");
+    expect(MEZO_GAS_TABLE).toMatchObject({ source: "fork", limits: FORK_GAS_LIMITS.mezo });
+    expect(MEZO_GAS_TABLE.evidence).toContain("anvil fork of Mezo testnet at block");
     expect(SNAPSHOT_GAS_TABLE).toMatchObject({ source: "snapshot", limits: SNAPSHOT_GAS_LIMITS });
   });
 
@@ -183,6 +199,9 @@ describe("spec §3.4 facts", () => {
     expect(GAS_MEASUREMENTS.monad.network).toBe("monad");
     expect(GAS_MEASUREMENTS.base.network).toBe("base");
     expect(GAS_MEASUREMENTS.london.hardfork).toBe("London");
+    // Mezo testnet is measured on a fork of itself, which supersedes the London emulation for it.
+    expect(GAS_MEASUREMENTS.mezo).toMatchObject({ chainId: 31611, appliesTo: [31611], fork: { rpc: "https://rpc.test.mezo.org" } });
+    expect(GAS_MEASUREMENTS.london.appliesTo).toEqual([]);
   });
 
   it("has a deployment exactly where protocol/deployments records one", () => {
@@ -344,6 +363,10 @@ describe("createRegistry validation", () => {
     [{ gas: null }, /v2 chain needs a gas table/],
     [{ gas: { source: "snapshot", provisional: true, limits: { ...SNAPSHOT_GAS_LIMITS, pay: { floor: 0n, ceiling: 1n } } } }, /gas bounds of pay/],
     [{ gas: { source: "snapshot", provisional: true, limits: { ...SNAPSHOT_GAS_LIMITS, cancel: { floor: 10n, ceiling: 9n } } } }, /gas bounds of cancel/],
+    [{ gasModel: { chargesGasLimit: false, minChargedPercentOfLimit: 0 } }, /minChargedPercentOfLimit must be an integer in \[1, 100\]/],
+    [{ gasModel: { chargesGasLimit: false, minChargedPercentOfLimit: 101 } }, /minChargedPercentOfLimit/],
+    [{ gasModel: { chargesGasLimit: false, minChargedPercentOfLimit: 12.5 } }, /minChargedPercentOfLimit/],
+    [{ gasModel: { chargesGasLimit: true, minChargedPercentOfLimit: 50 } }, /does not charge the whole limit/],
     [{ relay: null }, /v2 chain needs relay timing/],
     [{ relay: { ...DEFAULT_RELAY_TIMING, minRemainingSeconds: 0 } }, /relay.minRemainingSeconds must be an integer in \[1, 300\]/],
     [{ relay: { ...DEFAULT_RELAY_TIMING, minRemainingSeconds: 301 } }, /relay.minRemainingSeconds must be an integer/],

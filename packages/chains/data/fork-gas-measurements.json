@@ -1,0 +1,77 @@
+{
+  "schema": "paylink.fork-gas-measurements/1",
+  "generator": "tools/deploy-page/scripts/mezo-fork.ts",
+  "tool": "anvil 1.8.5",
+  "initCodeHash": "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
+  "profiles": {
+    "mezo": {
+      "chainId": 31611,
+      "fork": {
+        "rpc": "https://rpc.test.mezo.org",
+        "block": 16140641,
+        "blockHash": "0xbdd12ed7e2d52b787959ba45a178c51435133bd24e4610571040694de56035d8",
+        "timestamp": 1791914817
+      },
+      "hardfork": "Prague",
+      "network": "ethereum",
+      "appliesTo": [
+        31611
+      ],
+      "tokens": "MUSD 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 (pay, payWithPermit, cancel, cancelBySig) and native BTC (payNative) as Mezo testnet holds them; protocol/test/mocks Mock3009 (payWithAuthorization: Mezo lists no EIP-3009 token) and Wallet1271 (ERC-1271 payee), deployed on the fork",
+      "measurements": {
+        "cancel": {
+          "estimate": 57628,
+          "gasUsed": 52647
+        },
+        "cancelBySig": {
+          "estimate": 66553,
+          "gasUsed": 61578
+        },
+        "cancelBySig_erc1271Payee": {
+          "estimate": 71119,
+          "gasUsed": 66144
+        },
+        "deploy_create": {
+          "estimate": 2673065,
+          "gasUsed": 2673065
+        },
+        "deploy_create2": {
+          "estimate": 2717457,
+          "gasUsed": 2678851
+        },
+        "pay_first": {
+          "estimate": 111711,
+          "gasUsed": 101996
+        },
+        "pay_repeat": {
+          "estimate": 77093,
+          "gasUsed": 67378
+        },
+        "payNative_first": {
+          "estimate": 101853,
+          "gasUsed": 96933
+        },
+        "payNative_repeat": {
+          "estimate": 59323,
+          "gasUsed": 54403
+        },
+        "payWithAuthorization_erc1271Payee": {
+          "estimate": 171502,
+          "gasUsed": 146682
+        },
+        "payWithAuthorization_first": {
+          "estimate": 166918,
+          "gasUsed": 142098
+        },
+        "payWithAuthorization_repeat": {
+          "estimate": 132336,
+          "gasUsed": 107516
+        },
+        "payWithPermit_first": {
+          "estimate": 160549,
+          "gasUsed": 135733
+        }
+      }
+    }
+  }
+}
