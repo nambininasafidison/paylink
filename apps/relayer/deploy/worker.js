@@ -23551,314 +23551,19 @@ const SNAPSHOT_GAS_LIMITS = {
 		ceiling: 93000n
 	}
 };
-/** eth_estimateGas and receipt gasUsed per scenario, on anvil nodes emulating each network (anvil 1.8.5). */
-const GAS_MEASUREMENTS = {
-	base: {
-		chainId: 84532,
-		hardfork: "Beryl",
-		network: "base",
-		appliesTo: [84532],
-		measurements: {
-			cancel: {
-				estimate: 57628,
-				gasUsed: 52647
-			},
-			cancelBySig: {
-				estimate: 66541,
-				gasUsed: 61566
-			},
-			cancelBySig_erc1271Payee: {
-				estimate: 71107,
-				gasUsed: 66132
-			},
-			deploy_create: {
-				estimate: 2673065,
-				gasUsed: 2673065
-			},
-			deploy_create2: {
-				estimate: 2717457,
-				gasUsed: 2678851
-			},
-			pay_first: {
-				estimate: 111107,
-				gasUsed: 101392
-			},
-			pay_repeat: {
-				estimate: 76489,
-				gasUsed: 66774
-			},
-			payNative_first: {
-				estimate: 101889,
-				gasUsed: 96969
-			},
-			payNative_repeat: {
-				estimate: 59359,
-				gasUsed: 54439
-			},
-			payWithAuthorization_erc1271Payee: {
-				estimate: 171514,
-				gasUsed: 146694
-			},
-			payWithAuthorization_first: {
-				estimate: 166954,
-				gasUsed: 142134
-			},
-			payWithAuthorization_repeat: {
-				estimate: 132348,
-				gasUsed: 107528
-			},
-			payWithPermit_first: {
-				estimate: 159744,
-				gasUsed: 134928
-			}
-		}
-	},
-	ethereum: {
-		chainId: 31337,
-		hardfork: "Bpo1",
-		network: "ethereum",
-		appliesTo: [421614],
-		measurements: {
-			cancel: {
-				estimate: 57628,
-				gasUsed: 52647
-			},
-			cancelBySig: {
-				estimate: 66517,
-				gasUsed: 61542
-			},
-			cancelBySig_erc1271Payee: {
-				estimate: 71107,
-				gasUsed: 66132
-			},
-			deploy_create: {
-				estimate: 2673065,
-				gasUsed: 2673065
-			},
-			deploy_create2: {
-				estimate: 2717457,
-				gasUsed: 2678851
-			},
-			pay_first: {
-				estimate: 111107,
-				gasUsed: 101392
-			},
-			pay_repeat: {
-				estimate: 76489,
-				gasUsed: 66774
-			},
-			payNative_first: {
-				estimate: 101889,
-				gasUsed: 96969
-			},
-			payNative_repeat: {
-				estimate: 59359,
-				gasUsed: 54439
-			},
-			payWithAuthorization_erc1271Payee: {
-				estimate: 171514,
-				gasUsed: 146694
-			},
-			payWithAuthorization_first: {
-				estimate: 166954,
-				gasUsed: 142134
-			},
-			payWithAuthorization_repeat: {
-				estimate: 132348,
-				gasUsed: 107528
-			},
-			payWithPermit_first: {
-				estimate: 159756,
-				gasUsed: 134940
-			}
-		}
-	},
-	london: {
-		chainId: 31611,
-		hardfork: "London",
-		network: "ethereum",
-		appliesTo: [],
-		measurements: {
-			cancel: {
-				estimate: 57628,
-				gasUsed: 52647
-			},
-			cancelBySig: {
-				estimate: 66541,
-				gasUsed: 61566
-			},
-			cancelBySig_erc1271Payee: {
-				estimate: 71095,
-				gasUsed: 66120
-			},
-			deploy_create: {
-				estimate: 2673065,
-				gasUsed: 2673065
-			},
-			deploy_create2: {
-				estimate: 2716645,
-				gasUsed: 2678039
-			},
-			pay_first: {
-				estimate: 111107,
-				gasUsed: 101392
-			},
-			pay_repeat: {
-				estimate: 76489,
-				gasUsed: 66774
-			},
-			payNative_first: {
-				estimate: 101889,
-				gasUsed: 96969
-			},
-			payNative_repeat: {
-				estimate: 59371,
-				gasUsed: 54451
-			},
-			payWithAuthorization_erc1271Payee: {
-				estimate: 171502,
-				gasUsed: 146682
-			},
-			payWithAuthorization_first: {
-				estimate: 166954,
-				gasUsed: 142134
-			},
-			payWithAuthorization_repeat: {
-				estimate: 132336,
-				gasUsed: 107516
-			},
-			payWithPermit_first: {
-				estimate: 159744,
-				gasUsed: 134928
-			}
-		}
-	},
+/**
+* What the registry's gas tables cite as evidence: each profile's anvil hardfork and, for a fork, its block. Kept apart
+* from GAS_MEASUREMENTS so that clients, which need only the bounds, do not ship the measurements.
+*/
+const GAS_PROFILE_PROVENANCE = {
+	base: { hardfork: "Beryl" },
+	ethereum: { hardfork: "Bpo1" },
+	london: { hardfork: "London" },
 	mezo: {
-		chainId: 31611,
-		fork: {
-			rpc: "https://rpc.test.mezo.org",
-			block: 16140641,
-			blockHash: "0xbdd12ed7e2d52b787959ba45a178c51435133bd24e4610571040694de56035d8",
-			timestamp: 1791914817
-		},
 		hardfork: "Prague",
-		network: "ethereum",
-		appliesTo: [31611],
-		measurements: {
-			cancel: {
-				estimate: 57628,
-				gasUsed: 52647
-			},
-			cancelBySig: {
-				estimate: 66553,
-				gasUsed: 61578
-			},
-			cancelBySig_erc1271Payee: {
-				estimate: 71119,
-				gasUsed: 66144
-			},
-			deploy_create: {
-				estimate: 2673065,
-				gasUsed: 2673065
-			},
-			deploy_create2: {
-				estimate: 2717457,
-				gasUsed: 2678851
-			},
-			pay_first: {
-				estimate: 111711,
-				gasUsed: 101996
-			},
-			pay_repeat: {
-				estimate: 77093,
-				gasUsed: 67378
-			},
-			payNative_first: {
-				estimate: 101853,
-				gasUsed: 96933
-			},
-			payNative_repeat: {
-				estimate: 59323,
-				gasUsed: 54403
-			},
-			payWithAuthorization_erc1271Payee: {
-				estimate: 171502,
-				gasUsed: 146682
-			},
-			payWithAuthorization_first: {
-				estimate: 166918,
-				gasUsed: 142098
-			},
-			payWithAuthorization_repeat: {
-				estimate: 132336,
-				gasUsed: 107516
-			},
-			payWithPermit_first: {
-				estimate: 160549,
-				gasUsed: 135733
-			}
-		}
+		forkBlock: 16140641
 	},
-	monad: {
-		chainId: 10143,
-		hardfork: "MonadTen",
-		network: "monad",
-		appliesTo: [10143, 143],
-		measurements: {
-			cancel: {
-				estimate: 69485,
-				gasUsed: 67304
-			},
-			cancelBySig: {
-				estimate: 88860,
-				gasUsed: 86685
-			},
-			cancelBySig_erc1271Payee: {
-				estimate: 99379,
-				gasUsed: 97204
-			},
-			deploy_create: {
-				estimate: 2677645,
-				gasUsed: 2677645
-			},
-			deploy_create2: {
-				estimate: 2720773,
-				gasUsed: 2682095
-			},
-			pay_first: {
-				estimate: 158792,
-				gasUsed: 156674
-			},
-			pay_repeat: {
-				estimate: 124362,
-				gasUsed: 122244
-			},
-			payNative_first: {
-				estimate: 124220,
-				gasUsed: 122100
-			},
-			payNative_repeat: {
-				estimate: 81802,
-				gasUsed: 79682
-			},
-			payWithAuthorization_erc1271Payee: {
-				estimate: 233833,
-				gasUsed: 231713
-			},
-			payWithAuthorization_first: {
-				estimate: 223327,
-				gasUsed: 221207
-			},
-			payWithAuthorization_repeat: {
-				estimate: 188921,
-				gasUsed: 186801
-			},
-			payWithPermit_first: {
-				estimate: 216098,
-				gasUsed: 213982
-			}
-		}
-	}
+	monad: { hardfork: "MonadTen" }
 };
 /** Gas-limit bounds of the networks whose gas schedule differs from Ethereum's, from their own estimates. */
 const EMULATED_GAS_LIMITS = { monad: {
@@ -23935,7 +23640,7 @@ const SNAPSHOT_GAS_TABLE = {
 const MONAD_GAS_TABLE = {
 	source: "emulated",
 	provisional: true,
-	evidence: `anvil --network monad (hardfork ${GAS_MEASUREMENTS.monad.hardfork}), mock tokens: packages/chains/data/gas-measurements.json`,
+	evidence: `anvil --network monad (hardfork ${GAS_PROFILE_PROVENANCE.monad.hardfork}), mock tokens: packages/chains/data/gas-measurements.json`,
 	limits: EMULATED_GAS_LIMITS.monad
 };
 /**
@@ -23947,7 +23652,7 @@ const MONAD_GAS_TABLE = {
 const MEZO_GAS_TABLE = {
 	source: "fork",
 	provisional: true,
-	evidence: `anvil fork of Mezo testnet at block ${String(GAS_MEASUREMENTS.mezo.fork.block)} (hardfork ${GAS_MEASUREMENTS.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
+	evidence: `anvil fork of Mezo testnet at block ${String(GAS_PROFILE_PROVENANCE.mezo.forkBlock)} (hardfork ${GAS_PROFILE_PROVENANCE.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
 	limits: FORK_GAS_LIMITS.mezo
 };
 /**
@@ -24284,21 +23989,20 @@ const mezoTestnet = {
 		listing: "default",
 		confidence: "C",
 		pendingVerification: [],
-		note: "Mezo's Bitcoin-backed dollar. OpenZeppelin ERC20Permit: ECDSA permits only (smart accounts approve), no EIP-3009, no fee, hook, pause or blocklist, not upgradeable. Its owner can let any address burn MUSD from any account (issuer risk). Test MUSD is borrowed against test BTC (at least 2,000 MUSD of debt), not dispensed by a faucet."
+		note: "EIP-2612 with ECDSA permits only, no EIP-3009, no fee or hook, not upgradeable; its owner can let any address burn MUSD (issuer risk). Borrowed against test BTC (at least 2,000 MUSD of debt), never from a faucet."
 	}, nativeToken({
 		symbol: "BTC",
 		name: "Bitcoin (native)",
 		decimals: 18,
 		listing: "listed",
-		confidence: "C",
-		note: "The gas coin, paid with payNative (run on an anvil fork; L against mezod itself)."
+		confidence: "C"
 	})],
 	deniedTokens: [],
 	contracts: {
 		create2Deployer: {
 			address: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
 			confidence: "C",
-			note: "The canonical deterministic-deployment proxy runtime (keccak 0x2fa8…4989, as on Base Sepolia and Monad testnet): PayLinkV2 deploys at the release address 0x448e…5082."
+			note: "Canonical runtime, checked live: PayLinkV2 deploys at 0x448e…5082."
 		},
 		btcErc20: {
 			address: "0x7b7C000000000000000000000000000000000000",
@@ -24321,13 +24025,9 @@ const mezoTestnet = {
 		explorers: "C"
 	},
 	notes: [
-		"Gas is test BTC (18 decimals) at about 130 to 300 wei per gas; blocks every 4.5 to 4.9 s (C).",
-		"Mezo charges max(gas used, 50 % of the gas limit) (C): send clamp(estimate x 1.10, floor, ceiling), never a wallet default.",
-		"The chain runs Cancun opcodes (C, live probes) although Mezo's docs say london; the paris artifact runs either way.",
-		"eth_getLogs spans at most 10,000 blocks per request (C).",
-		"MUSD payments cannot be gasless with PayLinkV2: MUSD has no EIP-3009, and payWithPermit and pay pay from msg.sender (ADR 0017).",
-		"Test BTC from faucet.test.mezo.org (captcha); test MUSD is borrowed against it at testnet.mezo.org (docs/runbooks/faucets.md).",
-		"Mezo mainnet is 31612 (MUSD at a different address); not in this registry."
+		"Gas is test BTC at about 130 to 300 wei; at least 50 % of the gas limit is charged (C): send clamp(estimate x 1.10, floor, ceiling).",
+		"Cancun opcodes run (C), not London as Mezo's docs say; the paris artifact runs either way. eth_getLogs spans at most 10,000 blocks (C).",
+		"No gasless MUSD payment with PayLinkV2: MUSD has no EIP-3009 (ADR 0017). Test BTC: faucet.test.mezo.org; test MUSD is borrowed against it."
 	]
 };
 
