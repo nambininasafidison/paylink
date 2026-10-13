@@ -14,7 +14,7 @@ The PayLink v2 gasless relayer ([PAYLINK-V2-SPEC §3.7](../../docs/ARCHITECTURE.
 | `POST /v1/{chainId}/onboard` | `{ "chainId": 10143, "address": "0x…" }` | the registry faucet's `requestFunds(address)`: 10,000 test AUSD, **Monad testnet only** |
 | `GET /v1/health` | | per chain: state, relayer address and balance, canonical deployment, pending transactions, today's gas budget |
 
-Chains served: the enabled v2 **testnets** of `@paylink/chains` (Monad testnet 10143, Base Sepolia 84532, Arbitrum Sepolia 421614). Mainnets are never served, whatever the registry says. Pay and cancel need the chain's canonical deployment in the registry; until it is recorded, health reports `awaiting-deployment` and those endpoints answer [`chain-not-ready`](#problem-chain-not-ready). Onboarding does not need it.
+Chains served: the enabled v2 **testnets** of `@paylink/chains` (Monad testnet 10143, Base Sepolia 84532, Arbitrum Sepolia 421614). Mainnets are never served, whatever the registry says. **Mezo testnet (31611) is not served** ([ADR 0017](../../docs/adr/0017-mezo-edition-chain-layer.md)): MUSD has no EIP-3009, so no MUSD payment can be relayed (`payWithPermit` and `pay` pay from `msg.sender`, and the relayer never sends value), and the registry keeps the chain disabled; gasless `cancelBySig` there would need the chain enabled and a relayer key funded in test BTC. Pay and cancel need the chain's canonical deployment in the registry; until it is recorded, health reports `awaiting-deployment` and those endpoints answer [`chain-not-ready`](#problem-chain-not-ready). Onboarding does not need it.
 
 Success is `202 Accepted` with the transaction hash, before inclusion; clients follow the chain (Monad includes in about a second):
 
