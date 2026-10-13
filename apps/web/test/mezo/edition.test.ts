@@ -31,7 +31,14 @@ describe("the Mezo edition's registry", () => {
     const registry = appRegistry("mezo");
     expect(registry.chains.map((c) => c.chainId)).toEqual([MEZO]);
     const chain = registry.getOrThrow(MEZO);
-    expect(chain).toEqual(shipped.getOrThrow(MEZO));
+    const original = shipped.getOrThrow(MEZO);
+    // The registry's facts, unchanged, except that only the default dollar is offered when creating a link.
+    expect({ ...chain, tokens: [] }).toEqual({ ...original, tokens: [] });
+    expect(chain.tokens.map((t) => [t.address, t.symbol, t.decimals, t.capabilities])).toEqual(original.tokens.map((t) => [t.address, t.symbol, t.decimals, t.capabilities]));
+    expect(chain.tokens.filter((t) => t.listing !== "hidden").map((t) => t.symbol)).toEqual(["MUSD"]);
+    // Still on the allowlist: a link in native BTC decodes and verifies here.
+    const native = original.tokens.find((t) => t.kind === "native");
+    expect(registry.findToken(MEZO, "0x0000000000000000000000000000000000000000")?.symbol).toBe(native?.symbol);
     expect(chain.nativeCurrency.symbol).toBe("BTC");
     expect(chain.rpc.map((r) => r.url)).toEqual(["https://rpc.test.mezo.org"]);
     // The other editions still never see it.
