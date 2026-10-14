@@ -44,7 +44,7 @@ Checked from the sandbox on 2026-10-13 unless stated otherwise. If one of them c
 | Network fee per payment | About **0.002 sat** (2 × 10⁻¹¹ BTC) charged for a `payWithPermit` at today's base fee and tip: 135,733 gas used × (130 + 16) wei, 2026-10-14. The pay page and Status show an **upper bound under 0.005 sat**: the 177,100-gas limit PayLink sets × (2 × base fee + tip), 276 wei. Paid by the payer | [research §5](../research/mezo.md#5-paylinkv2-with-musd-on-a-fork-smoke-test); `apps/web/src/editions/mezo/ui.ts` (`feeUpperBound`) |
 | Test funds | Test BTC from `https://faucet.test.mezo.org` (captcha; drip size **UNVERIFIED**) or the Mezo Discord `#testnet`. Test MUSD has **no faucet**: it is borrowed against test BTC, at least 2,000 MUSD of debt (1,800 + a 200 reserve), so at least about 0.0265 test BTC of collateral; plan on 0.04 | [research §8](../research/mezo.md#8-how-a-tester-gets-test-btc-and-musd); [faucets runbook §3](../runbooks/faucets.md#3-musd-on-mezo-testnet-no-faucet) |
 | Mezo edition | `/mezo/` on branch `mezo`: create, pay, receipt, ledger, send, till, status; EIP-6963 wallets; MUSD only; the smallest MUSD loan read live from MUSD's contracts; its own Content-Security-Policy (Mezo's RPC only: not even PayLink's relayer, which serves no Mezo chain); EN, FR, MG | `apps/web/src/editions/mezo/`; `apps/web/public/_headers`; [web app README](../../apps/web/README.md) |
-| Tests | On branch `mezo`, 2026-10-13: 335 Foundry tests passing; 1,523 TypeScript tests passing (SDK 564, web 395, chains 224, relayer 131, deploy page 77, design 29, i18n 29, indexer 28, ESLint config 25, verify-deployment 21; 9 opt-in fork tests skipped; the relayer's workerd test failed once on a network error and passed on the rerun); 40 Playwright end-to-end tests passing and 1 skipped by design, 8 of them for the Mezo edition on a fork of Mezo testnet | `forge test`; `pnpm -r test`; `e2e/specs/mezo.spec.ts` |
+| Tests | On branch `mezo`, 2026-10-14: 335 Foundry tests passing; 1,547 TypeScript tests passing (SDK 569, web 406, chains 226, relayer 131, deploy page 82, design 29, i18n 29, indexer 28, ESLint config 25, verify-deployment 22; 9 opt-in fork tests skipped); 41 Playwright end-to-end tests passing and 1 skipped by design, 10 of them for Mezo on a fork of Mezo testnet or an anvil chain with its id (9 for the edition, 1 for its deploy kit) | `forge test`; `pnpm -r test`; `e2e/specs/mezo.spec.ts`, `e2e/specs/deploy-mezo.spec.ts` |
 | Where it is served | `https://mezo.paylink-mg.pages.dev/mezo/`, the Cloudflare Pages preview of branch `mezo`, **not online yet**: the branch is not pushed and the project's preview branch setting is "None" ([§2](#2-where-judges-see-it-the-preview-of-branch-mezo)). The host is blocked from the sandbox, so check it yourself | [Cloudflare Pages runbook §2](../runbooks/cloudflare-pages.md#2-build-settings) |
 | Production | `https://paylink-mg.pages.dev/monad/` answers 200; `https://paylink-mg.pages.dev/mezo/` answers 404. Production stays on `main`, unchanged, while Monad Metropolis and Colosseum are judged | `curl`, 2026-10-13 |
 | Relayer, indexer | Neither serves Mezo: the relayer cannot carry an MUSD payment with PayLinkV2, and there is no history indexer for Mezo | [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) |
@@ -125,14 +125,14 @@ HOW WE USE MUSD AND MEZO
 UNDER THE HOOD
 - PayLinkV2 (Solidity 0.8.30, OpenZeppelin 5.3.0) is immutable, ownerless and fee-less, with exact-delta settlement. It is deployed with the canonical CREATE2 factory at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on Mezo testnet (transaction [TO FILL: deployment transaction hash]), the same bytecode at the same address as on Monad testnet and Base Sepolia.
 - 335 Foundry tests (unit, fuzz, invariants), 100% line and branch coverage of the contract, 63 of 63 hand-written mutants killed. This is our own review, not a third-party audit.
-- More than 1,500 TypeScript unit and integration tests (SDK, web app, chain registry, deploy tools) and 40 Playwright end-to-end tests, 8 of them for the Mezo edition against an anvil fork of Mezo testnet with the real MUSD and CREATE2 factory: the full invoice-to-receipt flow, smart accounts and batches, a payer without BTC or MUSD, cancellation, status, security headers, and axe-core WCAG 2.2 AA checks in three languages, two themes and three screen widths.
+- More than 1,500 TypeScript unit and integration tests (SDK, web app, chain registry, deploy tools) and 42 Playwright end-to-end tests, 9 of them for the Mezo edition against an anvil fork of Mezo testnet with the real MUSD, its lending contracts and the CREATE2 factory: the full invoice-to-receipt flow, an RPC that answers "not found" for mined transactions as Mezo's does, smart accounts and batches, a payer without BTC or MUSD (with the live borrow estimate), cancellation, status, security headers, and axe-core WCAG 2.2 AA checks in three languages, two themes and three screen widths.
 - A strict Content-Security-Policy that lets the Mezo edition talk to Mezo's RPC only, with Trusted Types and no third-party script.
 - An open invoice specification (EIP-712 types, URL encodings, receipt verification) with a JSON Schema and test vectors, so any wallet can issue or pay a PayLink invoice.
 
 HONEST STATUS
 Testnet only, not audited, no users or revenue yet. PayLink v2 (contract, SDK, web app) was built from Oct 5, 2026 and is also entered at Monad Metropolis and Colosseum; the Mezo edition was built for this buildathon from Oct 13. Claude Code (AI) did much of the engineering under the founder's direction; the founder owns every decision, key and submission.
 ```
-Characters: 6,544 (no stated limit)
+Characters: 6,674 (no stated limit)
 
 ### Target group
 
@@ -319,10 +319,10 @@ New in wave 1 (built from Oct 13, 2026, on top of PayLink v2):
 - The Mezo edition of the app: MUSD invoices, payment by permit, by exact approval, or by one batch for smart accounts, the BTC fee shown in sats, guidance to Mezo's faucet and testnet borrow page, MUSD checked live on the Status page, and its own Content-Security-Policy (Mezo's RPC only). English, French and Malagasy.
 - Pay without selling bitcoin: the smallest Mezo loan that covers an invoice, and the test BTC it locks, read live from MUSD's BorrowerOperations, PriceFeed and TroveManager, on the pay page and the Status page.
 - Reads that hold on Mezo's public RPC, which sometimes answers "not found" for a mined transaction: the app, the SDK and the deploy tools ask again instead of calling a payment invalid.
-- 8 end-to-end tests of the edition on a fork of Mezo testnet with the real MUSD, including accessibility checks in three languages.
+- 9 end-to-end tests of the edition on a fork of Mezo testnet with the real MUSD and lending contracts, including Mezo's "not found" answers for mined transactions and accessibility checks in three languages, and 1 of the deploy kit on Mezo testnet's chain id.
 - PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on [TO FILL: date], its source verified on Mezo's explorer on [TO FILL: date], and the first real MUSD payments through it on [TO FILL: date].
 ```
-Characters: 1,597 (no stated limit)
+Characters: 1,725 (no stated limit)
 
 **Wave 2 (Nov 2–15, UNVERIFIED dates).** The milestones field above lists them. Each needs its own decision before it is built: Passport brings React and GPL-3.0 code into an MIT app; EIP-7702 sponsorship needs Mezo to include type-4 transactions (**L**) and wallets to support them; ERC-4337 needs a bundler and paymaster on Mezo, and none is known (**UNVERIFIED**); MEZO needs a payment proven on testnet itself ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
 
