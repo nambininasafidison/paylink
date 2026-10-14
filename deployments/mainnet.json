@@ -7,5 +7,14 @@
   "deployer": "0xFA7adbA5f915022f625eA11F69796F5Fd1344567",
   "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
   "deployedWith": "web/deploy.html (browser wallet)",
-  "verified": "deployment input equals build/PayLink.json bytecode (3,828 bytes); status 1"
+  "verified": "deployment input equals build/PayLink.json bytecode (3,828 bytes); status 1",
+  "firstPayment": {
+    "link": 1,
+    "amountUSDC": "0.10",
+    "memo": "First PayLink on Arc mainnet",
+    "createTx": "0x91a81c9779758a0e767a5f0a21ffa8ff70233554128af689bb23908605f84abf",
+    "payTx": "0x586171ad8b3608e7bdbe36d3d636be7d2ffebc08c1724588db0f1a0dc9fd2040",
+    "block": 25894255,
+    "date": "2026-10-14"
+  }
 }
