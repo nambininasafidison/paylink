@@ -2,7 +2,8 @@
 /** web/v2/deploy/lib/rpc.js, format.js and the pure parts of wallet.js. */
 import { describe, expect, it } from "vitest";
 import * as fmt from "../../../web/v2/deploy/lib/format.js";
-import { httpRpc, providerRpc, reader, RpcError, TransportError } from "../../../web/v2/deploy/lib/rpc.js";
+import { TX_LOOKUP_RETRY_MS as REGISTRY_RETRY_MS } from "@paylink/chains";
+import { httpRpc, providerRpc, reader, RpcError, TransportError, TX_LOOKUP_RETRY_MS } from "../../../web/v2/deploy/lib/rpc.js";
 import { relayEvidence } from "../../../web/v2/deploy/lib/verify.js";
 import { isUnknownChainError, walletMessage } from "../../../web/v2/deploy/lib/wallet.js";
 
@@ -111,6 +112,60 @@ describe("reader", () => {
 
   it("reports a reverting eip712Domain() as null, not as an error", async () => {
     expect(await read.eip712Domain("0x5FbDB2315678afecb367f032d93F642f64180aa3")).toBeNull();
+  });
+
+  it("reads the price the chain charged from the same receipt answer", async () => {
+    const priced = reader(providerRpc({ request: () => Promise.resolve({ status: "0x1", blockNumber: "0x10", contractAddress: null, gasUsed: "0x5208", effectiveGasPrice: "0x92" }) }));
+    expect(await priced.receipt("0xab")).toEqual({ success: true, blockNumber: 16n, contractAddress: null, gasUsed: 21_000n, effectiveGasPrice: 146n });
+  });
+});
+
+describe("reader, on an RPC that answers null for mined transactions (Mezo testnet)", () => {
+  const receiptAnswer = { status: "0x1", blockNumber: "0x10", contractAddress: null, gasUsed: "0x5208" };
+  const txAnswer = { hash: "0xab", from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", to: null, input: "0x60", nonce: "0x0", gas: "0x2dc6c0" };
+  /** An HTTP endpoint whose first `nulls` answers to each lookup by hash are null; it records the headers asked with. */
+  const flaky = (nulls: number) => {
+    const asked: { method: string; connection: string | null }[] = [];
+    const counts = new Map<string, number>();
+    const rpc = httpRpc(["https://rpc.test.example"], {
+      fetch: (_input, init) => {
+        const body = JSON.parse(init?.body as string) as { method: string };
+        const headers = new Headers(init?.headers);
+        asked.push({ method: body.method, connection: headers.get("connection") });
+        const n = (counts.get(body.method) ?? 0) + 1;
+        counts.set(body.method, n);
+        const answer = body.method === "eth_getTransactionReceipt" ? receiptAnswer : txAnswer;
+        return Promise.resolve(ok(n <= nulls ? null : answer));
+      },
+    });
+    return { rpc, asked };
+  };
+  const instant = { retryMs: TX_LOOKUP_RETRY_MS, pause: () => Promise.resolve() };
+
+  it("uses the registry's schedule", () => {
+    expect(TX_LOOKUP_RETRY_MS).toEqual(REGISTRY_RETRY_MS);
+  });
+
+  it("asks again, on a fresh connection, until the transaction and its receipt come back", async () => {
+    const { rpc, asked } = flaky(5);
+    const read = reader(rpc, instant);
+    expect(read.lookups).toBe(8);
+    expect(await read.receipt("0xab")).toMatchObject({ success: true, blockNumber: 16n });
+    expect(await read.transaction("0xab", 31611)).toMatchObject({ hash: "0xab", chainId: 31611 });
+    expect(asked.map((a) => a.connection)).toEqual([null, ...Array<string>(5).fill("close"), null, ...Array<string>(5).fill("close")]);
+  });
+
+  it("answers null only after every lookup came back null", async () => {
+    const { rpc, asked } = flaky(100);
+    expect(await reader(rpc, instant).receipt("0xab")).toBeNull();
+    expect(asked).toHaveLength(8);
+  });
+
+  it("keeps one lookup, and a final null, without a schedule (every other chain)", async () => {
+    const { rpc, asked } = flaky(1);
+    expect(await reader(rpc).receipt("0xab")).toBeNull();
+    expect(asked).toHaveLength(1);
+    expect(reader(rpc).lookups).toBe(1);
   });
 });
 

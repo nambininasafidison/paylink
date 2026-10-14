@@ -74,6 +74,8 @@ import { authorizationAuthority, delegationOf } from "./eip7702.js";
  * @property {boolean} testnet
  * @property {{ name: string; symbol: string; decimals: number }} nativeCurrency
  * @property {string[]} rpc
+ * @property {boolean} inconsistentTxIndex  the RPC answers `null` for mined transactions (Mezo testnet): a lookup by
+ *   hash is asked again before it counts as "not found" (lib/rpc.js `TX_LOOKUP_RETRY_MS`)
  * @property {{ name: string; url: string }[]} explorers
  * @property {{ chargesGasLimit: boolean; txGasCap: bigint | null; reserveBalance: bigint | null; minChargedPercentOfLimit: number | null }} gasModel
  *   `minChargedPercentOfLimit`: the chain charges max(gas used, limit × p / 100) (Mezo: 50); null when absent
@@ -245,6 +247,7 @@ export function parseChainsData(json) {
       testnet: c["testnet"] === true,
       nativeCurrency: c["nativeCurrency"],
       rpc,
+      inconsistentTxIndex: c["rpcLimits"]?.["inconsistentTxIndex"] === true,
       explorers: c["explorers"],
       gasModel: {
         chargesGasLimit: c["gasModel"]["chargesGasLimit"] === true,
@@ -804,14 +807,18 @@ const atBlock = (reading) => (reading.block === "latest" ? "the latest block" : 
  * @param {TxFacts | null} p.tx
  * @param {ReceiptFacts | null} p.receipt
  * @param {RelayEvidence | null} [p.relay]  required to accept the relayed route
+ * @param {number} [p.lookups]  how many times the transaction and its receipt were asked for (more than 1 on a chain
+ *   whose RPC answers `null` for mined transactions)
  * @returns {TxVerdict}
  */
-export function verifyDeploymentTx({ data, chainId, address, tx, receipt, relay = null }) {
+export function verifyDeploymentTx({ data, chainId, address, tx, receipt, relay = null, lookups = 1 }) {
   const r = data.release;
   /** @type {Check[]} */
   const checks = [];
   if (tx === null || receipt === null) {
-    checks.push({ id: "tx", label: "Deployment transaction", ok: false, detail: tx === null ? "transaction not found" : "receipt not found (not mined yet?)" });
+    const missing = tx === null ? "transaction not found" : "receipt not found (not mined yet?)";
+    const asked = lookups > 1 ? `, asked ${String(lookups)} times: this chain's RPC sometimes answers null for a mined transaction, so check the hash and run the check again` : "";
+    checks.push({ id: "tx", label: "Deployment transaction", ok: false, detail: `${missing}${asked}` });
     return { checks, method: null, route: null, deployer: null, submitter: null, authorization: null };
   }
   checks.push({ id: "tx-chain", label: "Transaction chain", ok: tx.chainId === chainId, detail: `chain ${String(tx.chainId)}` });

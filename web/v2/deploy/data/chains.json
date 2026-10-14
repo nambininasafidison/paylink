@@ -199,6 +199,9 @@
       "rpc": [
         "https://rpc.test.mezo.org"
       ],
+      "rpcLimits": {
+        "inconsistentTxIndex": true
+      },
       "explorers": [
         {
           "name": "Mezo Explorer",

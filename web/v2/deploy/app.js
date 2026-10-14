@@ -18,7 +18,7 @@ import {
 } from "./lib/core.js";
 import { byId, fill, grouped, h, short } from "./lib/dom.js";
 import * as fmt from "./lib/format.js";
-import { httpRpc, providerRpc, reader, TransportError } from "./lib/rpc.js";
+import { httpRpc, providerRpc, reader, TransportError, TX_LOOKUP_RETRY_MS } from "./lib/rpc.js";
 import { verifyDeployment } from "./lib/verify.js";
 import { discoverWallets, switchOrAddChain, walletMessage } from "./lib/wallet.js";
 import { getAddress, numberToHex } from "./vendor/viem.js";
@@ -182,23 +182,26 @@ const memory = {
 
 /**
  * Runs `fn` against the registry RPC of `chain`, or against the wallet's RPC when the registry endpoints cannot be
- * reached (and the wallet is on that chain).
+ * reached (and the wallet is on that chain). On a chain whose RPC answers `null` for mined transactions (Mezo testnet),
+ * a lookup by hash is asked again before it counts as "not found", unless `once` (a loop that polls anyway).
  *
  * @template T
  * @param {ChainConfig} chain
  * @param {(read: Reader) => Promise<T>} fn
+ * @param {{ once?: boolean }} [options]
  * @returns {Promise<{ value: T; via: "registry" | "wallet"; host: string }>}
  */
-async function viaRegistry(chain, fn) {
+async function viaRegistry(chain, fn, { once = false } = {}) {
   const rpc = httpRpc(chain.rpc);
+  const lookups = chain.inconsistentTxIndex && !once ? { retryMs: TX_LOOKUP_RETRY_MS } : {};
   try {
-    const value = await fn(reader(rpc));
+    const value = await fn(reader(rpc, lookups));
     return { value, via: "registry", host: new URL(rpc.lastUrl() ?? chain.rpc[0] ?? "https://unknown").host };
   } catch (error) {
-    if (!(error instanceof TransportError) || state.walletRead === null || !onRightChain()) {
+    if (!(error instanceof TransportError) || state.walletRpc === null || !onRightChain()) {
       throw error;
     }
-    return { value: await fn(state.walletRead), via: "wallet", host: state.wallet?.info.name ?? "wallet" };
+    return { value: await fn(reader(state.walletRpc, lookups)), via: "wallet", host: state.wallet?.info.name ?? "wallet" };
   }
 }
 
@@ -779,14 +782,8 @@ async function settle(chain, tx) {
     const elapsed = Math.round((performance.now() - started) / 100) / 10;
     say($.status, `Sent ${short(tx.hash)}. Waiting for it to be included… ${elapsed.toFixed(1)} s`);
     try {
-      const { value } = await viaRegistry(chain, async (read) => {
-        const facts = await read.receipt(tx.hash);
-        if (facts === null) {
-          return null;
-        }
-        const raw = /** @type {{ effectiveGasPrice?: string } | null} */ (await read.rpc.request("eth_getTransactionReceipt", [tx.hash]));
-        return { ...facts, ...(raw?.effectiveGasPrice === undefined ? {} : { effectiveGasPrice: BigInt(raw.effectiveGasPrice) }) };
-      });
+      // One lookup per poll (the loop asks again), with the price the chain charged in the same answer.
+      const { value } = await viaRegistry(chain, (read) => read.receipt(tx.hash), { once: true });
       receipt = value;
     } catch {
       // Transient RPC failure: keep polling until the deadline.

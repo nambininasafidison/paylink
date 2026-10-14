@@ -7,6 +7,7 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -246,6 +247,48 @@ describe("Mezo testnet (31611), staged ahead of its edition (ADR 0017)", () => {
     const r = await run("--chain", "31611", "--address", CREATE2, "--rpc", url);
     expect(r.code).toBe(1);
   });
+
+  it("asks again when the RPC answers null for the mined deployment, as Mezo testnet's does, and still writes the record", async () => {
+    // A loopback RPC in front of the fork whose first three answers to each lookup by hash are null.
+    const counts = new Map<string, number>();
+    const connections: (string | undefined)[] = [];
+    const server = createHttpServer((request, response) => {
+      let body = "";
+      request.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      request.on("end", () => {
+        const call = JSON.parse(body) as { id: number; method: string };
+        const byHash = call.method === "eth_getTransactionByHash" || call.method === "eth_getTransactionReceipt";
+        if (byHash) {
+          connections.push(request.headers.connection);
+        }
+        const n = (counts.get(call.method) ?? 0) + 1;
+        counts.set(call.method, n);
+        const answer = byHash && n <= 3 ? Promise.resolve(JSON.stringify({ jsonrpc: "2.0", id: call.id, result: null })) : fetch(mezo.url, { method: "POST", headers: { "content-type": "application/json" }, body }).then(async (r) => await r.text());
+        void answer.then((text) => {
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(text);
+        });
+      });
+    });
+    const port = await new Promise<number>((resolve) => {
+      server.listen(0, "127.0.0.1", () => {
+        const a = server.address();
+        resolve(typeof a === "object" && a !== null ? a.port : 0);
+      });
+    });
+    try {
+      const r = await run("--chain", "31611", "--address", CREATE2, "--tx", tx, "--rpc", `http://127.0.0.1:${String(port)}`, "--out", "-");
+      expect(r.code, r.stderr).toBe(0);
+      expect(r.stderr).toContain("[ok] Transaction succeeded");
+      expect(JSON.parse(r.stdout)).toMatchObject({ chainId: 31611, deployment: { method: "CREATE2", txHash: tx } });
+      expect(counts.get("eth_getTransactionByHash")).toBe(4);
+      expect(counts.get("eth_getTransactionReceipt")).toBe(4);
+      // Each lookup asked again goes out on a fresh connection.
+      expect(connections.filter((c) => c === "close")).toHaveLength(6);
+    } finally {
+      server.close();
+    }
+  }, 30_000);
 });
 
 describe("relayed deployment (EIP-7702 smart account)", () => {

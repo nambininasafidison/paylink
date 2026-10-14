@@ -16,7 +16,12 @@ import { EIP712_DOMAIN_CALLDATA } from "./core.js";
 /** @typedef {import("./core.js").ReceiptFacts} ReceiptFacts */
 /** @typedef {import("./eip7702.js").Authorization} Authorization */
 
-/** @typedef {{ request: (method: string, params?: readonly unknown[]) => Promise<unknown> }} Rpc */
+/**
+ * `fresh`: ask on a new connection where the runtime allows it (Node: `connection: close`; browsers keep their own
+ * connection pool and ignore it). Used when a lookup by hash is asked again, since an endpoint behind a load balancer may
+ * keep sending one connection to the same node.
+ * @typedef {{ request: (method: string, params?: readonly unknown[], options?: { fresh?: boolean }) => Promise<unknown> }} Rpc
+ */
 /** @typedef {{ request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown> }} Eip1193Provider */
 
 /** A JSON-RPC or EIP-1193 error answer (code and message as the endpoint gave them). */
@@ -79,7 +84,7 @@ export function httpRpc(urls, { timeoutMs = 15_000, fetch: fetchImpl = globalThi
   let last = null;
   return {
     lastUrl: () => last,
-    async request(method, params = []) {
+    async request(method, params = [], { fresh = false } = {}) {
       /** @type {string[]} */
       const failures = [];
       for (const url of urls) {
@@ -93,7 +98,7 @@ export function httpRpc(urls, { timeoutMs = 15_000, fetch: fetchImpl = globalThi
         try {
           const response = await fetchImpl(url, {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: fresh ? { "content-type": "application/json", connection: "close" } : { "content-type": "application/json" },
             body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
             signal: controller.signal,
             credentials: "omit",
@@ -175,12 +180,44 @@ const TRACERS = /** @type {const} */ ([
 ]);
 
 /**
- * Typed reads over any `Rpc`.
- * @param {Rpc} rpc
+ * Pauses, in milliseconds, before each extra lookup of a transaction or receipt that came back `null`, on a chain whose
+ * RPC answers `null` for mined transactions (`inconsistentTxIndex`, Mezo testnet: docs/research/mezo.md §2). The same
+ * schedule as `TX_LOOKUP_RETRY_MS` of @paylink/chains (tools/deploy-page/test/rpc.test.ts checks it): eight lookups over
+ * about 11 s.
  */
-export function reader(rpc) {
+export const TX_LOOKUP_RETRY_MS = Object.freeze([250, 500, 1000, 1500, 2000, 2500, 3000]);
+
+/** @param {number} ms */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Typed reads over any `Rpc`. `retryMs`: on a chain whose RPC answers `null` for mined transactions, the pauses before
+ * each extra lookup by hash (`TX_LOOKUP_RETRY_MS`); each extra lookup asks on a fresh connection where it can. Without
+ * it, a `null` is final, as on every other chain.
+ *
+ * @param {Rpc} rpc
+ * @param {{ retryMs?: readonly number[]; pause?: (ms: number) => Promise<unknown> }} [options]
+ */
+export function reader(rpc, { retryMs = [], pause = sleep } = {}) {
+  /**
+   * A lookup by hash: its answer, or `null` once every attempt said `null`.
+   * @param {string} method @param {Hex} hash
+   * @returns {Promise<Record<string, unknown> | null>}
+   */
+  const byHash = async (method, hash) => {
+    for (let attempt = 0; ; attempt += 1) {
+      const answer = /** @type {Record<string, unknown> | null} */ (await rpc.request(method, [hash], { fresh: attempt > 0 }));
+      const wait = retryMs[attempt];
+      if (answer !== null || wait === undefined) {
+        return answer;
+      }
+      await pause(wait);
+    }
+  };
   return {
     rpc,
+    /** How many times a lookup by hash is asked before a `null` counts as "not found". */
+    lookups: retryMs.length + 1,
     chainId: async () => Number(quantity(await rpc.request("eth_chainId"), "eth_chainId")),
     /** @param {Address} address */
     code: async (address) => hex(await rpc.request("eth_getCode", [address, "latest"]), "eth_getCode"),
@@ -248,7 +285,7 @@ export function reader(rpc) {
     },
     /** @param {Hex} hash @param {number} fallbackChainId @returns {Promise<TxFacts | null>} */
     async transaction(hash, fallbackChainId) {
-      const t = /** @type {Record<string, unknown> | null} */ (await rpc.request("eth_getTransactionByHash", [hash]));
+      const t = await byHash("eth_getTransactionByHash", hash);
       if (t === null) {
         return null;
       }
@@ -265,18 +302,20 @@ export function reader(rpc) {
         authorizationList: authorizations(t["authorizationList"]),
       };
     },
-    /** @param {Hex} hash @returns {Promise<ReceiptFacts | null>} */
+    /** @param {Hex} hash @returns {Promise<(ReceiptFacts & { effectiveGasPrice?: bigint }) | null>} */
     async receipt(hash) {
-      const r = /** @type {Record<string, unknown> | null} */ (await rpc.request("eth_getTransactionReceipt", [hash]));
+      const r = await byHash("eth_getTransactionReceipt", hash);
       if (r === null) {
         return null;
       }
       const contractAddress = r["contractAddress"];
+      const price = r["effectiveGasPrice"];
       return {
         success: quantity(r["status"], "status") === 1n,
         blockNumber: quantity(r["blockNumber"], "blockNumber"),
         contractAddress: contractAddress === null || contractAddress === undefined ? null : getAddress(hex(contractAddress, "contractAddress")),
         gasUsed: quantity(r["gasUsed"], "gasUsed"),
+        ...(price === undefined || price === null ? {} : { effectiveGasPrice: quantity(price, "effectiveGasPrice") }),
       };
     },
   };

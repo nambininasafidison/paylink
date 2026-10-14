@@ -86,6 +86,8 @@ describe("chain data", () => {
       expect(c.explorers).toEqual(r.explorers.map((e) => ({ name: e.name, url: e.url })));
       expect(c.gasModel.chargesGasLimit).toBe(r.gasModel.chargesGasLimit);
       expect(c.gasModel.minChargedPercentOfLimit).toBe(r.gasModel.minChargedPercentOfLimit ?? null);
+      // Lookups by hash are asked again only where the RPC answers null for mined transactions (Mezo testnet).
+      expect(c.inconsistentTxIndex, String(c.chainId)).toBe(r.rpcLimits.inconsistentTxIndex === true);
       const gas = deployGasFor(c.chainId);
       expect(c.deployGas.create).toEqual(gas?.create);
       expect(c.deployGas.create2).toEqual(gas?.create2);
@@ -104,6 +106,7 @@ describe("chain data", () => {
       deployGas: { profile: "mezo" },
     });
     expect(chain(84532).gasModel.minChargedPercentOfLimit).toBeNull();
+    expect([...chains.values()].filter((c) => c.inconsistentTxIndex).map((c) => c.chainId)).toEqual([31611]);
   });
 
   it("refuses unknown chains", () => {
@@ -280,6 +283,15 @@ describe("deployment transaction, direct route (Deploy.s.sol _fromBroadcast)", (
     expect(allPassed(call.checks)).toBe(false);
     expect(verifyDeploymentTx({ data, chainId: 84532, address: CREATE2_ADDRESS, tx: null, receipt: null }).checks).toEqual([
       { id: "tx", label: "Deployment transaction", ok: false, detail: "transaction not found" },
+    ]);
+    // Mezo testnet's RPC answers null for mined transactions: the check says how often it asked, and to run it again.
+    expect(verifyDeploymentTx({ data, chainId: 31611, address: CREATE2_ADDRESS, tx: null, receipt: null, lookups: 8 }).checks).toEqual([
+      {
+        id: "tx",
+        label: "Deployment transaction",
+        ok: false,
+        detail: "transaction not found, asked 8 times: this chain's RPC sometimes answers null for a mined transaction, so check the hash and run the check again",
+      },
     ]);
   });
 

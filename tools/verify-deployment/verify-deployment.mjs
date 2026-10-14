@@ -15,7 +15,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { chainOrThrow, DeployError, parseChainsData, parseReleaseData } from "../../web/v2/deploy/lib/core.js";
-import { httpRpc, reader, TransportError } from "../../web/v2/deploy/lib/rpc.js";
+import { httpRpc, reader, TransportError, TX_LOOKUP_RETRY_MS } from "../../web/v2/deploy/lib/rpc.js";
 import { verifyDeployment } from "../../web/v2/deploy/lib/verify.js";
 import { getAddress, isAddress } from "../../web/v2/deploy/vendor/viem.js";
 
@@ -173,7 +173,8 @@ export async function main(argv, io) {
   for (const url of endpoints) {
     try {
       const result = await verifyDeployment({
-        read: reader(httpRpc([url], { timeoutMs: 20_000 })),
+        // Mezo testnet's RPC answers null for mined transactions: ask again, on fresh connections, before "not found".
+        read: reader(httpRpc([url], { timeoutMs: 20_000 }), chain.inconsistentTxIndex ? { retryMs: TX_LOOKUP_RETRY_MS } : {}),
         data,
         chain,
         address: o.address,

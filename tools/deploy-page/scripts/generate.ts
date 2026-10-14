@@ -151,6 +151,8 @@ function chainEntry(chain: ChainDefinition): Record<string, unknown> {
     testnet: chain.testnet,
     nativeCurrency: chain.nativeCurrency,
     rpc: chain.rpc.map((r) => r.url),
+    // Only where the RPC answers null for mined transactions (Mezo), so the other chains' entries stay as they were.
+    ...(chain.rpcLimits.inconsistentTxIndex === true ? { rpcLimits: { inconsistentTxIndex: true } } : {}),
     explorers: chain.explorers.map((e) => ({ name: e.name, url: e.url })),
     gasModel: {
       chargesGasLimit: chain.gasModel.chargesGasLimit,

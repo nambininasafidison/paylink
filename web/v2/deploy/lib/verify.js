@@ -115,7 +115,7 @@ export async function verifyDeployment({ read, data, chain, address, txHash = nu
     if (tx !== null && receipt !== null && receipt.success && deploymentRoute(data, tx) === "relayed") {
       result.evidence = await relayEvidence({ read, chainId: chain.chainId, address, tx, receipt });
     }
-    verdict = verifyDeploymentTx({ data, chainId: chain.chainId, address, tx, receipt, relay: result.evidence });
+    verdict = verifyDeploymentTx({ data, chainId: chain.chainId, address, tx, receipt, relay: result.evidence, lookups: read.lookups });
     checks.push(...verdict.checks);
     Object.assign(result, { tx, receipt, method: verdict.method, route: verdict.route, deployer: verdict.deployer, submitter: verdict.submitter });
   }
