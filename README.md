@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| **Live app** | https://nambininasafidison.github.io/paylink/web/ |
-| **Contract (Arc mainnet)** | _see [`deployments/mainnet.json`](deployments/) once deployed_ |
+| **Live app** | https://paylink-mg.pages.dev/arc/ |
+| **Contract (Arc mainnet)** | [`0xac6B3bEE30345A0D9d1bdD2524FC78113c86736A`](https://explorer.arc.io/address/0xac6B3bEE30345A0D9d1bdD2524FC78113c86736A), deployed in block 25,891,215 ([transaction](https://explorer.arc.io/tx/0x86d37213a7a06386a3f760c1f93e372c5113e8c53a76637973bd25e730421a6e); record: [`deployments/mainnet.json`](deployments/mainnet.json)) |
 | **Source** | [`contracts/PayLink.sol`](contracts/PayLink.sol): one file, about 120 lines, no dependencies |
 
 Freelancers, small shops and creators, from Antananarivo to anywhere, need a simple way to get paid in dollars. PayLink makes it a link:

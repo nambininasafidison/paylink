@@ -144,7 +144,7 @@ Putting the services online: [Cloudflare Pages](../docs/runbooks/cloudflare-page
 
 | | Commits | What |
 |---|---|---|
-| **Pre-existing: PayLink v1** | `31a4fdd` (2026-10-04) and `93ed4e3` (2026-10-05) | A simpler payment-link contract and web app for Arc (`contracts/PayLink.sol`, `web/`). Frozen and not part of the v2 editions ([ADR 0010](../docs/adr/0010-arc-stays-on-v1.md)). Its own README, at the repository root, describes the Arc Microgrants plan: as of 2026-10-09 v1 is **not** deployed on Arc mainnet (`web/config.js` has no address) |
+| **Pre-existing: PayLink v1** | `31a4fdd` (2026-10-04) and `93ed4e3` (2026-10-05) | A simpler payment-link contract and web app for Arc (`contracts/PayLink.sol`, `web/`). Frozen and not part of the v2 editions ([ADR 0010](../docs/adr/0010-arc-stays-on-v1.md)). Its own README, at the repository root, describes the Arc Microgrants plan: v1 is deployed on Arc mainnet at `0xac6B3bEE30345A0D9d1bdD2524FC78113c86736A` (block 25,891,215, 2026-10-14; [`deployments/mainnet.json`](../deployments/mainnet.json)) and served at `/arc/` |
 | **Built for Monad Metropolis and Colosseum: PayLink v2** | from `88ac2d9` (2026-10-07, the first v2 commit; the design work started on Oct 5) | The PayLinkV2 contract and its tests, the SDK and chain registry, the web app and its Monad and Base editions (Mera passkeys, gasless rails, till, receive card and Send, ledger backup), the relayer, the indexer, the deploy kit, the end-to-end suites, the open invoice specification and the documentation |
 
 The submission texts, with their disclosures, are in [docs/submissions/](../docs/submissions/README.md).

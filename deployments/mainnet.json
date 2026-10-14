@@ -1,0 +1,11 @@
+{
+  "network": "mainnet",
+  "chainId": 5042,
+  "address": "0xac6B3bEE30345A0D9d1bdD2524FC78113c86736A",
+  "txHash": "0x86d37213a7a06386a3f760c1f93e372c5113e8c53a76637973bd25e730421a6e",
+  "block": 25891215,
+  "deployer": "0xFA7adbA5f915022f625eA11F69796F5Fd1344567",
+  "compiler": "0.8.26+commit.8a97fa7a.Emscripten.clang",
+  "deployedWith": "web/deploy.html (browser wallet)",
+  "verified": "deployment input equals build/PayLink.json bytecode (3,828 bytes); status 1"
+}
