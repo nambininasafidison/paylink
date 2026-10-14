@@ -46,5 +46,8 @@
   "mezo.status.feeValue": "Aloan'ny mpandoa amin'ny BTC: {sats} sat eo ho eo isaky ny fandoavana, araka ny vidin'ny gas ankehitriny.",
   "mezo.status.gasless": "Fandoavana tsy misy sarany",
   "mezo.status.gaslessValue": "Tsy misy ao amin'ny Mezo: tsy manana famindrana misy sonia (EIP-3009) ny MUSD, koa ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana.",
-  "mezo.status.relayerNone": "Tsy miasa amin'ny Mezo testnet: ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana."
+  "mezo.status.relayerNone": "Tsy miasa amin'ny Mezo testnet: ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana.",
+  "mezo.borrow.line": "Na mindrama MUSD tsy mivarotra bitcoin: {loan} MUSD ny findramam-bola kely indrindra ao amin'ny Mezo mahasarona ity fandoavana ity. Mila BTC fitsapana {btc} farafahakeliny voahidy ho antoka izy: {ratio}% amin'ny trosa {debt} MUSD, amin'ny {price} USD isaky ny BTC araka ny vidiny ao amin'ny Mezo, vao novakiana. Manidiana bebe kokoa mba ho lavitra ny fandravana (liquidation).",
+  "mezo.status.loan": "Findramana MUSD",
+  "mezo.status.loanValue": "Findramam-bola kely indrindra {loan} MUSD: BTC fitsapana {btc} farafahakeliny ho antoka ({ratio}% amin'ny trosa {debt} MUSD), amin'ny {price} USD isaky ny BTC araka ny vidiny ao amin'ny Mezo."
 }

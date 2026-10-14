@@ -34,12 +34,15 @@ export async function canOnboard(app: App, chain: ChainDefinition): Promise<bool
  * A row under the Pay key (or on the KeyCard) when the account holds too little: its balance, and the way to get test
  * dollars. Calls `onFunded` once the faucet's transaction is mined. Resolves `null` when nothing is to be shown.
  */
-export async function fundsRow(app: App, options: { readonly chain: ChainDefinition; readonly token: Token; readonly owner: Address; readonly balance: bigint; readonly onFunded: () => void }): Promise<HTMLElement | null> {
+export async function fundsRow(
+  app: App,
+  options: { readonly chain: ChainDefinition; readonly token: Token; readonly owner: Address; readonly balance: bigint; readonly needed?: bigint; readonly onFunded: () => void },
+): Promise<HTMLElement | null> {
   const { t } = app.i18n;
   const { chain, token, owner, balance } = options;
   const testFunds = app.edition.testFunds;
   if (__PAYLINK_EDITION__ === "mezo" && testFunds?.kind === "borrow") {
-    return chain.testnet && token.kind === "erc20" ? musdFundsRow(app, token, balance) : null;
+    return chain.testnet && token.kind === "erc20" ? musdFundsRow(app, chain, token, balance, options.needed ?? 0n) : null;
   }
   if (testFunds === null || !chain.testnet || token.kind !== "erc20") {
     return null;
@@ -100,6 +103,6 @@ export async function showFundsIfShort(
     return null;
   }
   const short = needed === 0n ? balance === 0n : balance < needed;
-  replace(slot, short ? await fundsRow(app, { chain, token, owner, balance, onFunded: options.onFunded }) : null);
+  replace(slot, short ? await fundsRow(app, { chain, token, owner, balance, needed, onFunded: options.onFunded }) : null);
   return balance;
 }

@@ -429,6 +429,11 @@ test("a payer without BTC is sent to Mezo's faucet and pays once funded; one wit
   await expect(funds).toContainText("This account holds 0.00 MUSD.");
   await expect(funds).toContainText("MUSD has no faucet");
   expect(await funds.locator("a").evaluateAll((links) => links.map((a) => a.getAttribute("href")))).toEqual(["https://testnet.mezo.org/feature/borrow", "https://faucet.test.mezo.org"]);
+  // Read from MUSD's own contracts on the fork (BorrowerOperations, its PriceFeed and TroveManager): the smallest loan
+  // that covers the invoice, and the test BTC it locks at Mezo's minimum ratio.
+  await expect(funds.locator(".funds-borrow")).toHaveText(
+    /^Or borrow MUSD without selling bitcoin: Mezo's smallest loan that covers this is 1,800\.00 MUSD\. It needs at least 0\.0\d+ test BTC locked as collateral: 110% of the 2,001\.80 MUSD debt, at [\d,]+ USD per BTC on Mezo's price feed, read now\. Lock more to stay clear of liquidation\.$/,
+  );
   await shot(poor.page, "10-pay-no-musd-390-light");
   expect(payer.problems).toEqual([]);
 });
@@ -462,12 +467,13 @@ test("status: Mezo testnet answers, the genuine release, MUSD read live as the r
   await expect(board).toHaveCount(1);
   await expect(board.locator(".board-name")).toHaveText("MEZO");
   const lights = board.locator(".vstrip > li");
-  await expect(lights.locator(".vstrip-name")).toHaveText(["Network answers", "Genuine contract", "MUSD on the network", "Network fee"]);
-  for (const index of [0, 1, 2, 3]) {
+  await expect(lights.locator(".vstrip-name")).toHaveText(["Network answers", "Genuine contract", "MUSD on the network", "Network fee", "Borrowing MUSD"]);
+  for (const index of [0, 1, 2, 3, 4]) {
     await expect(lights.nth(index)).toHaveAttribute("data-lamp", "ok");
   }
   await expect(lights.nth(2)).toHaveText(/Mezo USD \(MUSD\), 18 decimals · permit \(EIP-2612\): yes · signed transfers \(EIP-3009\): no, as the registry says\./);
   await expect(lights.nth(3)).toHaveText(/Paid in BTC by the payer: about \d+(\.\d+)? sat per payment at the current gas price\./);
+  await expect(lights.nth(4)).toHaveText(/Smallest loan 1,800\.00 MUSD: at least 0\.0\d+ test BTC of collateral \(110% of a 2,001\.80 MUSD debt\), at [\d,]+ USD per BTC on Mezo's price feed\./);
   const services = page.locator(".view-status > .vstrip").first();
   await expect(services.locator(".vstrip-name")).toHaveText(["Relayer", "Gasless payments", "History service"]);
   await expect(services).toContainText("Does not serve Mezo testnet: each payer's wallet sends the payment.");

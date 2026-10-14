@@ -858,7 +858,10 @@ export type MessageKey =
   | "mezo.status.feeValue"
   | "mezo.status.gasless"
   | "mezo.status.gaslessValue"
-  | "mezo.status.relayerNone";
+  | "mezo.status.relayerNone"
+  | "mezo.borrow.line"
+  | "mezo.status.loan"
+  | "mezo.status.loanValue";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1715,6 +1718,9 @@ export interface MessageParams {
   readonly "mezo.status.gasless": never;
   readonly "mezo.status.gaslessValue": never;
   readonly "mezo.status.relayerNone": never;
+  readonly "mezo.borrow.line": { readonly btc: ParamValue; readonly debt: ParamValue; readonly loan: ParamValue; readonly price: ParamValue; readonly ratio: ParamValue };
+  readonly "mezo.status.loan": never;
+  readonly "mezo.status.loanValue": { readonly btc: ParamValue; readonly debt: ParamValue; readonly loan: ParamValue; readonly price: ParamValue; readonly ratio: ParamValue };
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1889,4 +1895,7 @@ export type EditionKey =
   | "mezo.status.feeValue"
   | "mezo.status.gasless"
   | "mezo.status.gaslessValue"
-  | "mezo.status.relayerNone";
+  | "mezo.status.relayerNone"
+  | "mezo.borrow.line"
+  | "mezo.status.loan"
+  | "mezo.status.loanValue";

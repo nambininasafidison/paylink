@@ -6,6 +6,8 @@
  *   domain (ERC-5267), the EIP-2612 permit functions and no EIP-3009 (`authorizationState` reverts), exactly as the
  *   registry describes it (docs/research/mezo.md §4). Green when chain and registry agree, red when they do not.
  * - "Network fee", per Mezo chain: paid in BTC by the payer, about how much a `payWithPermit` costs at today's price.
+ * - "Borrowing MUSD", per Mezo chain with MUSD's BorrowerOperations in the registry: the smallest loan and the BTC it
+ *   locks, read live from MUSD's own contracts (`borrow.ts`), so a judge sees how a payer gets MUSD without selling BTC.
  * - "Gasless payments", under the services: none on Mezo, and why (MUSD has no EIP-3009; §11).
  *
  * Called only from a branch the build folds to the Mezo edition.
@@ -16,6 +18,7 @@ import { decodeFunctionResult, encodeFunctionData, erc20Abi, zeroAddress, zeroHa
 import type { App } from "../../app/context.ts";
 import type { ChainClient } from "../../core/clients.ts";
 import { h } from "../../ui/h.ts";
+import { loanParams, readLoanTerms, smallestLoan } from "./borrow.ts";
 import { satsText, settlementGas } from "./ui.ts";
 
 type Light = "ok" | "wait" | "err" | "off";
@@ -126,6 +129,18 @@ export function mezoStatus(app: App, board: HTMLElement, relayerLine: HTMLElemen
     const feeLine = light(t("mezo.status.fee"));
     strip.append(tokenLine.element, feeLine.element);
     const client = app.client(chain);
+    if (chain.contracts.musdBorrowerOperations !== undefined) {
+      const loanLine = light(t("mezo.status.loan"));
+      strip.append(loanLine.element);
+      void readLoanTerms(client, chain, token).then(
+        (terms) => {
+          loanLine.set("ok", t("mezo.status.loanValue", loanParams(smallestLoan(terms, 0n), app.locale)));
+        },
+        () => {
+          loanLine.set("wait", t("status.code.unknown"));
+        },
+      );
+    }
     void readToken(client, chain, token).then(
       (reading) => {
         tokenLine.set(

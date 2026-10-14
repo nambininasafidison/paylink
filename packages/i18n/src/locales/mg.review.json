@@ -852,6 +852,9 @@
     "mezo.status.gasless",
     "mezo.status.gaslessValue",
     "mezo.status.relayerNone",
+    "mezo.borrow.line",
+    "mezo.status.loan",
+    "mezo.status.loanValue",
     "mezo.pay.networkValue",
     "mezo.pay.thanks",
     "mezo.ticket.scanSub"

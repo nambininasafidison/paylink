@@ -46,5 +46,8 @@
   "mezo.status.feeValue": "Paid in BTC by the payer: about {sats} sat per payment at the current gas price.",
   "mezo.status.gasless": "Gasless payments",
   "mezo.status.gaslessValue": "Not on Mezo: MUSD has no signed transfers (EIP-3009), so each payer's wallet sends the payment.",
-  "mezo.status.relayerNone": "Does not serve Mezo testnet: each payer's wallet sends the payment."
+  "mezo.status.relayerNone": "Does not serve Mezo testnet: each payer's wallet sends the payment.",
+  "mezo.borrow.line": "Or borrow MUSD without selling bitcoin: Mezo's smallest loan that covers this is {loan} MUSD. It needs at least {btc} test BTC locked as collateral: {ratio}% of the {debt} MUSD debt, at {price} USD per BTC on Mezo's price feed, read now. Lock more to stay clear of liquidation.",
+  "mezo.status.loan": "Borrowing MUSD",
+  "mezo.status.loanValue": "Smallest loan {loan} MUSD: at least {btc} test BTC of collateral ({ratio}% of a {debt} MUSD debt), at {price} USD per BTC on Mezo's price feed."
 }

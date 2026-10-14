@@ -21,6 +21,7 @@ import { displayAmount } from "../../core/format.ts";
 import { ext } from "../../ui/atoms.ts";
 import { h } from "../../ui/h.ts";
 import type { Child } from "../../ui/h.ts";
+import { borrowLine } from "./borrow.ts";
 import { MEZO_LINKS } from "./links.ts";
 
 /** "Links: a · b" at the end of a sentence: each an external link, the drawn arrow included. */
@@ -67,15 +68,25 @@ export function mezoTestSteps(app: App): HTMLElement {
   );
 }
 
-/** The payer's row when the wallet holds too little MUSD: test MUSD is borrowed against test BTC, no faucet gives it. */
-export function musdFundsRow(app: App, token: Token, balance: bigint): HTMLElement {
+/**
+ * The payer's row when the wallet holds too little MUSD: test MUSD is borrowed against test BTC, no faucet gives it;
+ * then, read live from MUSD's own contracts, the smallest Mezo loan that covers the shortfall and the BTC it locks
+ * (`borrow.ts`; a network that does not answer leaves that line out).
+ */
+export function musdFundsRow(app: App, chain: ChainDefinition, token: Token, balance: bigint, needed: bigint): HTMLElement {
   const { t } = app.i18n;
-  return h(
+  const row = h(
     "div",
     { class: "funds" },
     h("p", { class: "funds-held" }, t("funds.held", { amount: displayAmount(balance, token, app.locale), symbol: token.symbol })),
     h("p", { class: "funds-how" }, t("mezo.funds.musd"), ...links([MEZO_LINKS.borrow, t("mezo.link.borrow")], [MEZO_LINKS.faucet, t("mezo.link.faucet")])),
   );
+  void borrowLine(app, chain, token, needed > balance ? needed - balance : 0n)
+    .then((text) => {
+      row.append(h("p", { class: "funds-how funds-borrow" }, text));
+    })
+    .catch(() => undefined);
+  return row;
 }
 
 /** The payer's row when the wallet holds no BTC for the fee (the router's `needs-gas`): Mezo's faucet. */
