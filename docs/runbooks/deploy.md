@@ -210,7 +210,14 @@ The deploy kit offers Mezo testnet (31611) before the registry enables it, becau
    ```
 
    then adds the deployment to [`docs/tools/address-allowlist.json`](../tools/address-allowlist.json) (chain 31611, `"use": "registry"`, the new record as its source) and runs the gates. The kit then only verifies Mezo, and the Mezo edition reads the deployment from the registry.
-9. **Afterwards:** the [§5](#5-after-every-deployment) checklist, with the source verified on `explorer.test.mezo.org` (Blockscout; its API is `https://api.explorer.test.mezo.org/api`, per Mezo's own Hardhat configuration, not reachable from the sandbox). For the smoke test, borrow test MUSD ([faucets runbook §3](faucets.md#3-musd-on-mezo-testnet-no-faucet)), sign an invoice in MUSD on `/mezo/`, and pay it from a second account that holds MUSD and a little test BTC (payWithPermit; no payment on Mezo is gasless).
+9. **Source verification, the same day.** A judge who clicks the contract address sees the source. Make the release's standard JSON input; the script checks that solc 0.8.30 compiles it to the release's exact init code before it writes anything:
+
+   ```bash
+   cd protocol && forge build --build-info && python3 script/standard-input.py > PayLinkV2-2.0.0.standard-input.json
+   ```
+
+   Then, on `https://explorer.test.mezo.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082` (Mezo's Blockscout), verify and publish the contract with "Solidity (Standard JSON input)": compiler `v0.8.30+commit.73712a01`, the file above, contract `src/PayLinkV2.sol:PayLinkV2`, no constructor arguments. Mezo's own Hardhat configuration names the explorer's Etherscan-compatible API, `https://api.explorer.test.mezo.org/api` (`module=contract&action=verifysourcecode`, `codeformat=solidity-standard-json-input`), for doing the same from a script. Neither page nor API can be reached from the sandbox, so the menu names and the API call are **UNVERIFIED**: do it from your browser and tell Claude the explorer link, which goes into the submission pack and the repository's landing page. The same file verifies the contract on Monad testnet and Base Sepolia.
+10. **Afterwards:** the [§5](#5-after-every-deployment) checklist. For the smoke test, borrow test MUSD ([faucets runbook §3](faucets.md#3-musd-on-mezo-testnet-no-faucet)), sign an invoice in MUSD on `/mezo/`, and pay it from a second account that holds MUSD and a little test BTC (payWithPermit; no payment on Mezo is gasless).
 
 The registry keeps Mezo testnet `disabled` after the deployment; enabling it (which lists it in `/` and lets the relayer serve it) is a separate decision ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)). Routes A and C (§4) work for 31611 too: `Deploy.s.sol` writes Mezo testnet's name and explorer into the record.
 

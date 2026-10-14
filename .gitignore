@@ -9,6 +9,8 @@ build/
 /protocol/broadcast/**/dry-run/
 /protocol/crytic-export/
 /protocol/lcov.info
+# The release's standard JSON input for explorer verification (protocol/script/standard-input.py), made on demand
+/protocol/PayLinkV2-*.standard-input.json
 # JS tooling
 coverage/
 dist/
