@@ -28,6 +28,7 @@ Screenshots of the review and done states (1280 px light, 390 px dark) are writt
 | Spec | What it makes |
 |---|---|
 | `capture/01-screens.spec.ts` | Five product screenshots at 390 × 844 (2×, dark, English) from the **production** build (`apps/web/dist`, built by the spec) opened at its real origin through request routing, against anvil forks of Monad testnet and Base Sepolia (`capture/fork.ts`: the deployed PayLinkV2, Agora's AUSD and faucet, Circle's USDC), the relayer through its Node adapter with a key made for the run, and the virtual authenticator with PRF. Writes `capture.json` (commit, fork blocks). Needs egress to the two testnet RPCs |
+| `capture/03-mezo.spec.ts` | Five screenshots of the Mezo edition (screen-6 to screen-10: the signed card, the permit route with the BTC fee, the receipt, Status with MUSD and the smallest loan, a payer who borrows MUSD) at 390 × 844 (2×, dark, English) from the **production** build at its real origin, against an anvil fork of Mezo testnet with the real MUSD and lending contracts. Runs once `protocol/deployments/31611.json` is recorded (skipped before), and writes `capture-mezo.json`. `PAYLINK_CAPTURE_MEZO_DRYRUN=1` runs the same steps now on the end-to-end build and writes to `e2e/test-results/capture/mezo-dryrun/` only |
 | `capture/02-artwork.spec.ts` | The logo at 1024 and 512 px, the 1200 × 630 social card, and each screenshot in a phone frame with its provenance line, from `packages/design/brand/`. Offline |
 
 ```bash
