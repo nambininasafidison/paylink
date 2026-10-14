@@ -4,8 +4,8 @@
 |---|---|
 | **Event** | "Build with MUSD and MEZO: Bitcoin's Economic Layer", the Mezo Buildathon on AKINDO (Mezo / Supernormal Foundation). Track 2 "Access & Distribution". An MUSD or MEZO integration is mandatory: PayLink's is MUSD ([§4](#4-the-musd-integration-explained)) |
 | **Deadline** | Wave 1 closes **2026-10-26** (time of day unknown: plan to submit by **Oct 24**). Build Oct 16–26, judging Oct 27–Nov 1; wave 2 builds Nov 2–15 (**UNVERIFIED**: third-party pages only, [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo)) |
-| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the deployment transaction on Mezo testnet, a real receipt, the video, a contact. **PayLinkV2 is not deployed on Mezo testnet yet**, and the preview that serves the edition is not online yet: both come first ([§10](#10-liste-de-contrôle-en-français)) |
-| **Written** | 2026-10-13, from the local branch `mezo` at `119a7d6` (23 commits on top of `main` at `0c3bfed`), and checked against Mezo testnet the same day |
+| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the deployment transaction on Mezo testnet, a real receipt, the video, a contact, the interviews. **PayLinkV2 is not deployed on Mezo testnet yet**, and the preview that serves the edition is not online yet. **First, before any other polish: [§10](#10-liste-de-contrôle-en-français) steps 3 to 9** (push the branch, deploy, record, verify the source, make the first real MUSD payment). Until then nothing in the edition can be signed or paid, so the pitch, the judge tour, the receipt link and the video cannot be checked live, and waves are judged on progress (**UNVERIFIED**). Date the deployment and the first payments inside the Oct 16–26 window and list them in the wave 1 field ([§5](#5-what-is-new-in-wave-1-what-comes-in-wave-2)) |
+| **Written** | 2026-10-13, from the local branch `mezo` at `119a7d6` (23 commits on top of `main` at `0c3bfed`), and checked against Mezo testnet the same day. Revised 2026-10-14 after a review: Mezo's RPC answers, the borrow estimate, the Mezo-only policy, the business fields, the wording of fees and gas |
 | **Who submits** | The owner, from the owner's AKINDO account. Claude Code drafts only ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 | **Checklist** | [§10](#10-liste-de-contrôle-en-français), in French; [README.md §5](README.md#5-mezo-buildathon-akindo-wave-1) says what is done |
 
@@ -32,22 +32,24 @@ Checked from the sandbox on 2026-10-13 unless stated otherwise. If one of them c
 
 | Fact | Value | Evidence |
 |---|---|---|
-| Contract on Mezo testnet (31611) | **Not deployed yet.** At `0x448eCce9711860502806A3d5B021a4f9Ba715082`, `eth_getCode` returns `0x` at block 16,144,231 (2026-10-13 22:57 UTC). The deploy kit targets Mezo testnet; you deploy from your wallet ([§10](#10-liste-de-contrôle-en-français) step 4) | live RPC `https://rpc.test.mezo.org`; [deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet) |
+| Contract on Mezo testnet (31611) | **Not deployed yet.** At `0x448eCce9711860502806A3d5B021a4f9Ba715082`, `eth_getCode` returns `0x` at block 16,145,564 (2026-10-14 00:44 UTC). The deploy kit targets Mezo testnet; you deploy from your wallet ([§10](#10-liste-de-contrôle-en-français) step 4) | live RPC `https://rpc.test.mezo.org`; [deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet) |
 | Release identity | PayLinkV2 2.0.0, init code hash `0x289dcd64…7ac5`, salt `keccak256("paylink.v2.0.0")`, through the canonical CREATE2 factory `0x4e59b44847b379578588920cA78FbF26c0B4956C`, which is on Mezo testnet with its canonical runtime. A dry-run call through it returns `0x448e…5082`; Mezo testnet estimates the deployment at 2,717,457 gas (**C**) | [research §3](../research/mezo.md#3-create2-factory-and-paylinkv2-on-mezo-testnet); `web/v2/deploy/data/release.json` |
 | Same contract elsewhere | Live at the same address on Monad testnet (block 69331735) and Base Sepolia (block 47859253), entered at Monad Metropolis and Colosseum | `protocol/deployments/10143.json`, `protocol/deployments/84532.json` |
 | Mezo testnet | Chain 31611 (`0x7b7b`); gas coin BTC, 18 decimals; blocks every 4.85 s on average over 10,000 blocks; charges **at least 50 % of the gas limit**; `eth_getLogs` spans at most 10,000 blocks (**C**) | [research §2](../research/mezo.md#2-network); `packages/chains/src/chains/mezo-testnet.ts` |
+| Mezo's RPC | Its only public RPC answers `null` to about half of the lookups of a **mined** transaction by hash (`eth_getTransactionReceipt`, `eth_getTransactionByHash`); a moment later the same request answers. PayLink, its SDK and the deploy kit ask again before they conclude anything, and say "not returned yet", never "invalid" (**C**) | [research §2](../research/mezo.md#2-network); [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) decision 7 |
+| MUSD lending | BorrowerOperations `0xCdF7028ceAB81fA0C6971208e83fa7872994beE5`: `minNetDebt` 1,800 MUSD, gas compensation 200 MUSD, borrowing fee 0.1 %, MCR 110 %, CCR 150 %, interest 1 % a year (`interestRate` 100 bps); 83,339 USD per BTC on MUSD's PriceFeed, no recovery mode (2026-10-14). The smallest loan books 2,001.80 MUSD of debt and locks at least 0.02643 BTC at 110 % (**C**) | [research §4](../research/mezo.md#4-musd-on-mezo-testnet) |
 | MUSD | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`: "Mezo USD", 18 decimals, EIP-712 domain `Mezo USD` / `1`. **EIP-2612 permit: yes** (ECDSA only, so smart accounts cannot sign one). **EIP-3009: no.** No fee, hook, pause or blocklist; not upgradeable. Its owner, an EOA on testnet, can let any address burn MUSD from any account (**C**) | [research §4](../research/mezo.md#4-musd-on-mezo-testnet) |
 | Payment routes | Plain wallet: `payWithPermit` (one permit + one transaction). Smart account: exact `approve` + `pay`, or one EIP-5792 batch. `payWithAuthorization`: impossible (MUSD has no EIP-3009) | [ADR 0017](../adr/0017-mezo-edition-chain-layer.md); `e2e/specs/mezo.spec.ts` |
 | Fork evidence | On an anvil fork of Mezo testnet (block 16,140,641) with the real MUSD and factory: the deployment lands at the release address (2,678,851 gas used); `payWithPermit` uses 135,733 gas, `pay` 101,996; each moves exactly the invoice amount, PayLinkV2 keeps nothing, no allowance is left | `packages/chains/data/fork-gas-measurements.json`; [research §5](../research/mezo.md#5-paylinkv2-with-musd-on-a-fork-smoke-test) |
-| Network fee per payment | About 2 to 4 × 10⁻¹¹ BTC (0.002 to 0.004 sat) at the 146 to 292 wei per gas seen on Mezo testnet, paid by the payer | [research §5](../research/mezo.md#5-paylinkv2-with-musd-on-a-fork-smoke-test) |
+| Network fee per payment | About **0.002 sat** (2 × 10⁻¹¹ BTC) charged for a `payWithPermit` at today's base fee and tip: 135,733 gas used × (130 + 16) wei, 2026-10-14. The pay page and Status show an **upper bound under 0.005 sat**: the 177,100-gas limit PayLink sets × (2 × base fee + tip), 276 wei. Paid by the payer | [research §5](../research/mezo.md#5-paylinkv2-with-musd-on-a-fork-smoke-test); `apps/web/src/editions/mezo/ui.ts` (`feeUpperBound`) |
 | Test funds | Test BTC from `https://faucet.test.mezo.org` (captcha; drip size **UNVERIFIED**) or the Mezo Discord `#testnet`. Test MUSD has **no faucet**: it is borrowed against test BTC, at least 2,000 MUSD of debt (1,800 + a 200 reserve), so at least about 0.0265 test BTC of collateral; plan on 0.04 | [research §8](../research/mezo.md#8-how-a-tester-gets-test-btc-and-musd); [faucets runbook §3](../runbooks/faucets.md#3-musd-on-mezo-testnet-no-faucet) |
-| Mezo edition | `/mezo/` on branch `mezo`: create, pay, receipt, ledger, send, till, status; EIP-6963 wallets; MUSD only; its own Content-Security-Policy (Mezo's RPC only); EN, FR, MG | `apps/web/src/editions/mezo/`; [web app README](../../apps/web/README.md) |
+| Mezo edition | `/mezo/` on branch `mezo`: create, pay, receipt, ledger, send, till, status; EIP-6963 wallets; MUSD only; the smallest MUSD loan read live from MUSD's contracts; its own Content-Security-Policy (Mezo's RPC only: not even PayLink's relayer, which serves no Mezo chain); EN, FR, MG | `apps/web/src/editions/mezo/`; `apps/web/public/_headers`; [web app README](../../apps/web/README.md) |
 | Tests | On branch `mezo`, 2026-10-13: 335 Foundry tests passing; 1,523 TypeScript tests passing (SDK 564, web 395, chains 224, relayer 131, deploy page 77, design 29, i18n 29, indexer 28, ESLint config 25, verify-deployment 21; 9 opt-in fork tests skipped; the relayer's workerd test failed once on a network error and passed on the rerun); 40 Playwright end-to-end tests passing and 1 skipped by design, 8 of them for the Mezo edition on a fork of Mezo testnet | `forge test`; `pnpm -r test`; `e2e/specs/mezo.spec.ts` |
 | Where it is served | `https://mezo.paylink-mg.pages.dev/mezo/`, the Cloudflare Pages preview of branch `mezo`, **not online yet**: the branch is not pushed and the project's preview branch setting is "None" ([§2](#2-where-judges-see-it-the-preview-of-branch-mezo)). The host is blocked from the sandbox, so check it yourself | [Cloudflare Pages runbook §2](../runbooks/cloudflare-pages.md#2-build-settings) |
 | Production | `https://paylink-mg.pages.dev/monad/` answers 200; `https://paylink-mg.pages.dev/mezo/` answers 404. Production stays on `main`, unchanged, while Monad Metropolis and Colosseum are judged | `curl`, 2026-10-13 |
 | Relayer, indexer | Neither serves Mezo: the relayer cannot carry an MUSD payment with PayLinkV2, and there is no history indexer for Mezo | [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) |
 | Real payments on Mezo testnet | **None yet** (no contract there). Your rehearsal and video make the first ones | — |
-| Users, revenue, partners, interviews | None to report as of 2026-10-13 | [interview protocol](../research/interview-script.md) ready; no session recorded |
+| Users, revenue, partners, interviews | None to report as of 2026-10-14. Plan: 3 to 6 sessions before Oct 24, reported as "n of N" ([demand validation](#demand-validation)) | [interview protocol](../research/interview-script.md) ready; no session recorded |
 | Buildathon rules | Tracks, rubric (Mezo Integration 30, Product & Business Viability 30, Technical Implementation 20, User Experience 10, Submission Materials 10), wave dates and form fields come from third-party pages; AKINDO cannot be reached from here (**UNVERIFIED**) | [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo) |
 
 ## 2. Where judges see it: the preview of branch mezo
@@ -83,6 +85,8 @@ Characters: 7 (no stated limit)
 
 `docs/submissions/assets/logo-1024.png` (1024 × 1024 PNG), the app's own mark ([README §3](README.md#3-assets)). Do not use `social-card.png`: it shows the Monad edition.
 
+**Screenshots.** Five Mezo screens (`screens/screen-6-mezo-create.png` to `screen-10-mezo-borrow.png`: the signed card, the permit route with the BTC fee, the receipt, Status with MUSD and the smallest loan, a payer who borrows MUSD) come from the production build on a fork of Mezo testnet, with `capture-mezo.json` saying when and from which commit. They need the recorded deployment, so Claude makes them right after [§10](#10-liste-de-contrôle-en-français) step 5 (`pnpm --filter @paylink/e2e capture 03-mezo`); label them "fork capture" wherever they appear, or take your own from the live preview once it pays.
+
 ### TL;DR
 
 <!-- field: mezo.tldr max=0 -->
@@ -106,14 +110,16 @@ WHAT A USER DOES (mezo.paylink-mg.pages.dev/mezo/, Mezo testnet)
 1. Sign an invoice. The seller connects any EVM wallet (MetaMask, Rabby or another EIP-6963 wallet), types an amount in MUSD and what it is for, reads a signing display (amount, address grouped by four, network, expiry) and signs one EIP-712 invoice. No transaction, no gas, no sign-up; the wallet adds Mezo testnet from our registry if it does not know it. The link, a QR card that prints on A6, WhatsApp and a till are ready at once. An invoice is paid once, by a set number of payers, or without limit as an open-amount receive card.
 2. Pay. The client opens the link. Four lamps are read from Mezo before the Pay key unlocks: the signature, the network, the contract (the genuine PayLink release: registry address, code hash, EIP-712 immutables) and whether the invoice is still payable. A plain wallet signs one EIP-2612 permit for exactly the amount, under MUSD's own domain ("Mezo USD", version 1), then sends one payWithPermit transaction. A smart account approves exactly the amount, then pays; a wallet that batches (EIP-5792) does both in one approval. The page shows the network fee in sats, paid in BTC by the payer's wallet.
 3. Get paid. The payment transaction moves exactly the invoice amount from payer to payee; PayLink keeps nothing and no allowance is left. The receipt is verified on chain before the screen says Approved. The seller's till lights green only for a verified Paid event of that invoice at its exact amount. The ledger reads each invoice's state from the contract, totals it, exports CSV, and cancels an open invoice with one transaction.
-4. Get test funds. The app walks a tester through Mezo's own pages: test BTC from Mezo's faucet or Discord, and test MUSD borrowed against test BTC in Mezo's testnet app (MUSD has no faucet). A payer who lacks BTC or MUSD is told which one and where to get it.
-5. Check everything. The Status page reads Mezo live: the network, the genuine contract, MUSD (name, decimals, permit yes, EIP-3009 no, exactly as our registry says) and the fee per payment.
+4. Pay without selling bitcoin. A payer who lacks MUSD sees the smallest Mezo loan that covers the invoice and the test BTC it locks, read live from MUSD's own contracts, next to Mezo's testnet borrow page (MUSD has no faucet). A payer who lacks BTC for the fee is sent to Mezo's faucet or Discord.
+5. Check everything. The Status page reads Mezo live: the network, the genuine contract, MUSD (name, decimals, permit yes, EIP-3009 no, exactly as our registry says), the fee per payment and the smallest MUSD loan.
 The app is in English, French and Malagasy (Malagasy under review by the founder), with an ariary estimate that is labelled as an estimate and never used in a payment.
 
-HOW WE USE MUSD
+HOW WE USE MUSD AND MEZO
+- Beyond the token: a payer short of MUSD is shown the smallest Mezo loan that covers the invoice and the test BTC it locks, computed with MUSD's own rule from values read live from MUSD's BorrowerOperations, PriceFeed and TroveManager (minimum debt, borrowing fee, gas compensation, collateral ratio, recovery mode). For a bitcoin holder that reads: pay this invoice without selling your bitcoin.
 - MUSD is the edition's only invoice currency, and its properties were read on Mezo testnet, not assumed: 18 decimals, EIP-2612 permits with ECDSA signatures only, no EIP-3009, no fee or transfer hook, not upgradeable.
-- MUSD has permits but not signed transfers, so the payer's own wallet sends the payment and pays the BTC fee, about 2 to 4 x 10^-11 BTC per payment. The app says so instead of promising a gasless flow that PayLink cannot deliver with MUSD.
-- Mezo charges at least 50% of a transaction's gas limit, so every transaction sends a limit derived from gas bounds measured on a fork of Mezo testnet with the real MUSD, which keeps that minimum below the gas actually used.
+- MUSD has permits but not signed transfers, so the payer's own wallet sends the payment and pays the BTC fee: about 0.002 sat at today's prices, under the 0.005-sat upper bound the pay page shows. The app says so instead of promising a gasless flow that PayLink cannot deliver with MUSD.
+- Mezo charges at least 50% of a transaction's gas limit, so every PayLink call (pay, payWithPermit, cancel) sends a limit from gas bounds measured on a fork of Mezo testnet with the real MUSD, which keeps that minimum below the gas actually used. The exact approve before a pay sends its own estimate plus 10%, and an EIP-5792 batch's limit is the wallet's.
+- Mezo's public RPC sometimes answers "not found" for a transaction that is mined. PayLink asks again, and says "not returned yet" instead of calling a real payment invalid.
 - The app discloses MUSD's issuer powers: on testnet, the owner of the MUSD contract can let chosen addresses mint MUSD or burn it from any account.
 
 UNDER THE HOOD
@@ -126,7 +132,7 @@ UNDER THE HOOD
 HONEST STATUS
 Testnet only, not audited, no users or revenue yet. PayLink v2 (contract, SDK, web app) was built from Oct 5, 2026 and is also entered at Monad Metropolis and Colosseum; the Mezo edition was built for this buildathon from Oct 13. Claude Code (AI) did much of the engineering under the founder's direction; the founder owns every decision, key and submission.
 ```
-Characters: 5,720 (no stated limit)
+Characters: 6,544 (no stated limit)
 
 ### Target group
 
@@ -138,6 +144,55 @@ Characters: 5,720 (no stated limit)
 These are hypotheses we are testing in structured, consented interviews, not a validated market.
 ```
 Characters: 821 (no stated limit)
+
+### Business model and go-to-market
+
+"Product & Business Viability" weighs 30 of 100 in the rubric (**UNVERIFIED**). Adapted from the Colosseum pack's business plan ([colosseum.md §4](colosseum.md#4-business-plan-and-go-to-market)), rewritten for MUSD. Every figure about MUSD was read on Mezo testnet on 2026-10-14 ([research §4](../research/mezo.md#4-musd-on-mezo-testnet)); everything else is a hypothesis or a plan.
+
+<!-- field: mezo.business max=0 -->
+```text
+Everything below is a plan or a hypothesis to test, not a result. As of October 14, 2026, PayLink has no users, no revenue and no partners, and we claim none.
+
+WHO PAYS IN MUSD, AND WHY (hypotheses)
+- Payers abroad who hold bitcoin and do not want to sell it. On Mezo they can borrow MUSD against it (1% a year on testnet today, plus a 0.1% fee and a 200 MUSD reserve on the debt, all read on chain) and pay a dollar invoice with it. PayLink shows them the smallest loan that covers the invoice before they pay.
+- Malagasy freelancers and small merchants who invoice those payers: a signed MUSD invoice on WhatsApp, a printed QR card, a till that lights only for a verified payment, and books read from the contract.
+- Every invoice puts PayLink in front of a payer at the moment of paying, so payers are also our main acquisition channel.
+
+BUSINESS MODEL (hypotheses)
+- The core stays free. The contract takes no fee and cannot be changed to take one, and on Mezo the payer's own wallet pays the network fee, so a payment costs us nothing.
+- PayLink Business, later: a subscription for accounting export, webhooks, team access and branded cards. The price is to be tested; interviews count only past spending on invoicing or bookkeeping tools as evidence.
+- Later, referral revenue from licensed cash-out partners. None exists today.
+
+GO-TO-MARKET (plan)
+- Founder-led onboarding in Antananarivo, in Malagasy and French (the app speaks both, plus English), starting with the founder's own circles of freelancers and developers.
+- Mezo's own community: bitcoin holders who already borrow MUSD are the payers we need. We will show the edition in Mezo's Discord and ask testers to pay a real testnet invoice.
+- WhatsApp first: the share sheet, the wa.me link and the printed card are built in.
+- The payer loop: we measure how many payers later issue their own invoice.
+
+RISKS WE NAME
+- Cash-out: PayLink does not convert MUSD to ariary; users need a licensed local path, and we have no partner today.
+- Regulation: payment and foreign-exchange rules in Madagascar must be reviewed with counsel before any mainnet launch; we make no compliance claim.
+- The issuer and the loan: MUSD's owner can let chosen addresses mint MUSD or burn it from any account (read on testnet), and a borrower's loan is liquidated if bitcoin falls far enough.
+- Payers need an EVM wallet and a little BTC for the fee; Bitcoin wallets through Mezo Passport come in wave 2.
+
+METRICS
+Activation (first paid invoice within 7 days), median time to get paid (computed by the app), repeat payers per merchant, payer-to-merchant conversion, share of payers who borrowed MUSD to pay, and cash-out completion once a path exists.
+
+NEXT 90 DAYS (plan)
+October: PayLinkV2 deployed on Mezo testnet, its source verified, the first real MUSD payments; 3 to 6 interviews reported as "n of N". November (wave 2): Bitcoin wallets as payers through Mezo Passport, and a testnet pilot with freelancers in Antananarivo. December: an external review of the contract if funding allows; Mezo mainnet only after a cash-out path and a legal review exist.
+
+WHY NOW
+MUSD lets a bitcoin holder spend dollars without selling bitcoin, at a fixed rate, and a payment on Mezo costs a fraction of a satoshi, so a small invoice is worth paying on chain. PayLink adds what a freelancer needs around that dollar: an invoice, a till, a receipt anyone can verify, and books.
+```
+Characters: 3,410 (no stated limit)
+
+### Demand validation
+
+<!-- field: mezo.validation max=0 -->
+```text
+We have not validated demand yet, and we say so. What exists: a written interview protocol with six hypotheses (H1 to H6) and their falsifiers, a consent form, and reporting rules that count only what participants describe from their own past ("n of N", never "would you use it"). Planned: 3 to 6 sessions before October 24, 2026, with freelancers in Antananarivo and with payers who hold bitcoin. Sessions held as of [TO FILL: date]: [TO FILL: N]. Findings: [TO FILL: "n of N" lines with their limitations, or "none yet"].
+```
+Characters: 523 (no stated limit)
 
 ### Tech stack
 
@@ -175,29 +230,32 @@ Characters: 191 (no stated limit)
 
 <!-- field: mezo.integration max=0 -->
 ```text
-PayLink uses MUSD as the invoice and payment currency of its Mezo edition.
+PayLink uses MUSD as the invoice and payment currency of its Mezo edition, and reads Mezo's own MUSD system, not only the token.
+- Borrow to pay, without selling bitcoin: a payer who lacks MUSD is shown the smallest Mezo loan that covers the invoice and the test BTC it locks, computed with BorrowerOperations' own rule from values read live: the minimum debt, the borrowing fee, the 200 MUSD gas compensation and the collateral ratio from BorrowerOperations, the BTC price from MUSD's PriceFeed, recovery mode from TroveManager. The Status page shows the smallest loan too. Read only: PayLink never touches the loan.
 - Invoices name MUSD (0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 on Mezo testnet) and an amount in its 18 decimals, signed by the seller with EIP-712: no gas.
 - Payment: a plain wallet signs one EIP-2612 permit for exactly the amount under MUSD's own EIP-712 domain ("Mezo USD", version 1), with PayLinkV2 as spender, then sends PayLinkV2.payWithPermit. The contract uses the permit and moves exactly the amount from payer to payee in the same transaction, and emits Paid. A smart account (which cannot sign an MUSD permit, since MUSD checks ECDSA only) approves exactly the amount, then calls pay, or sends both as one EIP-5792 batch.
 - Every MUSD property we rely on was read on Mezo testnet: decimals, the permit functions and domain separator, the absence of EIP-3009, no fee or hook, no proxy. The Status page re-reads them live and turns red if MUSD stops matching our registry.
-- Mezo's gas rules: the fee is paid in BTC by the payer, at least 50% of the gas limit is charged, so limits come from gas bounds measured on a fork of Mezo testnet with the real MUSD; the pay page shows the fee in sats.
+- Mezo's gas rules: the fee is paid in BTC by the payer and at least 50% of the gas limit is charged, so every PayLink call (pay, payWithPermit, cancel) sends a limit from gas bounds measured on a fork of Mezo testnet with the real MUSD; the exact approve before a pay sends its own estimate plus 10%, and a batch's limit is the wallet's. The pay page shows the fee in sats.
+- Mezo's RPC: it sometimes answers "not found" for a mined transaction, so PayLink asks again and never calls a real payment invalid.
 - Onboarding: the app links Mezo's faucet and Discord for test BTC and Mezo's testnet borrow page for MUSD, and tells a payer whether BTC or MUSD is missing.
-Not used yet: Mezo Passport (it needs React; we use EIP-6963 wallets), the MEZO token, and gasless payment (MUSD has no EIP-3009, and PayLinkV2 charges whoever sends a permit payment).
+Not used yet: Mezo Passport (it needs React; Bitcoin wallets as payers are our wave 2 headline), the MEZO token, and gasless payment (MUSD has no EIP-3009, and PayLinkV2 charges whoever sends a permit payment).
 ```
-Characters: 1,523 (no stated limit)
+Characters: 2,380 (no stated limit)
 
 ### Future milestones
 
 <!-- field: mezo.milestones max=0 -->
 ```text
+Wave 1, right after the deployment: PayLinkV2's source verified on Mezo's explorer (the release's standard JSON input is ready and checked against the release).
 Wave 2 (Nov 2-15), each item decided and tested on Mezo testnet before it ships:
 1. Bitcoin wallets as payers: Mezo Passport (Unisat, OKX, Xverse through Safe smart accounts) on the pay page, paying with approve and pay.
 2. Lighter payments for the payer: test whether Mezo includes EIP-7702 transactions, so a sponsor can carry a payment the payer still signs, and find whether an ERC-4337 paymaster exists on Mezo.
 3. MEZO as a second currency, once a payment in MEZO through PayLinkV2 is proven on Mezo testnet itself.
 4. A testnet pilot with freelancers in Antananarivo, reported as interview counts with their limits, and the Malagasy text reviewed.
-5. Source verification on Mezo's explorer, and a full payment history for the merchant's ledger.
+5. A full payment history for the merchant's ledger.
 Later, only after a third-party audit and a legal review of payments and foreign exchange in Madagascar: Mezo mainnet, and a cash-out path through licensed partners (none exists today).
 ```
-Characters: 937 (no stated limit)
+Characters: 1,054 (no stated limit)
 
 ### Team
 
@@ -237,12 +295,14 @@ Characters: 762 (no stated limit)
 | The route | The SDK picks the route from the token's flags and the payer's account: a code-less payer gets `payWithPermit`, a smart account gets exact `approve` + `pay`, or one EIP-5792 batch if the wallet offers it. An EIP-3009 route is refused for MUSD (`E_TOKEN_NOT_EIP3009`) | `packages/sdk/src/router.ts`; [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) |
 | The permit | One `Permit` signature under MUSD's own domain: owner the payer, spender PayLinkV2, value exactly the amount | `e2e/specs/mezo.spec.ts` checks every field |
 | Settlement | `payWithPermit` uses the permit for `msg.sender` and moves exactly the amount from payer to payee in the same transaction; the contract never holds MUSD and leaves no allowance. A second payment of a one-off invoice reverts `SoldOut` | `protocol/src/PayLinkV2.sol`; fork rehearsal in `tools/deploy-page/test/mezo-fork.test.ts` |
-| Gas | Each transaction sends `clamp(estimate × 1.10, floor, ceiling)` from bounds measured on a fork of Mezo testnet (for `payWithPermit` 161,000 to 242,000), so Mezo's 50 % minimum charge stays below the gas used. The pay page shows the fee in sats as an upper estimate | `packages/chains/data/fork-gas-measurements.json` |
+| Gas | Each PayLink call (`pay`, `payWithPermit`, `cancel`) sends `clamp(estimate × 1.10, floor, ceiling)` from bounds measured on a fork of Mezo testnet (for `payWithPermit` 161,000 to 242,000), so Mezo's 50 % minimum charge stays below the gas used. The exact `approve` before a `pay` sends its own estimate × 1.10 (approve is not a PayLink call, so it has no registry bounds); an EIP-5792 batch carries no limit, the wallet sets it, and Mezo charges at least half of it. The pay page shows the fee in sats as an upper bound | `packages/chains/data/fork-gas-measurements.json`; `apps/web/src/rails/wallet.ts` |
 | The receipt and the till | The receipt is verified against the chain before "Approved"; the till lights only for a verified `Paid` event of its invoice at the exact amount | `e2e/specs/mezo.spec.ts` |
 | Status | MUSD is re-read live: symbol, decimals, ERC-5267 domain, `nonces` and `DOMAIN_SEPARATOR` answer, `authorizationState` does not. Red if the chain and the registry disagree | `apps/web/src/editions/mezo/status.ts` |
 | Funds | No BTC: the payer is sent to Mezo's faucet and Discord, and the Pay key reads "Check my BTC again". No MUSD: "MUSD has no faucet", with Mezo's testnet borrow page | `apps/web/src/editions/mezo/ui.ts`, `apps/web/src/editions/mezo/links.ts` |
+| Borrowing, read live | No MUSD: the smallest Mezo loan that covers the shortfall (at least `minNetDebt`, whole MUSD), the debt it books (+ 0.1 % fee + 200 MUSD gas compensation) and the BTC it locks at MCR (CCR in recovery mode), from BorrowerOperations (in the registry), its PriceFeed and its TroveManager, by `eth_call` only. The Status page shows the smallest loan | `apps/web/src/editions/mezo/borrow.ts`; [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) decision 8 |
+| Mezo's RPC | Lookups by hash that answer `null` for a mined transaction are asked again (8 lookups over about 11 s) before anything is concluded; a payment whose receipt is not returned yet reads "sent, not returned yet" with "Check the payment again" | `packages/sdk/src/receipt.ts`, `apps/web/src/pages/pay.ts`; ADR 0017 decision 7 |
 
-**Why no payment is gasless on Mezo.** PayLink's gasless route elsewhere is `payWithAuthorization`, which needs EIP-3009; MUSD has none. `payWithPermit` and `pay` take the payer from `msg.sender`, so a relayer that sent them would pay with its own money. The payer therefore pays a fee of about 2 to 4 × 10⁻¹¹ BTC and must hold a little test BTC ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
+**Why no payment is gasless on Mezo.** PayLink's gasless route elsewhere is `payWithAuthorization`, which needs EIP-3009; MUSD has none. `payWithPermit` and `pay` take the payer from `msg.sender`, so a relayer that sent them would pay with its own money. The payer therefore pays a fee of about 0.002 sat (2 × 10⁻¹¹ BTC) at today's prices and must hold a little test BTC ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
 
 **Not integrated, and why.** Mezo Passport needs React, wagmi and RainbowKit, and its Bitcoin-wallet accounts are Safe smart accounts that cannot sign an MUSD permit; Mezo's docs call it optional (**C**, [research §9](../research/mezo.md#9-mezo-passport)). MEZO is permit-capable on chain, but a payment in MEZO through PayLinkV2 is untested, because anvil cannot run Mezo's built-in token contracts (**UNVERIFIED**). Both are wave 2 candidates ([§5](#5-what-is-new-in-wave-1-what-comes-in-wave-2)).
 
@@ -256,11 +316,13 @@ New in wave 1 (built from Oct 13, 2026, on top of PayLink v2):
 - Mezo testnet in PayLink's chain registry, with every fact read on chain: MUSD's domain and permit support, the absence of EIP-3009, the 50% minimum gas charge, the 10,000-block log window.
 - A gas table measured on a fork of Mezo testnet with the real MUSD and CREATE2 factory.
 - The browser deploy kit and the verification CLI target Mezo testnet; the deployment was rehearsed on a fork, where it lands at the release address and passes all ten checks.
-- The Mezo edition of the app: MUSD invoices, payment by permit, by exact approval, or by one batch for smart accounts, the BTC fee shown in sats, guidance to Mezo's faucet and borrow page, MUSD checked live on the Status page, and its own Content-Security-Policy. English, French and Malagasy.
+- The Mezo edition of the app: MUSD invoices, payment by permit, by exact approval, or by one batch for smart accounts, the BTC fee shown in sats, guidance to Mezo's faucet and testnet borrow page, MUSD checked live on the Status page, and its own Content-Security-Policy (Mezo's RPC only). English, French and Malagasy.
+- Pay without selling bitcoin: the smallest Mezo loan that covers an invoice, and the test BTC it locks, read live from MUSD's BorrowerOperations, PriceFeed and TroveManager, on the pay page and the Status page.
+- Reads that hold on Mezo's public RPC, which sometimes answers "not found" for a mined transaction: the app, the SDK and the deploy tools ask again instead of calling a payment invalid.
 - 8 end-to-end tests of the edition on a fork of Mezo testnet with the real MUSD, including accessibility checks in three languages.
-- PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on [TO FILL: date], and the first real MUSD payments through it on [TO FILL: date].
+- PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on [TO FILL: date], its source verified on Mezo's explorer on [TO FILL: date], and the first real MUSD payments through it on [TO FILL: date].
 ```
-Characters: 1,113 (no stated limit)
+Characters: 1,597 (no stated limit)
 
 **Wave 2 (Nov 2–15, UNVERIFIED dates).** The milestones field above lists them. Each needs its own decision before it is built: Passport brings React and GPL-3.0 code into an MIT app; EIP-7702 sponsorship needs Mezo to include type-4 transactions (**L**) and wallets to support them; ERC-4337 needs a bundler and paymaster on Mezo, and none is known (**UNVERIFIED**); MEZO needs a payment proven on testnet itself ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
 
@@ -273,7 +335,7 @@ Paste into the project page or wherever AKINDO asks for test instructions. Fill 
 Everything runs on Mezo testnet (chain 31611). You need an EVM browser wallet (MetaMask, Rabby or any EIP-6963 wallet); on a phone, open the links in your wallet's own browser. Bitcoin wallets that need Mezo Passport cannot connect yet.
 
 QUICK LOOK, NO FUNDS (2 minutes)
-- Status: https://mezo.paylink-mg.pages.dev/mezo/status/ reads Mezo testnet live: the network, the genuine PayLink contract, MUSD (permit yes, EIP-3009 no) and the BTC fee per payment.
+- Status: https://mezo.paylink-mg.pages.dev/mezo/status/ reads Mezo testnet live: the network, the genuine PayLink contract, MUSD (permit yes, EIP-3009 no), the BTC fee per payment, and the smallest MUSD loan with the BTC it locks, read from MUSD's own contracts.
 - A real paid receipt: [TO FILL: receipt link of the demo payment]. It re-verifies the payment on chain each time it opens; "View the transaction" opens Mezo's explorer.
 - An open invoice: [TO FILL: open-amount invoice link]. Its four lamps (signature, network, contract, payable) are read from the chain before anything can be paid.
 
@@ -290,7 +352,7 @@ QUICK LOOK, NO FUNDS (2 minutes)
 - Open the link with another account (a second browser profile or device).
 - Press "Connect a wallet to pay", then "Switch to Mezo testnet" if asked, then "Pay 1.50 MUSD". A plain account signs one permit for exactly the amount, then confirms one transaction. A smart account approves exactly the amount, then pays. The line under the key gives the network fee in sats, paid in BTC by your wallet.
 - "Approved" appears once the receipt is verified on chain. "Open the receipt", then "View the transaction".
-- No BTC or no MUSD: the page says which is missing and links Mezo's faucet and borrow page. Test MUSD has no faucet; it is borrowed against test BTC (smallest loan 1,800 MUSD plus a 200 MUSD reserve).
+- No BTC or no MUSD: the page says which is missing and links Mezo's faucet and testnet borrow page. Without MUSD it also shows the smallest Mezo loan that covers the invoice and the test BTC it locks, read live. Test MUSD has no faucet; it is borrowed against test BTC (smallest loan 1,800 MUSD plus a 200 MUSD reserve).
 - If you would rather not borrow, send your address to [TO FILL: your Discord or Telegram handle] and we will send you 20 test MUSD and a little test BTC.
 
 4. SELLER: THE BOOKS
@@ -302,7 +364,7 @@ CHECK IT YOURSELF
 - Source and tests: https://github.com/nambininasafidison/paylink/tree/mezo. The Mezo parts: apps/web/src/editions/mezo, e2e/specs/mezo.spec.ts, docs/adr/0017-mezo-edition-chain-layer.md, docs/research/mezo.md.
 - Language: EN, FR or MG at the top of every page.
 ```
-Characters: 3,150 (no stated limit)
+Characters: 3,349 (no stated limit)
 
 ## 7. Honest limitations
 
@@ -311,7 +373,10 @@ For the reviewers and for you. The texts above already say the ones that matter 
 | Limitation | Effect | What we say |
 |---|---|---|
 | Testnet only, not audited | No real money; Mezo's own dApp listing needs a third-party audit and mainnet (**C**, Mezo docs) | "Testnet only, not audited"; the contract review is our own (335 Foundry tests, 100 % line and branch coverage, 63 of 63 mutants killed) |
-| No gasless payment | Every payer needs a little test BTC, about 2 to 4 × 10⁻¹¹ BTC per payment; a merchant's cancellation is a transaction too | Said in the app (lead notes, pay page, Status) and in the texts |
+| No gasless payment | Every payer needs a little test BTC, about 0.002 sat per payment (the app shows an upper bound under 0.005 sat); a merchant's cancellation is a transaction too | Said in the app (lead notes, pay page, Status) and in the texts |
+| Mezo's RPC answers `null` for some mined transactions | "Approved" can take a few seconds more; rarely the pay page says "not returned yet" and offers "Check the payment again", and a receipt link may need "Try again" | ADR 0017 decision 7; not in the texts beyond "asks again" |
+| The borrow estimate is a floor | It is the minimum collateral at Mezo's ratio at the price read now; a loan that close to it is liquidated by a small fall of bitcoin | The app says "Lock more to stay clear of liquidation"; PayLink never opens or touches a loan |
+| Source not verified on an explorer yet | A judge who opens the contract on `explorer.test.mezo.org` sees bytecode only, until it is verified | Wave 1, the day of the deployment ([deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet) step 9) |
 | Test MUSD is borrowed, not dispensed | A tester needs at least about 0.0265 test BTC of collateral to mint the smallest loan; judges may hold no MUSD | The app explains it; the judge instructions offer to send MUSD (your call) |
 | Faucet unverified from here | The faucet's drip and cooldown are **UNVERIFIED** (the page cannot be reached from the sandbox). The borrow page is Mezo's testnet one, `testnet.mezo.org/feature/borrow` (**C**, Mezo's user guide); `mezo.org/feature/borrow` is the Mainnet app | The app links the testnet borrow page only |
 | No Mezo Passport, no Bitcoin wallets | Unisat, OKX or Xverse users cannot pay yet | Said on the wallet picker; wave 2 candidate |
@@ -320,7 +385,7 @@ For the reviewers and for you. The texts above already say the ones that matter 
 | Ledger history | No indexer for Mezo: "Payments received" lists recent blocks only, and says over what period | — |
 | Gas bounds from a fork | Measured with anvil's Ethereum gas schedule; only the deployment estimate is confirmed equal on Mezo itself (**L** for the rest). The table is provisional until re-measured on chain | [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) |
 | Explorer links | `explorer.test.mezo.org/tx/…` follows Blockscout's layout (**L**); the explorer could not be reached from here | Check "View the transaction" in the rehearsal |
-| Malagasy | The 48 Mezo strings in Malagasy are machine drafts pending the founder's review (`packages/i18n/src/locales/mg.review.json`) | "Malagasy under review by the founder" |
+| Malagasy | The 51 Mezo strings in Malagasy, and the 2 core strings added for an unconfirmed payment, are machine drafts pending the founder's review (`packages/i18n/src/locales/mg.review.json`) | "Malagasy under review by the founder" |
 | Issuer risk | The MUSD owner can authorise addresses that burn MUSD from any account | Disclosed on the create page |
 | Market | No users, revenue, partners or interviews yet; no cash-out to ariary | Hypotheses only, in every text |
 | Rules | Rubric, tracks, dates and fields are from third-party pages (**UNVERIFIED**) | Check them on AKINDO before submitting |
@@ -383,15 +448,18 @@ For the reviewers and for you. The texts above already say the ones that matter 
 
 Dans l'ordre. Ne pousse jamais `main` : seulement la branche `mezo`. Les étapes « Claude » se font dans une session Claude Code.
 
+**Avant tout le reste : les étapes 3 à 9, au plus tôt, bien avant le 24 octobre.** Tant que PayLinkV2 n'est pas déployé et enregistré, rien ne peut être signé ni payé dans l'édition Mezo : ni le parcours des juges, ni le lien de reçu, ni la vidéo ne peuvent être vérifiés en direct, et les vagues sont jugées sur les progrès (non vérifié). Fais le déploiement et les premiers paiements pendant la fenêtre du 16 au 26 octobre, note leurs dates et donne-les à Claude pour le champ « vague 1 » ([§5](#5-what-is-new-in-wave-1-what-comes-in-wave-2)).
+
 1. **Discord et AKINDO.** Rejoins le Discord de Mezo (`https://discord.com/invite/mezo`) avec le compte que tu déclares sur AKINDO. Vérifie ton inscription au Mezo Buildathon, puis lis sur AKINDO l'heure exacte de clôture de la vague 1 (le 26 octobre), les champs du formulaire et leurs limites : ce dossier n'a pas pu les lire.
 2. **BTC de test.** Crée deux comptes MetaMask simples et neufs, « Rakoto Design » (vendeur, il déploie aussi) et « Client » (payeur). Demande du BTC de test sur `https://faucet.test.mezo.org` (captcha) pour les deux. Pour emprunter du MUSD il faut au moins environ 0,0265 BTC de test de garantie (prévois 0,04) : si le robinet donne moins, demande dans `#testnet` sur le Discord.
 3. **Prévisualisation, puis la branche.** D'abord, dans Cloudflare Pages, projet `paylink-mg` : Settings → Build → Branch control → Preview branch « Custom branches », inclure seulement `mezo` ; ajoute à l'environnement **Preview** `NODE_VERSION` = `22.22.0`, `PNPM_VERSION` = `10.28.0`, `SKIP_DEPENDENCY_INSTALL` = `1` ([§2](#2-where-judges-see-it-the-preview-of-branch-mezo)). Ensuite `git push origin mezo` (jamais `main` ; ou demande-le explicitement à Claude). Vérifie que `https://mezo.paylink-mg.pages.dev/mezo/status/` répond (« Build » donne ton commit, édition `mezo`) et que `https://paylink-mg.pages.dev/monad/` n'a pas changé.
 4. **Déployer PayLinkV2 sur Mezo testnet** ([deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet)). Ouvre `https://mezo.paylink-mg.pages.dev/v2/deploy/?chain=mezo`. Vérifie l'`initCodeHash` `0x289dcd64…7ac5` et l'adresse `0x448eCce9711860502806A3d5B021a4f9Ba715082` (sinon, arrête). MetaMask en compte standard (mode smart account désactivé), MEZO, « Switch wallet to Mezo testnet », accepte le réseau (31611, BTC). Tous les voyants verts, **Deploy**, confirme sans toucher la limite de gas.
-5. **Enregistrer.** Quand les 10 vérifications passent, télécharge `31611.json` et donne-le à Claude avec le hash de la transaction. Claude revérifie, committe l'enregistrement, régénère registre, kit et relais, ajoute le déploiement au README du dépôt et remplit adresse et hash dans ce dossier.
+5. **Enregistrer.** Quand les 10 vérifications passent, télécharge `31611.json` et donne-le à Claude avec le hash de la transaction et la date. Claude revérifie, committe l'enregistrement, régénère registre, kit et relais, ajoute le déploiement au README du dépôt, remplit adresse et hash dans ce dossier, puis fait les cinq captures d'écran Mezo (`pnpm --filter @paylink/e2e capture 03-mezo`, sur un fork) et prépare le fichier de vérification du code source (`python3 script/standard-input.py`, [deploy runbook §8](../runbooks/deploy.md#8-mezo-testnet) étape 9).
+5 bis. **Vérifier le code source sur l'explorateur, le même jour.** Sur `https://explorer.test.mezo.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082`, « Verify & publish » avec « Solidity (Standard JSON input) », compilateur `v0.8.30+commit.73712a01`, le fichier que Claude t'a préparé, contrat `src/PayLinkV2.sol:PayLinkV2`, sans arguments de constructeur (noms de menus non vérifiés : l'explorateur est injoignable depuis le bac à sable). Donne le lien à Claude, qui l'ajoute à ce dossier et au README.
 6. **Repousser.** `git push origin mezo`. Sur `https://mezo.paylink-mg.pages.dev/mezo/status/` : le contrat Mezo est vert (« Genuine contract »), MUSD vert, « Build » donne ton commit.
 7. **MUSD de test.** Avec « Rakoto Design », connecte-toi sur `https://testnet.mezo.org`, puis emprunte au moins 2 000 MUSD sur `https://testnet.mezo.org/feature/borrow`. N'utilise jamais `https://mezo.org/feature/borrow` : le guide de Mezo dit que c'est l'application **Mainnet**, avec de vrais BTC. Envoie 50 à 100 MUSD et un peu de BTC à « Client ».
 8. **Lien pour les juges.** Sur `/mezo/`, crée un lien à montant libre (montant vide, « Unlimited », 30 jours).
-9. **Répétition = premier vrai paiement.** Facture de 12,50 MUSD signée par « Rakoto Design », payée par « Client » (une signature permit, une transaction). Ouvre le reçu, puis « View the transaction » sur l'explorateur. Garde le lien du reçu.
+9. **Répétition = premier vrai paiement.** Facture de 12,50 MUSD signée par « Rakoto Design », payée par « Client » (une signature permit, une transaction). Ouvre le reçu, puis « View the transaction » sur l'explorateur. Garde le lien du reçu et note la date. Avec un compte qui a du MUSD mais pas de BTC, regarde aussi si l'application testnet de Mezo propose « Get Gas » (un échange sans frais de MUSD contre un peu de BTC) et dis-le à Claude : s'il existe, la ligne « pas de BTC » pourra le citer.
 10. **Vidéo.** Tourne la démo ([§8](#8-demo-video-script-at-most-200-captions-no-narration)) : au plus 2 min, sous-titres, sans voix. Mets-la sur YouTube.
 11. **Remplir et soumettre.** Donne à Claude le lien du reçu, le lien à montant libre, la vidéo, ton pseudo Discord ou Telegram et les dates (ou remplace toi-même chaque `[TO FILL: …]`, puis `python3 docs/tools/submission_fields.py --update`). Sur AKINDO : piste 2, chaîne Mezo, les textes du [§3](#3-project-page-and-form-fields) et du [§6](#6-judge-access-instructions), le dépôt `…/tree/mezo`, l'adresse, la vidéo. Soumets avant le 26 octobre (vise le 24), puis pose le tag `submission/mezo-wave1-<date>` et pousse-le.
 12. **Pendant le jugement (27 oct.–1er nov.).** Laisse la prévisualisation en ligne, ne pousse rien de cassant sur `mezo`, garde du MUSD et du BTC de test pour les juges, et surveille le Discord.

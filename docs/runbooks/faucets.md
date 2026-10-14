@@ -38,7 +38,7 @@ Test MUSD cannot come from a faucet. You must borrow it:
 
 1. Claim test BTC early. The amount needed is significant: the smallest loan is 1,800 MUSD of debt plus a 200 MUSD gas deposit plus the 0.1 % fee, at **≥ 110 %** collateral, so at least about **0.0265 test BTC** (about $2.2k at the testnet price feed, 83,161.76 USD per BTC on 2026-10-13, **C** on chain). Plan on **0.04 BTC or more** to stay clear of liquidation.
 2. Sign in at `testnet.mezo.org` with the wallet on Mezo testnet, then borrow **at least 2,000 MUSD** at `testnet.mezo.org/feature/borrow`, the testnet borrow page of Mezo's user guide "How to Borrow & Mint MUSD". Never use `mezo.org/feature/borrow`: the same guide calls it the **Mainnet** app, where real BTC backs real MUSD ([research §8](../research/mezo.md#8-how-a-tester-gets-test-btc-and-musd)).
-3. Send MUSD to test payers with plain transfers. Each payer also needs a little test BTC for gas: no MUSD payment on Mezo is gasless ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)), though one costs only about 2 to 4 × 10⁻¹¹ BTC.
+3. Send MUSD to test payers with plain transfers. Each payer also needs a little test BTC for gas: no MUSD payment on Mezo is gasless ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)), though one costs only about 0.002 sat (2 × 10⁻¹¹ BTC) at today's prices.
 4. If the faucet is too slow, ask in the `#testnet` channel of the Mezo Discord.
 
 ## 4. Claim log
