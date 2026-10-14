@@ -224,6 +224,13 @@ export interface GasModel {
 export interface RpcLimits {
   /** Largest `eth_getLogs` block range accepted by the public endpoints. */
   readonly maxLogBlockRange?: number;
+  /**
+   * The public endpoints sometimes answer `null` to a lookup by hash (`eth_getTransactionReceipt`,
+   * `eth_getTransactionByHash`) for a transaction that is mined, while the same request answers it a moment later (Mezo
+   * testnet, C: docs/research/mezo.md §2). On such a chain a `null` means "ask again", not "absent": clients ask again
+   * on the schedule of `txLookupRetryMs` before they conclude anything (ADR 0017). Absent elsewhere.
+   */
+  readonly inconsistentTxIndex?: boolean;
 }
 
 /**

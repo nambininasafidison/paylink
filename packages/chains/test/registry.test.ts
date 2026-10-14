@@ -23,6 +23,8 @@ import {
   FORK_GAS_LIMITS,
   MEZO_GAS_TABLE,
   RELEASE,
+  TX_LOOKUP_RETRY_MS,
+  txLookupRetryMs,
   GAS_MEASUREMENTS,
   toChecksumAddress,
   UnknownChainError,
@@ -137,6 +139,16 @@ describe("spec §3.4 facts", () => {
     expect(mezoTestnet.explorers.map((e) => [e.name, e.url])).toEqual([["Mezo Explorer", "https://explorer.test.mezo.org"]]);
     expect(mezoTestnet.nativeCurrency).toEqual({ name: "Bitcoin", symbol: "BTC", decimals: 18 });
     expect(mezoTestnet.rpcLimits.maxLogBlockRange).toBe(10_000);
+    // A null from a lookup by hash is "ask again" there (research §2); nowhere else.
+    expect(mezoTestnet.rpcLimits.inconsistentTxIndex).toBe(true);
+    expect(txLookupRetryMs(mezoTestnet)).toEqual(TX_LOOKUP_RETRY_MS);
+    for (const other of [monadTestnet, baseSepolia, arbitrumSepolia]) {
+      expect(other.rpcLimits.inconsistentTxIndex).toBeUndefined();
+      expect(txLookupRetryMs(other)).toEqual([]);
+    }
+    expect(txLookupRetryMs(undefined)).toEqual([]);
+    expect(TX_LOOKUP_RETRY_MS.length).toBe(7);
+    expect(TX_LOOKUP_RETRY_MS.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(12_000);
     const musd = erc20(mezoTestnet, "MUSD");
     expect([musd.address, musd.decimals, musd.listing, musd.capabilities, musd.eip712Domain, musd.pendingVerification]).toEqual([
       "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",

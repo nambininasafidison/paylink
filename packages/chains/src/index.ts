@@ -22,6 +22,7 @@ export type { LocalChainOptions } from "./local.ts";
 export { createRegistry, RegistryError, scopeToEdition, toChecksumAddress, UnknownChainError } from "./registry.ts";
 export type { Registry, V2Target } from "./registry.ts";
 export type * from "./types.ts";
+export { TX_LOOKUP_RETRY_MS, txLookupRetryMs } from "./tx-lookup.ts";
 export { rpcTransport, toViemChain } from "./viem.ts";
 export type { RpcTransportOptions } from "./viem.ts";
 

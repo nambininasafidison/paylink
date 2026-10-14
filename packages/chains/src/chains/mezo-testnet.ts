@@ -24,8 +24,9 @@ export const mezoTestnet: ChainDefinition = {
   editions: ["all", "mezo"],
   nativeCurrency: { name: "Bitcoin", symbol: "BTC", decimals: 18 },
   rpc: [{ url: "https://rpc.test.mezo.org", confidence: "C" }],
-  // "maximum [from, to] blocks distance: 10000", read live.
-  rpcLimits: { maxLogBlockRange: 10_000 },
+  // "maximum [from, to] blocks distance: 10000", read live. Lookups by hash answer null for mined transactions about
+  // one time in two (C, research §2): a null is "ask again" (txLookupRetryMs).
+  rpcLimits: { maxLogBlockRange: 10_000, inconsistentTxIndex: true },
   // Mezo's Blockscout explorer: /address/ links are in Mezo's docs (C); /tx/ and /block/ follow Blockscout's EIP-3091
   // layout (L). The explorer could not be reached from the build machine.
   explorers: [{ name: "Mezo Explorer", url: "https://explorer.test.mezo.org", confidence: "C" }],

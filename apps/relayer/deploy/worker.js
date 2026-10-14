@@ -23965,7 +23965,10 @@ const mezoTestnet = {
 		url: "https://rpc.test.mezo.org",
 		confidence: "C"
 	}],
-	rpcLimits: { maxLogBlockRange: 1e4 },
+	rpcLimits: {
+		maxLogBlockRange: 1e4,
+		inconsistentTxIndex: true
+	},
 	explorers: [{
 		name: "Mezo Explorer",
 		url: "https://explorer.test.mezo.org",
