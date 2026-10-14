@@ -15,6 +15,8 @@
  *   offers EIP-5792 batches approves once (`wallet_sendCalls([approve, pay])`).
  * - A payer without BTC is told the fee is BTC and sent to Mezo's faucet, and pays once funded; a payer without MUSD is
  *   told test MUSD is borrowed, not dispensed.
+ * - Mezo testnet's RPC answers `null` for mined transactions (research §2), which a fork never does: with lookups that
+ *   answer `null` first, the payment still reads "Approved", the receipt still verifies and the till still lights.
  * - The payee cancels an invoice from the ledger with one `cancel` transaction (no relayer serves Mezo).
  * - Status: Mezo testnet answers, the contract is the genuine release, MUSD read live matches the registry, the BTC fee
  *   in sats, and why no payment is gasless here.
@@ -36,6 +38,8 @@ import { axe } from "../fixtures/axe.ts";
 import { brokenWords, horizontalOverflow, overlappingTargets, setLocale, truncatedText } from "../fixtures/layout.ts";
 import { buildMezoSite, MEZO, mezoChains, MezoUnreachable, MUSD_DOMAIN, PAYLINK, routeMezo, startMezoFork } from "../fixtures/mezo.ts";
 import type { MezoFork } from "../fixtures/mezo.ts";
+import { nullLookups } from "../fixtures/null-lookups.ts";
+import type { NullLookups } from "../fixtures/null-lookups.ts";
 import { servePages } from "../fixtures/pages.ts";
 import type { StaticServer } from "../fixtures/pages.ts";
 import { REPO } from "../fixtures/server.ts";
@@ -104,14 +108,14 @@ interface Actor {
 }
 
 /** A person at a browser with a wallet on `account`; the wallet starts on Ethereum and does not know Mezo testnet. */
-async function actor(browser: Browser, account: Address, options: { phone?: boolean; scheme?: "light" | "dark"; batch?: boolean; known?: boolean } = {}): Promise<Actor> {
+async function actor(browser: Browser, account: Address, options: { phone?: boolean; scheme?: "light" | "dark"; batch?: boolean; known?: boolean; nulls?: NullLookups } = {}): Promise<Actor> {
   const context = await browser.newContext({
     viewport: options.phone === true ? { width: 390, height: 844 } : { width: 1280, height: 900 },
     ...(options.phone === true ? { deviceScaleFactor: 2, isMobile: true, hasTouch: true } : {}),
     colorScheme: options.scheme ?? "light",
   });
   contexts.push(context);
-  await routeMezo(context, fork());
+  await routeMezo(context, fork(), options.nulls === undefined ? {} : { nulls: options.nulls });
   // The relayer serves no Mezo chain: nothing on /mezo/ may ask it anything.
   const relayer: string[] = [];
   await context.route("https://paylink-relayer.raherizonambinina.workers.dev/**", async (route) => {
@@ -302,6 +306,44 @@ test("hero flow: a 12.50 MUSD invoice, signed without gas, paid with one permit 
   expect(payer.problems).toEqual([]);
   expect(till.problems).toEqual([]);
   expect([...payee.relayer, ...payer.relayer, ...till.relayer]).toEqual([]);
+});
+
+test("Mezo testnet's RPC answers null for mined transactions: the payment, its receipt and the till still check out", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const m = fork();
+  const payeeAddress = account(1);
+  const payerAddress = account(9);
+  await m.mintMusd(payerAddress, MUSD("10"));
+  const payee = await actor(browser, payeeAddress);
+  const link = await createInvoice(payee, "2.75", "Lookups that answer null");
+
+  // The till: the payment's receipt answers null ten times, more than one check asks (eight). The first check cannot
+  // read it, so the till says the network is lost, keeps the log, and lights on the next poll of the same blocks.
+  const tillNulls = nullLookups("N".repeat(10));
+  const till = await actor(browser, payeeAddress, { known: true, nulls: tillNulls });
+  await till.page.goto(link.replace("/mezo/pay/#", "/mezo/till/#"));
+  await till.page.getByRole("button", { name: "Start the till" }).click();
+  const display = till.page.locator(".till");
+  await expect(display).toHaveAttribute("data-state", "waiting");
+
+  // The payer: the wait for the receipt sees three nulls, the check before "Approved" two, and the receipt page one.
+  const payerNulls = nullLookups("NNNRNNRNR");
+  const payer = await actor(browser, payerAddress, { known: true, nulls: payerNulls });
+  const key = await openToPay(payer, link, "Pay 2.75 MUSD");
+  await key.click();
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved", { timeout: 60_000 });
+  await expect(payer.page.locator(".status")).not.toContainText("Error code");
+  expect(await m.musd("balanceOf", payerAddress)).toBe(MUSD("10") - MUSD("2.75"));
+
+  await expect(display).toHaveAttribute("data-state", "paid", { timeout: 60_000 });
+  await expect(till.page.locator(".till-verdict")).toHaveText("Paid");
+  expect(tillNulls.nulled()).toBe(10);
+
+  await payer.page.locator(".receipt-slot a.key").first().click();
+  await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Payment found");
+  await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Matches the invoice");
+  expect(payerNulls.nulled()).toBe(6);
+  expect([...payee.problems, ...payer.problems, ...till.problems]).toEqual([]);
 });
 
 test("a smart account approves exactly the amount then pays; one whose wallet batches approves once", async ({ browser }) => {

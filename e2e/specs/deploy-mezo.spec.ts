@@ -6,7 +6,8 @@
  *   its presigned transaction (Mezo testnet has the canonical runtime): the wallet does not know Mezo and adds it from
  *   the registry; the page reads the registry RPC (https://rpc.test.mezo.org, allowed by its CSP), says that Mezo
  *   charges at least half the gas limit, sends exactly Deploy.s.sol's CREATE2 transaction with the clamped limit,
- *   verifies, and prints protocol/deployments/31611.json byte for byte as tools/verify-deployment does;
+ *   verifies, and prints protocol/deployments/31611.json byte for byte as tools/verify-deployment does, while the RPC
+ *   answers null to lookups of the mined deployment as Mezo testnet's does (fixtures/null-lookups.ts);
  * - with PAYLINK_FORK_MEZO=1 (egress to rpc.test.mezo.org), the same against an anvil fork of Mezo testnet itself: the
  *   page deploys through Mezo's own factory, from a fork-only account. Nothing is sent to Mezo testnet.
  */
@@ -25,6 +26,8 @@ import { axe } from "../fixtures/axe.ts";
 import { serveWeb, WEB_ROOT } from "../fixtures/server.ts";
 import type { StaticServer } from "../fixtures/server.ts";
 import { withoutRecord } from "../fixtures/deploy-data.ts";
+import { nullLookups } from "../fixtures/null-lookups.ts";
+import type { NullLookups } from "../fixtures/null-lookups.ts";
 import { installWallet, routeRegistry } from "../fixtures/wallet.ts";
 
 const MEZO = 31611;
@@ -83,9 +86,9 @@ test.afterEach(async () => {
  * Connects the wallet, which starts on Ethereum mainnet and does not know Mezo testnet, picks Mezo testnet, lets the page
  * add it to the wallet from the registry, deploys, and returns the printed record and the transaction the wallet sent.
  */
-async function deployOnMezo(page: Page, context: BrowserContext, rpc: (method: string, params: unknown[]) => Promise<unknown>, url: string, account: Address): Promise<{ record: string; limit: bigint }> {
+async function deployOnMezo(page: Page, context: BrowserContext, rpc: (method: string, params: unknown[]) => Promise<unknown>, url: string, account: Address, nulls?: NullLookups): Promise<{ record: string; limit: bigint }> {
   const wallet = await installWallet(page, { account, chainId: 1, endpoints: new Map<number, string | null>([[1, null], [MEZO, url]]), known: [1] });
-  const registryLog = await routeRegistry(context, new Map([[MEZO, url]]));
+  const registryLog = await routeRegistry(context, new Map([[MEZO, url]]), nulls === undefined ? {} : { nulls });
   // Once protocol/deployments/31611.json ships, the page only verifies Mezo's record; the fresh flow stays covered.
   await withoutRecord(context, MEZO);
 
@@ -141,7 +144,11 @@ test("Mezo testnet 31611: the wallet adds Mezo from the registry, CREATE2 throug
   // anvil prices the tip in gwei (Mezo testnet's is 16 wei), so the wallet holds enough for anvil's prices.
   await mezo.rpc("anvil_setBalance", [account, numberToHex(10n ** 18n)]);
 
-  const { record } = await deployOnMezo(page, context, async (method, params) => await mezo.rpc(method, params), mezo.url, account);
+  // Mezo testnet's RPC answers null for mined transactions (research §2): the deployment's receipt comes back on the
+  // 4th poll, and the verification's lookups of it and of its transaction each answer null three times first.
+  const nulls = nullLookups("NNNRNNNR");
+  const { record } = await deployOnMezo(page, context, async (method, params) => await mezo.rpc(method, params), mezo.url, account, nulls);
+  expect(nulls.nulled()).toBe(9);
   const parsed = JSON.parse(record) as { chainId: number; network: string; address: string; deployment: { method: string; deployer: string; txHash: Hex; factory: string }; explorers: { name: string; tx: string }[] };
   expect(parsed).toMatchObject({ chainId: MEZO, network: "Mezo testnet", address: CREATE2_ADDRESS, deployment: { method: "CREATE2", deployer: account, factory: PROXY.factory } });
   expect(parsed.explorers.map((e) => e.name)).toEqual(["Mezo Explorer"]);

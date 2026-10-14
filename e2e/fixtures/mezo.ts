@@ -25,6 +25,7 @@ import { concat, decodeFunctionResult, encodeFunctionData, getAddress, parseAbi 
 import type { Address, Hex } from "viem";
 import type { Fork } from "../capture/fork.ts";
 import { foundryBinary, freePort, jsonRpc } from "./anvil.ts";
+import type { NullLookups } from "./null-lookups.ts";
 import { REPO } from "./server.ts";
 
 export const MEZO = {
@@ -237,9 +238,10 @@ export async function buildMezoSite(chains: string): Promise<string> {
 
 /**
  * Sends the page's requests for the registry's Mezo RPC to the fork, with the CORS answers a public RPC gives; the
- * suggested tip is Mezo testnet's own (`MezoFork.tip`).
+ * suggested tip is Mezo testnet's own (`MezoFork.tip`). `nulls`: answer lookups by hash of mined transactions with
+ * `null` the way Mezo testnet's RPC does (fixtures/null-lookups.ts), which the fork never does.
  */
-export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "fork" | "tip">): Promise<{ method: string }[]> {
+export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "fork" | "tip">, options: { readonly nulls?: NullLookups } = {}): Promise<{ method: string }[]> {
   const forkUrl = mezo.fork.url;
   const log: { method: string }[] = [];
   const cors = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
@@ -268,7 +270,8 @@ export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "f
       await route.abort("failed").catch(() => undefined);
       return;
     }
-    await route.fulfill({ status: response.status, headers: { ...cors, "content-type": "application/json" }, body: await response.text() });
+    const text = await response.text();
+    await route.fulfill({ status: response.status, headers: { ...cors, "content-type": "application/json" }, body: options.nulls === undefined ? text : options.nulls.rewrite(body, text) });
   });
   return log;
 }

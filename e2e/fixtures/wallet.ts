@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BrowserContext, Page, Route } from "@playwright/test";
 import { jsonRpc } from "./anvil.ts";
+import type { NullLookups } from "./null-lookups.ts";
 import { WEB_ROOT } from "./server.ts";
 
 export interface WalletRequest {
@@ -210,9 +211,10 @@ export function registryRpcs(): ReadonlyMap<number, readonly string[]> {
 /**
  * Sends the page's requests to the registry RPCs (https://testnet-rpc.monad.xyz, …) to the anvil running that chain,
  * with the CORS answers a public RPC gives. Chains without an anvil fail like an unreachable endpoint. Returns the
- * log of forwarded JSON-RPC methods.
+ * log of forwarded JSON-RPC methods. `nulls`: answer lookups by hash the way Mezo testnet's RPC does
+ * (fixtures/null-lookups.ts).
  */
-export async function routeRegistry(context: BrowserContext, anvils: ReadonlyMap<number, string>): Promise<{ method: string; chainId: number }[]> {
+export async function routeRegistry(context: BrowserContext, anvils: ReadonlyMap<number, string>, options: { readonly nulls?: NullLookups } = {}): Promise<{ method: string; chainId: number }[]> {
   const log: { method: string; chainId: number }[] = [];
   const cors = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
   for (const [chainId, urls] of registryRpcs()) {
@@ -231,7 +233,8 @@ export async function routeRegistry(context: BrowserContext, anvils: ReadonlyMap
         const body = request.postData() ?? "{}";
         log.push({ method: (JSON.parse(body) as { method: string }).method, chainId });
         const response = await fetch(anvil, { method: "POST", headers: { "content-type": "application/json" }, body });
-        await route.fulfill({ status: response.status, headers: { ...cors, "content-type": "application/json" }, body: await response.text() });
+        const text = await response.text();
+        await route.fulfill({ status: response.status, headers: { ...cors, "content-type": "application/json" }, body: options.nulls === undefined ? text : options.nulls.rewrite(body, text) });
       });
     }
   }
