@@ -36,7 +36,12 @@ export const MEZO = {
   explorer: "https://explorer.test.mezo.org",
   musd: getAddress("0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503"),
   borrowerOperations: getAddress("0xCdF7028ceAB81fA0C6971208e83fa7872994beE5"),
+  /** MUSD's PriceFeed (`solidity/artifacts/deployments/matsnet/PriceFeed.json` at aa25fd6; BorrowerOperations names it). */
+  priceFeed: getAddress("0x86bCF0841622a5dAC14A313a15f96A95421b9366"),
 } as const;
+
+/** `fetchPrice()`: the only call the fork cannot answer (below). */
+const FETCH_PRICE = "0x0fdb11cf";
 
 /** MUSD's EIP-712 domain as the token reports it (ERC-5267, docs/research/mezo.md §4). */
 export const MUSD_DOMAIN = { name: "Mezo USD", version: "1" } as const;
@@ -78,6 +83,11 @@ export interface MezoFork {
    * page with this one instead (the only answer it does not take from the fork).
    */
   readonly tip: Hex;
+  /**
+   * MUSD's `PriceFeed.fetchPrice()` as Mezo testnet answers it when the fork starts. Its oracle is Mezo's precompile at
+   * 0x7b7c…0015, which anvil cannot run (the call reverts on the fork), so `routeMezo` answers the page with this one.
+   */
+  readonly price: Hex;
   /** PayLinkV2's deployment on the fork, as the e2e registry records it. */
   readonly deployment: { readonly address: Address; readonly txHash: Hex; readonly blockNumber: string; readonly deployer: Address };
   /** Mints test MUSD on the fork (BorrowerOperations, impersonated). */
@@ -153,14 +163,15 @@ export async function startMezoFork(): Promise<MezoFork> {
   }
   try {
     const tip = await jsonRpc<Hex>(MEZO.upstream, "eth_maxPriorityFeePerGas").catch((): Hex => "0x10");
-    return { ...(await prepare(fork)), tip };
+    const price = await jsonRpc<Hex>(MEZO.upstream, "eth_call", [{ to: MEZO.priceFeed, data: FETCH_PRICE }, "latest"]);
+    return { ...(await prepare(fork)), tip, price };
   } catch (error) {
     await fork.stop();
     throw error;
   }
 }
 
-async function prepare(fork: Fork): Promise<Omit<MezoFork, "tip">> {
+async function prepare(fork: Fork): Promise<Omit<MezoFork, "tip" | "price">> {
   const call = async (to: Address, data: Hex): Promise<Hex> => await fork.rpc<Hex>("eth_call", [{ to, data }, "latest"]);
   const musdCall = async (functionName: "balanceOf" | "nonces", owner: Address): Promise<bigint> =>
     BigInt(await call(MEZO.musd, functionName === "balanceOf" ? encodeFunctionData({ abi: musdAbi, functionName: "balanceOf", args: [owner] }) : encodeFunctionData({ abi: musdAbi, functionName: "nonces", args: [owner] })));
@@ -238,10 +249,11 @@ export async function buildMezoSite(chains: string): Promise<string> {
 
 /**
  * Sends the page's requests for the registry's Mezo RPC to the fork, with the CORS answers a public RPC gives; the
- * suggested tip is Mezo testnet's own (`MezoFork.tip`). `nulls`: answer lookups by hash of mined transactions with
- * `null` the way Mezo testnet's RPC does (fixtures/null-lookups.ts), which the fork never does.
+ * suggested tip and MUSD's BTC price are Mezo testnet's own (`MezoFork.tip`, `MezoFork.price`). `nulls`: answer lookups
+ * by hash of mined transactions with `null` the way Mezo testnet's RPC does (fixtures/null-lookups.ts), which the fork
+ * never does.
  */
-export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "fork" | "tip">, options: { readonly nulls?: NullLookups } = {}): Promise<{ method: string }[]> {
+export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "fork" | "tip" | "price">, options: { readonly nulls?: NullLookups } = {}): Promise<{ method: string }[]> {
   const forkUrl = mezo.fork.url;
   const log: { method: string }[] = [];
   const cors = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
@@ -259,6 +271,11 @@ export async function routeMezo(context: BrowserContext, mezo: Pick<MezoFork, "f
     }
     if (!Array.isArray(parsed) && parsed.method === "eth_maxPriorityFeePerGas") {
       await route.fulfill({ status: 200, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: mezo.tip }) });
+      return;
+    }
+    const call = Array.isArray(parsed) ? undefined : (parsed as { params?: [{ to?: string; data?: string; input?: string }?] }).params?.[0];
+    if (!Array.isArray(parsed) && parsed.method === "eth_call" && call?.to?.toLowerCase() === MEZO.priceFeed.toLowerCase() && (call.data ?? call.input ?? "").startsWith(FETCH_PRICE)) {
+      await route.fulfill({ status: 200, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: mezo.price }) });
       return;
     }
     // anvil may close a kept-alive socket between two requests ("other side closed"): one retry on a fresh one.
