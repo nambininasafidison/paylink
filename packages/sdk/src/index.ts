@@ -131,7 +131,7 @@ export { assertRelayWindow, checkRelayCancelRequest, checkRelayPayRequest, descr
 export type { AccountCode, CheckedPayRequest, CheckedRelayCall, RelayWindow } from "./relayer.ts";
 export { requesterFromIp } from "./requester.ts";
 export type { RequesterId } from "./requester.ts";
-export { createReceiptVerifier, decodePaidLog, invoiceMismatch, isPaymentForArmedInvoice, verifyReceipt } from "./receipt.ts";
+export { createReceiptVerifier, decodePaidLog, invoiceMismatch, isPaymentForArmedInvoice, ReceiptUnavailableError, verifyReceipt } from "./receipt.ts";
 export type { LogLike, PaidEvent, ReceiptClient, ReceiptFailure, ReceiptLike, ReceiptProof, ReceiptVerification, ReceiptVerifier } from "./receipt.ts";
 export { isDelegatedCode, payerAccountKind, selectPaymentPath } from "./router.ts";
 export type { PayerAccountKind, PaymentPath, ResubmitOnly, Route, RouteInput } from "./router.ts";
