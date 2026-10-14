@@ -91,6 +91,17 @@ describe("_headers", () => {
     expect(new Set(connect.slice(1))).toEqual(expected);
     expect(connect.slice(1).every((origin) => origin.startsWith("https://"))).toBe(true);
     expect(configOrigins({ relayer: { url: "https://relayer.example/v1" }, indexer: null, rpc: { "10143": ["https://rpc.example:8443/x"] } })).toEqual(["https://relayer.example", "https://rpc.example:8443"]);
+    // Narrowed to some chains, an endpoint counts only if it serves one of them.
+    const config = {
+      relayer: { url: "https://relayer.example", chains: [10143, 84532] },
+      indexer: { url: "https://indexer.example", chains: [31611] },
+      rpc: { "10143": ["https://monad.example"], "31611": ["https://mezo.example"] },
+    };
+    expect(configOrigins(config, new Set([31611]))).toEqual(["https://indexer.example", "https://mezo.example"]);
+    expect(configOrigins(config, new Set([10143]))).toEqual(["https://relayer.example", "https://monad.example"]);
+    expect(connectOrigins("mezo", undefined, config)).toEqual(["https://rpc.test.mezo.org", "https://indexer.example", "https://mezo.example"]);
+    // A relayer that served Mezo testnet would be allowed on the Mezo pages too.
+    expect(connectOrigins("mezo", undefined, { ...config, relayer: { url: "https://relayer.example", chains: [31611] } })).toContain("https://relayer.example");
   });
 
   it("detaches the app's policy before setting each area's own (Cloudflare joins duplicate headers with a comma)", () => {
@@ -110,7 +121,7 @@ describe("_headers", () => {
     expect(permissions).toContain("payment=()");
   });
 
-  it("gives the Mezo edition a policy of its own: its chain's RPC and config.json's endpoints, the shared policy unchanged", () => {
+  it("gives the Mezo edition a policy of its own: its chain's RPC and the config.json endpoints that serve it, the shared policy unchanged", () => {
     const parsed = rules(renderHeaders());
     const keys = [...parsed.keys()];
     expect(keys.indexOf("/mezo/*")).toBeGreaterThan(keys.indexOf("/*"));
@@ -121,7 +132,9 @@ describe("_headers", () => {
     const mezoCsp = directives((policies[0] ?? "").slice("Content-Security-Policy: ".length));
     const mezoRpcs = editionChains("mezo").flatMap((chain) => chain.rpc.map((rpc) => new URL(rpc.url).origin));
     expect(editionChains("mezo").map((chain) => chain.chainId)).toEqual([31611]);
-    expect(new Set(mezoCsp.get("connect-src"))).toEqual(new Set(["'self'", ...mezoRpcs, ...configOrigins()]));
+    // config.json's relayer serves no Mezo chain, so the Mezo pages cannot reach it (the app never calls it there).
+    expect(new Set(mezoCsp.get("connect-src"))).toEqual(new Set(["'self'", ...mezoRpcs]));
+    expect(mezoCsp.get("connect-src")).not.toContain("https://paylink-relayer.raherizonambinina.workers.dev");
     // Everything else is the app's policy, word for word: Trusted Types, no framing, own scripts and styles.
     const shared = directives(appCsp(connectOrigins("all")));
     for (const [name, values] of shared) {

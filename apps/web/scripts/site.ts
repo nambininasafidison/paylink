@@ -14,8 +14,9 @@
  * - app: `script-src 'self'`, `style-src 'self'`, Trusted Types with the single `paylink-sw` policy, and `connect-src`
  *   limited to the registry RPCs of the built editions and the endpoints of public/config.json;
  * - an edition with a policy of its own (`OWN_POLICY_EDITIONS`: the Mezo edition): the same policy, with `connect-src`
- *   limited to that edition's registry RPCs and the endpoints of public/config.json, so the shared policy of `/`,
- *   `/monad/` and `/base/` does not grow by the Mezo RPC;
+ *   limited to that edition's registry RPCs and the endpoints of public/config.json that serve one of its chains (the
+ *   relayer serves no Mezo chain, so `/mezo/` cannot reach it), so the shared policy of `/`, `/monad/` and `/base/` does
+ *   not grow by the Mezo RPC;
  * - deploy kit: exactly its own meta policy (web/v2/deploy/index.html) plus `frame-ancestors 'none'`;
  * - v1: what the frozen pages need and nothing more: their own scripts plus the SHA-256 of deploy.html's one inline
  *   script, inline styles (v1 sets `style` attributes), and `connect-src` to the RPC of web/config.js.
@@ -70,23 +71,36 @@ export function rpcOrigins(editions: readonly Edition[] = DEFAULT_EDITIONS): str
 }
 
 /**
- * `connect-src` of an edition's pages, besides `'self'`: for an edition with a policy of its own, its RPCs; otherwise
- * the RPCs of every built edition that shares the app's policy. Then the endpoints of public/config.json.
+ * `connect-src` of an edition's pages, besides `'self'`: for an edition with a policy of its own, its RPCs and the
+ * endpoints of public/config.json that serve one of its chains; otherwise the RPCs of every built edition that shares
+ * the app's policy, and every endpoint of public/config.json.
  */
-export function connectOrigins(edition: Edition, editions: readonly Edition[] = DEFAULT_EDITIONS): string[] {
-  const rpcs = OWN_POLICY_EDITIONS.has(edition) ? rpcOrigins([edition]) : rpcOrigins(editions.filter((e) => !OWN_POLICY_EDITIONS.has(e)));
-  return [...rpcs, ...configOrigins()];
+export function connectOrigins(edition: Edition, editions: readonly Edition[] = DEFAULT_EDITIONS, config: ConfigShape = readConfig()): string[] {
+  if (OWN_POLICY_EDITIONS.has(edition)) {
+    return [...rpcOrigins([edition]), ...configOrigins(config, new Set(editionChains(edition).map((chain) => chain.chainId)))];
+  }
+  return [...rpcOrigins(editions.filter((e) => !OWN_POLICY_EDITIONS.has(e))), ...configOrigins(config)];
 }
 
-interface ConfigShape {
-  readonly relayer: { readonly url: string } | null;
-  readonly indexer: { readonly url: string } | null;
+export interface ConfigShape {
+  readonly relayer: { readonly url: string; readonly chains?: readonly number[] } | null;
+  readonly indexer: { readonly url: string; readonly chains?: readonly number[] } | null;
   readonly rpc: Readonly<Record<string, readonly string[]>>;
 }
 
-/** Origins of the endpoints in public/config.json (relayer, indexer, preferred RPCs). */
-export function configOrigins(config: ConfigShape = JSON.parse(readFileSync(join(PUBLIC, "config.json"), "utf8")) as ConfigShape): string[] {
-  const urls = [config.relayer?.url, config.indexer?.url, ...Object.values(config.rpc).flat()].filter((u): u is string => typeof u === "string");
+function readConfig(): ConfigShape {
+  return JSON.parse(readFileSync(join(PUBLIC, "config.json"), "utf8")) as ConfigShape;
+}
+
+/**
+ * Origins of the endpoints in public/config.json (relayer, indexer, preferred RPCs). With `chains`, only the endpoints
+ * that serve one of them (the app calls an endpoint only for a chain it serves: src/core/config.ts `endpointFor`).
+ */
+export function configOrigins(config: ConfigShape = readConfig(), chains?: ReadonlySet<number>): string[] {
+  const serves = (endpoint: ConfigShape["relayer"]): string | undefined =>
+    endpoint !== null && (chains === undefined || (endpoint.chains ?? []).some((id) => chains.has(id))) ? endpoint.url : undefined;
+  const rpcs = Object.entries(config.rpc).flatMap(([id, urls]) => (chains === undefined || chains.has(Number(id)) ? urls : []));
+  const urls = [serves(config.relayer), serves(config.indexer), ...rpcs].filter((u): u is string => typeof u === "string");
   return [...new Set(urls.map((u) => new URL(u).origin))];
 }
 

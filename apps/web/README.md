@@ -49,7 +49,7 @@ Only `src/editions/index.ts` chooses implementations; pages ask the profile. Wha
 |---|---|---|---|
 | `monad` (`/monad/`) | PayLink keys (Mera passkeys) only | relayed authorisation, own-gas authorisation, wallet | relayer onboarding (test AUSD), gasless cancel, ariary estimate |
 | `base` (`/base/`) | EIP-6963 wallets | relayed authorisation (EOAs), EIP-5792 batch (smart accounts), own-gas authorisation, wallet | link to Circle's faucet |
-| `mezo` (`/mezo/`) | EIP-6963 wallets (no Mezo Passport: it needs React) | EIP-5792 batch (smart accounts), wallet: `payWithPermit`, then exact `approve` + `pay`; the payer pays the fee in BTC (MUSD has no EIP-3009, so nothing is relayed) | MUSD only, words on MUSD and the BTC fee (`src/editions/mezo/`, the `mezo` edition catalogue), a test-MUSD walkthrough (Mezo's faucet, Discord, testnet borrow page), the fee in sats, MUSD and the fee on Status, ariary estimate, a Content-Security-Policy of its own |
+| `mezo` (`/mezo/`) | EIP-6963 wallets (no Mezo Passport: it needs React) | EIP-5792 batch (smart accounts), wallet: `payWithPermit`, then exact `approve` + `pay`; the payer pays the fee in BTC (MUSD has no EIP-3009, so nothing is relayed) | MUSD only, words on MUSD and the BTC fee (`src/editions/mezo/`, the `mezo` edition catalogue), a test-MUSD walkthrough (Mezo's faucet, Discord, testnet borrow page), the fee in sats, MUSD and the fee on Status, ariary estimate, a Content-Security-Policy of its own (Mezo's RPC only) |
 | `all` (`/`) | EIP-6963 wallets | relayed authorisation, wallet | ariary estimate |
 
 ## Commands

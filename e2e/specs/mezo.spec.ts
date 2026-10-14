@@ -479,10 +479,13 @@ test("status: Mezo testnet answers, the genuine release, MUSD read live as the r
   expect(relayer).toEqual([]);
 });
 
-test("headers: /mezo/ under its own policy with Mezo's RPC, the root's without it; no CSP violation; worker and manifest scoped to /mezo/", async ({ browser, request }) => {
+test("headers: /mezo/ under its own policy with Mezo's RPC only, the root's without it; no CSP violation; worker and manifest scoped to /mezo/", async ({ browser, request }) => {
   const mezoPage = await request.get(`${server.origin}/mezo/`);
   const csp = mezoPage.headers()["content-security-policy"] ?? "";
   expect(csp).toContain(MEZO.registryRpc);
+  // Mezo's RPC only: config.json's relayer serves no Mezo chain, so the Mezo pages cannot reach it.
+  expect(/connect-src ([^;]*)/.exec(csp)?.[1]).toBe(`'self' ${MEZO.registryRpc}`);
+  expect(csp).not.toContain("paylink-relayer");
   expect(csp).toContain("require-trusted-types-for 'script'");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).not.toContain(",");
