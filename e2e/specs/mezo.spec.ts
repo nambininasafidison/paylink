@@ -342,7 +342,25 @@ test("Mezo testnet's RPC answers null for mined transactions: the payment, its r
   await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Payment found");
   await expect(payer.page.locator(".view-receipt .receipt")).toContainText("Matches the invoice");
   expect(payerNulls.nulled()).toBe(6);
-  expect([...payee.problems, ...payer.problems, ...till.problems]).toEqual([]);
+
+  // A payment whose receipt the RPC does not return to any of the eight lookups of the check: "sent, not returned yet",
+  // never "invalid"; the key reads the same payment again, and nothing is signed or sent twice.
+  const second = await createInvoice(payee, "1.25", "Receipt not returned yet");
+  const unluckyNulls = nullLookups(`NNNR${"N".repeat(8)}`);
+  const unlucky = await actor(browser, account(0), { known: true, nulls: unluckyNulls });
+  await m.mintMusd(account(0), MUSD("5"));
+  const unluckyKey = await openToPay(unlucky, second, "Pay 1.25 MUSD");
+  await unluckyKey.click();
+  await expect(unlucky.page.locator(".bill > .status")).toContainText(/^Your payment was sent \(0x[0-9a-f]{4}…[0-9a-f]{4}\), but Mezo testnet (\(e2e-local\) )?has not returned it yet\. Check it again before you pay again: nothing new is signed or sent\./, { timeout: 60_000 });
+  await expect(unluckyKey).toHaveText("Check the payment again");
+  await expect(unlucky.page.locator(".receipt-slot .receipt")).toHaveCount(0);
+  expect(unlucky.wallet.sent()).toHaveLength(1);
+  await unluckyKey.click();
+  await expect(unlucky.page.locator(".receipt-slot .receipt")).toContainText("Approved");
+  expect(unlucky.wallet.sent()).toHaveLength(1);
+  expect(unlucky.wallet.requests.filter((r) => r.method === "eth_signTypedData_v4")).toHaveLength(1);
+  expect(unluckyNulls.nulled()).toBe(11);
+  expect([...payee.problems, ...payer.problems, ...till.problems, ...unlucky.problems]).toEqual([]);
 });
 
 test("a smart account approves exactly the amount then pays; one whose wallet batches approves once", async ({ browser }) => {

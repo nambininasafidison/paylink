@@ -621,6 +621,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       })
       .catch((error: unknown) => {
         if (!pending(error)) {
+          // A verdict (a reverted transaction, a receipt that does not match): nothing left to read again.
+          unconfirmed = null;
           const decoded = decodeUiError(app, error);
           setStatus(status, "err", decoded.message, decoded.code);
         }
