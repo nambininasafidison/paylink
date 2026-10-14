@@ -60,12 +60,10 @@ export const mezoTestnet: ChainDefinition = {
       confidence: "L",
       note: "BTC ERC-20 precompile; not on the token allowlist (L).",
     },
-    // Read only, never sent to: the Mezo edition's borrow estimate (apps/web/src/editions/mezo/borrow.ts).
-    musdBorrowerOperations: {
-      address: "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5",
-      confidence: "C",
-      note: "MUSD's BorrowerOperations (proxy), mezo-org/musd matsnet artifact at aa25fd6; on chain musd() is MUSD, and it names its PriceFeed and TroveManager.",
-    },
+    // MUSD's BorrowerOperations (proxy), mezo-org/musd matsnet artifact at aa25fd6; on chain its musd() is MUSD, and it
+    // names its PriceFeed and TroveManager. Read only, never sent to: the Mezo edition's borrow estimate
+    // (apps/web/src/editions/mezo/borrow.ts). No `note`: every edition bundles the registry, and none shows it.
+    musdBorrowerOperations: { address: "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5", confidence: "C" },
   },
   // Mezo charges max(gas used, 50 % of the limit): mezod MinGasMultiplier 0.5, seen on a live transaction.
   gasModel: { chargesGasLimit: false, minChargedPercentOfLimit: 50 },
