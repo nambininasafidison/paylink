@@ -7,7 +7,6 @@
  * refused.
  */
 import type { Registry, Token } from "@paylink/chains";
-import { txLookupRetryMs } from "@paylink/chains";
 import { getAddress, keccak256, TransactionReceiptNotFoundError } from "viem";
 import type { Address, Hex } from "viem";
 import { PAID_TOPIC } from "./constants.ts";
@@ -108,43 +107,36 @@ const invalid = (failure: ReceiptFailure, params: Record<string, string> = {}): 
  * answers `null` for mined transactions about one time in two (`rpcLimits.inconsistentTxIndex`, ADR 0017).
  */
 export class ReceiptUnavailableError extends Error {
-  readonly chainId: number;
   readonly txHash: Hex;
-  /** How many times the receipt was asked for. */
-  readonly attempts: number;
 
-  constructor(chainId: number, txHash: Hex, attempts: number) {
-    super(`chain ${String(chainId)} did not return the receipt of ${txHash} after ${String(attempts)} lookups`);
+  constructor(txHash: Hex) {
+    super(`receipt not returned: ${txHash}`);
     this.name = "ReceiptUnavailableError";
-    this.chainId = chainId;
     this.txHash = txHash;
-    this.attempts = attempts;
   }
 }
 
-const pause = async (ms: number): Promise<void> => {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-};
-
 /**
- * The receipt, or `null` when every lookup said "not found": once, or, on a chain whose RPC answers `null` for mined
- * transactions, once more after each pause of `retryMs`. Transport failures are thrown.
+ * `client` with `getTransactionReceipt` asked again, after each pause of `retryMs`, while the RPC says "not found":
+ * for a chain whose RPC answers `null` for mined transactions (`rpcLimits.inconsistentTxIndex`; the pauses are
+ * `txLookupRetryMs(chain)` of @paylink/chains). The last "not found" is thrown as viem throws it; any other failure at
+ * once. Give it to `verifyReceipt`, so that "not-found" comes only after every lookup.
  */
-async function lookUpReceipt(client: ReceiptClient, hash: Hex, retryMs: readonly number[]): Promise<{ receipt: ReceiptLike | null; attempts: number }> {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return { receipt: await client.getTransactionReceipt({ hash }), attempts: attempt + 1 };
-    } catch (error) {
-      if (!(error instanceof TransactionReceiptNotFoundError)) {
-        throw error;
+export function withReceiptRetries<C extends Pick<ReceiptClient, "getTransactionReceipt">>(client: C, retryMs: readonly number[], pause: (ms: number) => Promise<unknown> = async (ms) => await new Promise((resolve) => setTimeout(resolve, ms))): C {
+  const getTransactionReceipt = async (parameters: { hash: Hex }): Promise<Awaited<ReturnType<C["getTransactionReceipt"]>>> => {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return (await client.getTransactionReceipt(parameters)) as Awaited<ReturnType<C["getTransactionReceipt"]>>;
+      } catch (error) {
+        const wait = retryMs[attempt];
+        if (!(error instanceof TransactionReceiptNotFoundError) || wait === undefined) {
+          throw error;
+        }
+        await pause(wait);
       }
     }
-    const wait = retryMs[attempt];
-    if (wait === undefined) {
-      return { receipt: null, attempts: attempt + 1 };
-    }
-    await pause(wait);
-  }
+  };
+  return { ...client, getTransactionReceipt };
 }
 
 const WORD = /^0x[0-9a-f]{64}$/;
@@ -216,9 +208,9 @@ export function invoiceMismatch(event: PaidEvent, chainId: number, paid: SignedI
  * the receipt proves, or why it proves nothing. Transport failures are thrown: "could not check" is never
  * reported as "invalid", and never as "valid".
  *
- * On a chain whose RPC answers `null` for mined transactions (`rpcLimits.inconsistentTxIndex`), a missing receipt is
- * asked for again on the registry's schedule (`txLookupRetryMs`) before it counts as "not-found". With `mined`, the
- * caller holds proof the transaction exists, so a receipt that never comes back throws `ReceiptUnavailableError`.
+ * On a chain whose RPC answers `null` for mined transactions (`rpcLimits.inconsistentTxIndex`), give it a client that
+ * asks again (`withReceiptRetries`). With `mined`, the caller holds proof the transaction exists, so a receipt the
+ * client does not return throws `ReceiptUnavailableError` instead of "not-found".
  */
 export async function verifyReceipt(parameters: {
   readonly registry: Registry;
@@ -227,8 +219,6 @@ export async function verifyReceipt(parameters: {
   readonly paid?: SignedInvoice;
   /** The caller holds proof the transaction is mined (a log of it, or its receipt from an earlier read). */
   readonly mined?: boolean;
-  /** Pauses before each extra lookup of a missing receipt; default: the registry's for the chain. */
-  readonly retryMs?: readonly number[];
 }): Promise<ReceiptVerification> {
   const { registry, client, reference, paid } = parameters;
   // 1. Chain and canonical deployment.
@@ -237,13 +227,17 @@ export async function verifyReceipt(parameters: {
     return invalid("chain-unknown", { chainId: String(reference.chainId) });
   }
   // 2. The receipt exists and succeeded.
-  const found = await lookUpReceipt(client, reference.txHash, parameters.retryMs ?? txLookupRetryMs(target.chain));
-  const receipt = found.receipt;
-  if (receipt === null) {
-    if (parameters.mined === true) {
-      throw new ReceiptUnavailableError(reference.chainId, reference.txHash, found.attempts);
+  let receipt: ReceiptLike;
+  try {
+    receipt = await client.getTransactionReceipt({ hash: reference.txHash });
+  } catch (error) {
+    if (error instanceof TransactionReceiptNotFoundError) {
+      if (parameters.mined === true) {
+        throw new ReceiptUnavailableError(reference.txHash);
+      }
+      return invalid("not-found");
     }
-    return invalid("not-found");
+    throw error;
   }
   if (receipt.status !== "success") {
     return invalid("transaction-reverted");

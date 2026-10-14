@@ -3,9 +3,9 @@
 import { concat, encodeAbiParameters, HttpRequestError, pad, TransactionReceiptNotFoundError, zeroAddress } from "viem";
 import type { Address, Hex } from "viem";
 import { describe, expect, it, vi } from "vitest";
-import { createReceiptVerifier, decodePaidLog, invoiceKey, isPaymentForArmedInvoice, PAID_TOPIC, ReceiptUnavailableError, verifyReceipt } from "../src/index.ts";
+import { createReceiptVerifier, decodePaidLog, invoiceKey, isPaymentForArmedInvoice, PAID_TOPIC, ReceiptUnavailableError, verifyReceipt, withReceiptRetries } from "../src/index.ts";
 import type { LogLike, ReceiptClient, ReceiptLike, ReceiptVerification } from "../src/index.ts";
-import { createRegistry, defineLocalChain } from "@paylink/chains";
+import { createRegistry, defineLocalChain, TX_LOOKUP_RETRY_MS, txLookupRetryMs } from "@paylink/chains";
 import { CHAIN_ID, CONTRACT, deploymentAt, native, payee, payer, registry, signedSample, token3009, tokenPermit, TOKEN } from "./helpers.ts";
 
 const signed = await signedSample();
@@ -116,8 +116,6 @@ describe("verifyReceipt", () => {
   });
 
   describe("on a chain whose RPC answers null for mined transactions (rpcLimits.inconsistentTxIndex, Mezo testnet)", () => {
-    const local = defineLocalChain({ chainId: CHAIN_ID, rpcUrl: "http://127.0.0.1:8545", tokens: [token3009, tokenPermit, native], deployment: deploymentAt(CONTRACT) });
-    const flaky = createRegistry([{ ...local, rpcLimits: { inconsistentTxIndex: true } }]);
     /** A client whose first `nulls` receipt lookups say "not found" (viem's answer to a null result). */
     const nullFirst = (nulls: number): ReceiptClient & { lookups: () => number } => {
       let lookups = 0;
@@ -133,19 +131,21 @@ describe("verifyReceipt", () => {
     };
     const reference = { chainId: CHAIN_ID, txHash, logIndex: 4 };
     const quick = [0, 0, 0, 0, 0, 0, 0];
+    const flaky = createRegistry([{ ...defineLocalChain({ chainId: CHAIN_ID, rpcUrl: "http://127.0.0.1:8545", tokens: [token3009, tokenPermit, native], deployment: deploymentAt(CONTRACT) }), rpcLimits: { inconsistentTxIndex: true } }]);
 
-    it("asks again: a genuine receipt behind six wrongful nulls is proven", async () => {
+    it("asks again through withReceiptRetries: a genuine receipt behind six wrongful nulls is proven", async () => {
       const c = nullFirst(6);
-      const result = await verifyReceipt({ registry: flaky, client: c, reference, retryMs: quick });
+      const result = await verifyReceipt({ registry: flaky, client: withReceiptRetries(c, quick), reference });
       expect(result.valid).toBe(true);
       expect(c.lookups()).toBe(7);
     });
 
-    it("follows the registry's schedule by default (eight lookups, paused between them)", async () => {
+    it("follows the registry's schedule (eight lookups, paused between them)", async () => {
+      expect(txLookupRetryMs(flaky.getOrThrow(CHAIN_ID))).toEqual(TX_LOOKUP_RETRY_MS);
       vi.useFakeTimers();
       try {
         const c = nullFirst(2);
-        const pending = verifyReceipt({ registry: flaky, client: c, reference });
+        const pending = verifyReceipt({ registry: flaky, client: withReceiptRetries(c, TX_LOOKUP_RETRY_MS), reference });
         await vi.advanceTimersByTimeAsync(249);
         expect(c.lookups()).toBe(1);
         await vi.advanceTimersByTimeAsync(1);
@@ -158,21 +158,25 @@ describe("verifyReceipt", () => {
       }
     });
 
-    it("says not-found only after every lookup came back empty", async () => {
+    it("says not-found only after every lookup came back empty, and passes other failures through at once", async () => {
       const c = nullFirst(100);
-      const result = await verifyReceipt({ registry: flaky, client: c, reference, retryMs: quick });
+      const result = await verifyReceipt({ registry: flaky, client: withReceiptRetries(c, quick), reference });
       expect(result.valid ? null : result.failure).toBe("not-found");
       expect(c.lookups()).toBe(8);
+      let calls = 0;
+      const failing: Pick<ReceiptClient, "getTransactionReceipt"> = { getTransactionReceipt: () => Promise.reject(new HttpRequestError({ url: `https://rpc.example/${String((calls += 1))}` })) };
+      const down = withReceiptRetries(failing, quick);
+      await expect(down.getTransactionReceipt({ hash: txHash })).rejects.toBeInstanceOf(HttpRequestError);
+      expect(calls).toBe(1);
     });
 
     it("throws ReceiptUnavailableError, never not-found, when the caller holds proof the transaction is mined", async () => {
-      const c = nullFirst(100);
-      const error = await verifyReceipt({ registry: flaky, client: c, reference, mined: true, retryMs: quick }).catch((e: unknown) => e);
+      const error = await verifyReceipt({ registry: flaky, client: withReceiptRetries(nullFirst(100), quick), reference, mined: true }).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(ReceiptUnavailableError);
-      expect(error).toMatchObject({ chainId: CHAIN_ID, txHash, attempts: 8 });
+      expect(error).toMatchObject({ txHash });
     });
 
-    it("leaves other chains as they were: one lookup, and a null is final", async () => {
+    it("a plain client asks once, as on every other chain", async () => {
       const c = nullFirst(1);
       const result = await verifyReceipt({ registry, client: c, reference });
       expect(result.valid ? null : result.failure).toBe("not-found");
