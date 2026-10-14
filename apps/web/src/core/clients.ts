@@ -38,9 +38,10 @@ export interface ChainClient {
   getBlock(parameters: { blockNumber: bigint } | { blockTag: "latest" | "finalized" }): Promise<{ readonly number: bigint | null; readonly timestamp: bigint }>;
   getBlockNumber(): Promise<bigint>;
   /**
-   * One `eth_getTransactionReceipt`; a `null` answer throws viem's `TransactionReceiptNotFoundError`. On a chain whose
-   * RPC answers `null` for mined transactions (`rpcLimits.inconsistentTxIndex`, Mezo testnet), that is not proof of
-   * absence: the SDK's `verifyReceipt` asks again on the registry's schedule, and `waitForReceipt` keeps polling.
+   * `eth_getTransactionReceipt`; a `null` answer throws viem's `TransactionReceiptNotFoundError`. On a chain whose RPC
+   * answers `null` for mined transactions (`rpcLimits.inconsistentTxIndex`, Mezo testnet), the Mezo edition wraps the
+   * client so that it asks again on the registry's schedule before it throws (`editions/mezo/client.ts`), and
+   * `verifyReceipt` says "not-found" only then (ADR 0017). `waitForReceipt` polls on its own.
    */
   getTransactionReceipt(parameters: { hash: Hex }): Promise<TransactionReceipt>;
   /**

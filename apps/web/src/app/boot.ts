@@ -15,6 +15,7 @@ import { decodeUiError } from "../core/errors.ts";
 import { applyTheme, prefs } from "../core/prefs.ts";
 import { appRegistry } from "../core/registry.ts";
 import { edition } from "../editions/index.ts";
+import { mezoClient } from "../editions/mezo/client.ts";
 import { loadMezoCopy, mezoTranslator } from "../editions/mezo/copy.ts";
 import type { Route } from "../editions/types.ts";
 import { registerServiceWorker } from "../pwa/register.ts";
@@ -46,7 +47,9 @@ export async function boot(page: PageDefinition): Promise<void> {
   document.documentElement.lang = LOCALE_INFO[locale].tag;
   document.title = `${i18n.t(page.title)} · PayLink`;
   const registry = appRegistry(profile.id);
-  const client = (chain: Parameters<App["client"]>[0]): ReturnType<App["client"]> => chainClient(chain, configLoad.config);
+  // Mezo: receipts that Mezo testnet's RPC answers null for are asked again (ADR 0017); other editions fold this away.
+  const client = (chain: Parameters<App["client"]>[0]): ReturnType<App["client"]> =>
+    __PAYLINK_EDITION__ === "mezo" ? mezoClient(chain, chainClient(chain, configLoad.config)) : chainClient(chain, configLoad.config);
   for (const layer of profile.accountLayers) {
     layer.bind?.({ registry, client });
   }

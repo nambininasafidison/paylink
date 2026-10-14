@@ -34,7 +34,7 @@ import {
   verifyReceipt,
   ZERO_HASH,
 } from "@paylink/sdk";
-import type { DecodedInvoiceLink, PaymentPath, SettlementFunction } from "@paylink/sdk";
+import type { DecodedInvoiceLink, PaymentPath, ReceiptReference, ReceiptVerification, SettlementFunction } from "@paylink/sdk";
 import type { Address } from "viem";
 import { isBaseWallet } from "../accounts/eip6963.ts";
 import type { AccountProvider } from "../accounts/types.ts";
@@ -309,7 +309,10 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const ownGasRail = app.edition.rails.find((r) => r.paths.includes("self-authorization"));
   /** Whether this view already looked for the payment of an earlier, used authorisation on its own (once). */
   let recoveryTried = false;
-  /** A payment sent whose outcome could not be read yet: the key reads it again, and never pays twice. */
+  /**
+   * Mezo edition: a payment sent whose outcome could not be read yet (Mezo testnet's RPC answers null for mined
+   * transactions, ADR 0017): the key reads it again, and never pays twice. Other editions fold this away.
+   */
   let unconfirmed: PaymentUnconfirmedError | null = null;
 
   void payeeIdentity(app, invoice.payee).then((who) => {
@@ -430,8 +433,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (busy || paid) {
       return;
     }
-    if (unconfirmed !== null) {
-      key.textContent = t("pay.checkPayment");
+    if (__PAYLINK_EDITION__ === "mezo" && unconfirmed !== null) {
+      key.textContent = t("mezo.pay.checkPayment");
       key.disabled = false;
       key.dataset["action"] = "confirm";
       return;
@@ -542,7 +545,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
           await offerFallback(error, account);
           return;
         }
-        if (pending(error)) {
+        if (__PAYLINK_EDITION__ === "mezo" && pending(error)) {
           return;
         }
         const decoded = decodeUiError(app, error);
@@ -572,7 +575,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     key.setAttribute("aria-busy", "true");
     recoverEarlier(app, { link, chain, client, account, now, status, quiet, onDone: done })
       .catch((error: unknown) => {
-        if (pending(error) || quiet) {
+        if ((__PAYLINK_EDITION__ === "mezo" && pending(error)) || quiet) {
           // The link is closed anyway: a read that failed here changes nothing on screen.
           return;
         }
@@ -582,7 +585,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       .finally(() => {
         busy = false;
         key.removeAttribute("aria-busy");
-        if (unconfirmed !== null) {
+        if (__PAYLINK_EDITION__ === "mezo" && unconfirmed !== null) {
           void refresh();
         } else if (!paid && key.dataset["action"] === "recover") {
           key.disabled = false;
@@ -599,7 +602,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       return false;
     }
     unconfirmed = error;
-    setStatus(status, "warn", t("pay.error.unconfirmed", { tx: shortHex(error.txHash), network: networkName(chain) }), t("common.errorCode", { code: "PaymentUnconfirmed" }));
+    setStatus(status, "warn", t("mezo.pay.unconfirmed", { tx: shortHex(error.txHash), network: networkName(chain) }), t("common.errorCode", { code: "PaymentUnconfirmed" }));
     return true;
   };
 
@@ -704,7 +707,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       }
     } else if (action === "pay") {
       startPayment(null);
-    } else if (action === "confirm") {
+    } else if (__PAYLINK_EDITION__ === "mezo" && action === "confirm") {
       confirm();
     } else if (action === "recover") {
       void chainTime(client)
@@ -1079,21 +1082,27 @@ async function recoverEarlier(app: App, input: Pick<PayInput, "link" | "chain" |
   }
 }
 
-/** Verifies the outcome as a receipt on the chain, keeps it on the device, and hands the slip to the view. */
-async function finish(app: App, input: Pick<PayInput, "link" | "chain" | "client" | "onDone">, outcome: PaymentOutcome): Promise<void> {
-  const { t } = app.i18n;
-  const { link, chain, client } = input;
-  const reference = { chainId: chain.chainId, txHash: outcome.txHash, logIndex: outcome.logIndex };
-  let verification: Awaited<ReturnType<typeof verifyReceipt>>;
+/**
+ * Mezo edition: the outcome is proof the transaction is mined, so a receipt the RPC does not return (Mezo testnet's
+ * answers null for mined transactions, ADR 0017) is "not returned yet", `PaymentUnconfirmedError`, never invalid.
+ */
+async function verifyMined(app: App, client: ChainClient, reference: ReceiptReference, link: DecodedInvoiceLink, outcome: PaymentOutcome): Promise<ReceiptVerification> {
   try {
-    // The outcome is proof the transaction is mined: a receipt the RPC does not return is "not read yet", never invalid.
-    verification = await verifyReceipt({ registry: app.registry, client, reference, paid: link, mined: true });
+    return await verifyReceipt({ registry: app.registry, client, reference, paid: link, mined: true });
   } catch (error) {
     if (error instanceof ReceiptUnavailableError) {
       throw new PaymentUnconfirmedError(outcome.txHash, () => Promise.resolve(outcome), { cause: error });
     }
     throw error;
   }
+}
+
+/** Verifies the outcome as a receipt on the chain, keeps it on the device, and hands the slip to the view. */
+async function finish(app: App, input: Pick<PayInput, "link" | "chain" | "client" | "onDone">, outcome: PaymentOutcome): Promise<void> {
+  const { t } = app.i18n;
+  const { link, chain, client } = input;
+  const reference = { chainId: chain.chainId, txHash: outcome.txHash, logIndex: outcome.logIndex };
+  const verification = __PAYLINK_EDITION__ === "mezo" ? await verifyMined(app, client, reference, link, outcome) : await verifyReceipt({ registry: app.registry, client, reference, paid: link });
   if (!verification.valid) {
     throw new AppError("pay.error.receipt", { reason: app.i18n.lookup(verification.i18nKey, verification.params) ?? verification.failure }, "ReceiptMismatch");
   }

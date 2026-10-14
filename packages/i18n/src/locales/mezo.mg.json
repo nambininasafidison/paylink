@@ -49,5 +49,7 @@
   "mezo.status.relayerNone": "Tsy miasa amin'ny Mezo testnet: ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana.",
   "mezo.borrow.line": "Na mindrama MUSD tsy mivarotra bitcoin: {loan} MUSD ny findramam-bola kely indrindra ao amin'ny Mezo mahasarona ity fandoavana ity. Mila BTC fitsapana {btc} farafahakeliny voahidy ho antoka izy: {ratio}% amin'ny trosa {debt} MUSD, amin'ny {price} USD isaky ny BTC araka ny vidiny ao amin'ny Mezo, vao novakiana. Manidiana bebe kokoa mba ho lavitra ny fandravana (liquidation).",
   "mezo.status.loan": "Findramana MUSD",
-  "mezo.status.loanValue": "Findramam-bola kely indrindra {loan} MUSD: BTC fitsapana {btc} farafahakeliny ho antoka ({ratio}% amin'ny trosa {debt} MUSD), amin'ny {price} USD isaky ny BTC araka ny vidiny ao amin'ny Mezo."
+  "mezo.status.loanValue": "Findramam-bola kely indrindra {loan} MUSD: BTC fitsapana {btc} farafahakeliny ho antoka ({ratio}% amin'ny trosa {debt} MUSD), amin'ny {price} USD isaky ny BTC araka ny vidiny ao amin'ny Mezo.",
+  "mezo.pay.unconfirmed": "Nalefa ny fandoavanao ({tx}), saingy mbola tsy naverin'ny {network}. Hamarino indray alohan'ny handoavanao indray: tsy misy sonia na zavatra vaovao alefa.",
+  "mezo.pay.checkPayment": "Hamarino indray ny fandoavana"
 }

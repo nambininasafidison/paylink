@@ -9,7 +9,7 @@ import { decodeFunctionData, encodeAbiParameters, encodeErrorResult, encodeEvent
 import type { Hex, TransactionReceipt } from "viem";
 import { describe, expect, it } from "vitest";
 import type { AccountProvider, TransactionRequest } from "../src/accounts/types.ts";
-import { paidLogIndex, TransactionRevertedError, walletRail } from "../src/rails/wallet.ts";
+import { paidLogIndex, TransactionRevertedError, unconfirmedOnTimeout, walletRail } from "../src/rails/wallet.ts";
 import { PaymentUnconfirmedError } from "../src/rails/types.ts";
 import type { PaymentContext, PaymentStep } from "../src/rails/types.ts";
 import { memoryOutstandingAuthorizationStore } from "@paylink/sdk";
@@ -133,21 +133,23 @@ describe("wallet rail", () => {
     expect((error as TransactionRevertedError).revertData).toBe(SOLD_OUT);
   });
 
-  it("a payment sent whose receipt the wait never got is unconfirmed, not failed: resume reads it again, nothing is sent twice", async () => {
-    const receipts = new Map<Hex, TransactionReceipt>();
-    const { ctx, sent, link } = await context({ allowance: 25_500_000n, receipts, hashes: [TX(5)] });
-    const error = await walletRail().execute("approve-pay", ctx).catch((e: unknown) => e);
+  it("outside the Mezo edition, a wait that ends without the receipt fails as before (the edition folds the rest away)", async () => {
+    const { ctx, sent } = await context({ allowance: 25_500_000n, receipts: new Map(), hashes: [TX(5)] });
+    await expect(walletRail().execute("approve-pay", ctx)).rejects.toBeInstanceOf(TransactionReceiptNotFoundError);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("unconfirmedOnTimeout: a wait without the receipt becomes PaymentUnconfirmedError, whose resume waits again", async () => {
+    let answers = 0;
+    const outcome = { txHash: TX(6), receipt: receipt(TX(6), "success"), logIndex: 1, elapsedMs: 1 };
+    const read = (): Promise<typeof outcome> => (++answers < 3 ? Promise.reject(new TransactionReceiptNotFoundError({ hash: TX(6) })) : Promise.resolve(outcome));
+    const error = await unconfirmedOnTimeout(TX(6), read).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(PaymentUnconfirmedError);
-    const unconfirmed = error as PaymentUnconfirmedError;
-    expect(unconfirmed.txHash).toBe(TX(5));
-    expect(sent).toHaveLength(1);
-    // Still not returned: unconfirmed again.
-    await expect(unconfirmed.resume()).rejects.toBeInstanceOf(PaymentUnconfirmedError);
-    // The RPC now returns it (Mezo testnet's answers a mined transaction only some of the time).
-    receipts.set(TX(5), receipt(TX(5), "success", [paidLog(link.key, link.invoice.payee, payer.address, link.invoice.amount, 2)]));
-    const outcome = await unconfirmed.resume();
-    expect([outcome.txHash, outcome.logIndex]).toEqual([TX(5), 2]);
-    expect(sent).toHaveLength(1);
+    expect((error as PaymentUnconfirmedError).txHash).toBe(TX(6));
+    await expect((error as PaymentUnconfirmedError).resume()).rejects.toBeInstanceOf(PaymentUnconfirmedError);
+    expect(await (error as PaymentUnconfirmedError).resume()).toBe(outcome);
+    // Any other failure (a revert, the network) is not "unconfirmed".
+    await expect(unconfirmedOnTimeout(TX(6), () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
   });
 
   it("refuses paths it cannot carry out", async () => {

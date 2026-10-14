@@ -49,5 +49,7 @@
   "mezo.status.relayerNone": "Ne dessert pas Mezo testnet : le portefeuille de chaque payeur envoie le paiement.",
   "mezo.borrow.line": "Ou empruntez des MUSD sans vendre de bitcoin : le plus petit prêt de Mezo qui couvre ce paiement est de {loan} MUSD. Il faut au moins {btc} BTC de test bloqués en garantie : {ratio} % de la dette de {debt} MUSD, à {price} USD le BTC selon le flux de prix de Mezo, lu à l'instant. Bloquez-en davantage pour rester loin de la liquidation.",
   "mezo.status.loan": "Emprunter des MUSD",
-  "mezo.status.loanValue": "Plus petit prêt {loan} MUSD : au moins {btc} BTC de test en garantie ({ratio} % d'une dette de {debt} MUSD), à {price} USD le BTC selon le flux de prix de Mezo."
+  "mezo.status.loanValue": "Plus petit prêt {loan} MUSD : au moins {btc} BTC de test en garantie ({ratio} % d'une dette de {debt} MUSD), à {price} USD le BTC selon le flux de prix de Mezo.",
+  "mezo.pay.unconfirmed": "Votre paiement a été envoyé ({tx}), mais {network} ne l'a pas encore renvoyé. Vérifiez-le à nouveau avant de payer de nouveau : rien de nouveau n'est signé ni envoyé.",
+  "mezo.pay.checkPayment": "Vérifier le paiement à nouveau"
 }

@@ -688,8 +688,6 @@ export type MessageKey =
   | "pay.error.pending"
   | "pay.error.notSettled"
   | "pay.error.batch"
-  | "pay.error.unconfirmed"
-  | "pay.checkPayment"
   | "pay.relayer.offline"
   | "pay.relayer.busy"
   | "pay.relayer.budget"
@@ -861,7 +859,9 @@ export type MessageKey =
   | "mezo.status.relayerNone"
   | "mezo.borrow.line"
   | "mezo.status.loan"
-  | "mezo.status.loanValue";
+  | "mezo.status.loanValue"
+  | "mezo.pay.unconfirmed"
+  | "mezo.pay.checkPayment";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1547,8 +1547,6 @@ export interface MessageParams {
   readonly "pay.error.pending": never;
   readonly "pay.error.notSettled": never;
   readonly "pay.error.batch": never;
-  readonly "pay.error.unconfirmed": { readonly network: ParamValue; readonly tx: ParamValue };
-  readonly "pay.checkPayment": never;
   readonly "pay.relayer.offline": never;
   readonly "pay.relayer.busy": { readonly seconds: ParamValue };
   readonly "pay.relayer.budget": never;
@@ -1721,6 +1719,8 @@ export interface MessageParams {
   readonly "mezo.borrow.line": { readonly btc: ParamValue; readonly debt: ParamValue; readonly loan: ParamValue; readonly price: ParamValue; readonly ratio: ParamValue };
   readonly "mezo.status.loan": never;
   readonly "mezo.status.loanValue": { readonly btc: ParamValue; readonly debt: ParamValue; readonly loan: ParamValue; readonly price: ParamValue; readonly ratio: ParamValue };
+  readonly "mezo.pay.unconfirmed": { readonly network: ParamValue; readonly tx: ParamValue };
+  readonly "mezo.pay.checkPayment": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1898,4 +1898,6 @@ export type EditionKey =
   | "mezo.status.relayerNone"
   | "mezo.borrow.line"
   | "mezo.status.loan"
-  | "mezo.status.loanValue";
+  | "mezo.status.loanValue"
+  | "mezo.pay.unconfirmed"
+  | "mezo.pay.checkPayment";

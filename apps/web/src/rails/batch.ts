@@ -11,11 +11,14 @@
  * The wallet reports the batch's transaction hashes; the `Paid` event and its receipt are then read from the registry
  * RPC (never trusted from the wallet) before the payer view says "Approved".
  */
+import type { Edition } from "@paylink/chains";
 import { approveCall, payCall } from "@paylink/sdk";
 import { pollingIntervalFor } from "../core/clients.ts";
 import { AppError } from "../core/errors.ts";
 import type { PaymentOutcome, PaymentRail } from "./types.ts";
 import { paidLogIndex, unconfirmedOnTimeout } from "./wallet.ts";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 export function batchRail(): PaymentRail {
   return {
@@ -53,8 +56,9 @@ export function batchRail(): PaymentRail {
         throw new AppError("pay.error.batch", {}, "BatchIncomplete");
       };
       const first = hashes[0];
-      // The wallet says the batch is confirmed: a receipt the RPC does not return yet is read again, never paid again.
-      return first === undefined ? await read() : await unconfirmedOnTimeout(first, read);
+      // Mezo: the wallet says the batch is confirmed, so a receipt the RPC does not return yet is read again, never paid
+      // again (ADR 0017). Other editions fold this away.
+      return __PAYLINK_EDITION__ === "mezo" && first !== undefined ? await unconfirmedOnTimeout(first, read) : await read();
     },
   };
 }

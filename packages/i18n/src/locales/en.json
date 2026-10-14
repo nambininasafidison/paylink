@@ -681,8 +681,6 @@
   "pay.error.pending": "The payment is taking longer than usual. Your signature is kept: press Pay again to follow it, nothing new will be signed.",
   "pay.error.notSettled": "The payment did not go through and its signature has lapsed. You can pay again.",
   "pay.error.batch": "Your wallet did not complete the payment. Nothing was paid.",
-  "pay.error.unconfirmed": "Your payment was sent ({tx}), but {network} has not returned it yet. Check it again before you pay again: nothing new is signed or sent.",
-  "pay.checkPayment": "Check the payment again",
   "pay.relayer.offline": "The service that covers the network fee did not answer.",
   "pay.relayer.busy": "The fee service is busy. Try again in {seconds} seconds.",
   "pay.relayer.budget": "The fee service has reached today's limit.",

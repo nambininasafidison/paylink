@@ -12,7 +12,7 @@
  * `clamp(estimate × 1.10, floor, ceiling)` from the registry (spec §3.3.6; Monad charges the limit). A transaction that
  * reverts anyway is replayed at its block to recover the revert reason.
  */
-import type { Erc20Token, PayLinkFunction } from "@paylink/chains";
+import type { Edition, Erc20Token, PayLinkFunction } from "@paylink/chains";
 import { approveCall, decodePaidLog, gasLimitFor, payCall, payNativeCall, preparePermitPayment, replayRevertData } from "@paylink/sdk";
 import type { CallRequest } from "@paylink/sdk";
 import { TransactionReceiptNotFoundError } from "viem";
@@ -21,6 +21,8 @@ import { pollingIntervalFor } from "../core/clients.ts";
 import type { ChainClient } from "../core/clients.ts";
 import { PaymentUnconfirmedError } from "./types.ts";
 import type { PaymentContext, PaymentOutcome, PaymentRail } from "./types.ts";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 /** Permit validity: long enough to read the wallet prompt, short enough to stay a one-payment permit. */
 export const PERMIT_TTL_SECONDS = 20n * 60n;
@@ -81,7 +83,9 @@ async function settle(context: PaymentContext, fn: PayLinkFunction, call: CallRe
     context.onStep({ kind: "mined", txHash });
     return { txHash, receipt, logIndex: paidLogIndex(receipt, context), elapsedMs };
   };
-  return await unconfirmedOnTimeout(txHash, outcome);
+  // Mezo testnet's RPC answers null for mined transactions (ADR 0017): there a wait that ends without the receipt is
+  // "unconfirmed" and read again on request. Other editions fold this away.
+  return __PAYLINK_EDITION__ === "mezo" ? await unconfirmedOnTimeout(txHash, outcome) : await outcome();
 }
 
 /**

@@ -705,8 +705,6 @@
     "pay.error.pending",
     "pay.error.notSettled",
     "pay.error.batch",
-    "pay.error.unconfirmed",
-    "pay.checkPayment",
     "pay.relayer.offline",
     "pay.relayer.busy",
     "pay.relayer.budget",
@@ -855,6 +853,8 @@
     "mezo.borrow.line",
     "mezo.status.loan",
     "mezo.status.loanValue",
+    "mezo.pay.unconfirmed",
+    "mezo.pay.checkPayment",
     "mezo.pay.networkValue",
     "mezo.pay.thanks",
     "mezo.ticket.scanSub"
