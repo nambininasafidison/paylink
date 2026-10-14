@@ -162,6 +162,9 @@ describe("spec §3.4 facts", () => {
     expect([btc?.symbol, btc?.decimals, btc?.address]).toEqual(["BTC", 18, zeroAddress]);
     expect(mezoTestnet.tokens).toHaveLength(2);
     expect(mezoTestnet.contracts.btcErc20?.confidence).toBe("L");
+    // MUSD's BorrowerOperations: mezo-org/musd solidity/artifacts/deployments/matsnet/BorrowerOperations.json (aa25fd6),
+    // and on chain its musd() is the MUSD above (research §4).
+    expect(mezoTestnet.contracts.musdBorrowerOperations).toMatchObject({ address: "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5", confidence: "C" });
     expect(mezoTestnet.contracts.create2Deployer).toMatchObject({ address: RELEASE.create2.factory, confidence: "C" });
     // max(gas used, 50 % of the limit): mezod MinGasMultiplier 0.5.
     expect(mezoTestnet.gasModel).toEqual({ chargesGasLimit: false, minChargedPercentOfLimit: 50 });

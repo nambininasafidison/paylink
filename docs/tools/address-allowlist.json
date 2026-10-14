@@ -14,6 +14,7 @@
     {"address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e", "label": "Circle USDC (FiatTokenV2_2); not the …dCF7c typo from the Base docs", "chainId": 84532, "use": "registry", "confidence": "C", "source": "PAYLINK-V2-SPEC §3.4"},
     {"address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", "label": "Circle USDC", "chainId": 421614, "use": "registry", "confidence": "C", "source": "PAYLINK-V2-SPEC §3.4"},
     {"address": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503", "label": "MUSD (EIP-2612 only)", "chainId": 31611, "use": "registry", "confidence": "C", "source": "PAYLINK-V2-SPEC §3.4"},
+    {"address": "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5", "label": "MUSD BorrowerOperations proxy, read only (registry helper musdBorrowerOperations)", "chainId": 31611, "use": "helper", "confidence": "C", "source": "mezo-org/musd solidity/artifacts/deployments/matsnet/ at aa25fd6, checked on chain 2026-10-14 (docs/research/mezo.md §4)"},
     {"address": "0x7b7C000000000000000000000000000000000000", "label": "BTC ERC-20 precompile", "chainId": 31611, "use": "helper", "confidence": "L", "source": "PAYLINK-V2-SPEC §3.4"},
     {"address": "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186", "label": "MUSD", "chainId": 31612, "use": "registry", "confidence": "C", "source": "PAYLINK-V2-SPEC §3.4"},
     {"address": "0x3600000000000000000000000000000000000000", "label": "native USDC, ERC-20 interface (6 decimals)", "chainId": 5042, "use": "registry", "confidence": "C", "source": "PAYLINK-V2-SPEC §3.4"},

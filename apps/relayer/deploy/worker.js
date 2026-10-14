@@ -24011,6 +24011,11 @@ const mezoTestnet = {
 			address: "0x7b7C000000000000000000000000000000000000",
 			confidence: "L",
 			note: "BTC ERC-20 precompile; not on the token allowlist (L)."
+		},
+		musdBorrowerOperations: {
+			address: "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5",
+			confidence: "C",
+			note: "MUSD's BorrowerOperations (proxy), mezo-org/musd matsnet artifact at aa25fd6; on chain musd() is MUSD, and it names its PriceFeed and TroveManager."
 		}
 	},
 	gasModel: {

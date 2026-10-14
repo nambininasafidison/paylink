@@ -134,7 +134,8 @@ export type HelperKey =
   | "ausdFaucet"
   | "agoraInstantSettlement"
   | "agoraWhitelister"
-  | "btcErc20";
+  | "btcErc20"
+  | "musdBorrowerOperations";
 
 export interface HelperContract {
   readonly address: Address;
