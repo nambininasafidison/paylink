@@ -138,11 +138,13 @@ None is fixed here; each is your call.
 
 Wave 1 closes **2026-10-26** (plan to submit by Oct 24); Track 2 "Access & Distribution"; an MUSD or MEZO integration is mandatory (**UNVERIFIED**: AKINDO cannot be reached from the sandbox, [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo)). Everything below is on the **local branch `mezo`** (written 2026-10-13 at `119a7d6`, on top of `main` at `0c3bfed`); nothing is pushed, and production (`main`, `/monad/`, `/base/`) does not change while the other events are judged.
 
+**Never merge `mezo` into `main` before the Monad Metropolis and Colosseum judging ends**, not even a fast-forward. `/monad/` and `/base/` behave the same on both branches, but they are not byte-identical: the shared registry data (Mezo's entry and gas tables) changes their boot chunk, and their service workers' precache revisions with it, so a merge would redeploy the editions under judging and installed PWAs would take an update ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)). Push `mezo` to its own branch only; merge after both events have closed, in a pull request reviewed like any other.
+
 ### Done (on the branch `mezo`)
 
 - [x] Facts on Mezo testnet and MUSD, read on chain or in Mezo's own repositories: [research](../research/mezo.md). MUSD has EIP-2612 permits and no EIP-3009, so no MUSD payment can be gasless with PayLinkV2 ([ADR 0017](../adr/0017-mezo-edition-chain-layer.md)).
 - [x] Mezo testnet (31611) in the chain registry (still `disabled` for every other edition), a gas table measured on a fork of Mezo testnet, and the chain in the deploy kit and `tools/verify-deployment`. The deployment was rehearsed on a fork: it lands at `0x448eCce9711860502806A3d5B021a4f9Ba715082` and passes the ten checks.
-- [x] The Mezo edition at `/mezo/`: MUSD invoices paid by `payWithPermit`, exact `approve` + `pay`, or one EIP-5792 batch; the BTC fee in sats; Mezo's faucet and borrow page for test funds; MUSD checked live on Status; its own Content-Security-Policy; EN, FR, MG (the 48 Malagasy strings are drafts for your review).
+- [x] The Mezo edition at `/mezo/`: MUSD invoices paid by `payWithPermit`, exact `approve` + `pay`, or one EIP-5792 batch; the BTC fee in sats; Mezo's faucet and borrow page for test funds; MUSD checked live on Status; its own Content-Security-Policy (Mezo's RPC only); EN, FR, MG (the 48 Malagasy strings are drafts for your review).
 - [x] 8 end-to-end tests of the edition on an anvil fork of Mezo testnet with the real MUSD; the whole suite green (40 passed, 1 skipped by design), with 335 Foundry and 1,523 TypeScript tests.
 - [x] Paste-ready texts, judge instructions, the demo video script and your checklist: [mezo.md](mezo.md).
 
@@ -166,7 +168,7 @@ None is fixed here; each is your call.
 | Observation | Effect | Option |
 |---|---|---|
 | The Mezo work started on Oct 13, three days before the wave 1 build window that third-party pages give (Oct 16, **UNVERIFIED**) | A judge comparing dates may ask | The texts say "from Oct 13" and answer "existing project"; add what you build during the window to the wave 1 field |
-| The repository's landing README (`.github/README.md`) does not mention the Mezo edition, on `main` or on `mezo` | A judge who opens the repository sees the Monad and Base editions only | When Claude records the Mezo deployment it must add it there anyway (`check-docs.py` requires every deployment's address and transaction): add a short Mezo paragraph at the same time; link the branch, `…/tree/mezo`, on AKINDO |
+| The repository's landing README (`.github/README.md`) on `main` does not mention the Mezo edition | A judge who opens the repository's home sees the Monad and Base editions only | Fixed on `mezo` (2026-10-14): the branch's landing page has a Mezo row, a Mezo editions row and a "built for the Mezo Buildathon" disclosure row, so link the branch, `…/tree/mezo`, on AKINDO. When Claude records the Mezo deployment, it adds the deployment row (`check-docs.py` requires every deployment's address and transaction) |
 | The Monad and Colosseum texts call a Mezo edition "planned, not built" | They were true when written and are already submitted | Leave them; [mezo.md §9](mezo.md#9-disclosures-and-commit-range) explains |
 | The faucet's drip is unknown, and borrowing needs at least about 0.0265 test BTC | You may need several claims, or help on Discord, before you can borrow | Claim test BTC first, and ask in `#testnet` early |
 | Judges may hold no MUSD, and borrowing it takes time and test BTC | Few judges may pay an invoice themselves | The judge instructions start with what can be seen without funds, and offer to send MUSD (keep or delete that offer) |

@@ -9,14 +9,15 @@
 
 **Signed dollar invoices you share as a link. The client pays with a fingerprint or a wallet and holds no gas token; both sides keep a receipt anyone can verify.**
 
-> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
+> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia. A Mezo edition (MUSD on Mezo testnet) is built on the branch `mezo`; PayLinkV2 is not deployed on Mezo testnet yet. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
 
 | | |
 |---|---|
 | **Monad edition** | <https://paylink-mg.pages.dev/monad/>: Mera passkeys as the only account layer, gasless AUSD, Monad testnet (10143) |
 | **Base edition** | <https://paylink-mg.pages.dev/base/>: browser wallets, gasless USDC, "Pay with Base" batches, Base Sepolia (84532) |
 | **All networks** | <https://paylink-mg.pages.dev/>: every enabled network in the registry, browser wallets |
-| **Contract** | `0x448eCce9711860502806A3d5B021a4f9Ba715082`, the same address on both testnets ([below](#the-contract)) |
+| **Mezo edition** | On the branch [`mezo`](https://github.com/nambininasafidison/paylink/tree/mezo), served at <https://mezo.paylink-mg.pages.dev/mezo/> once that preview is online: browser wallets, MUSD (the Bitcoin-backed dollar) on Mezo testnet (31611). PayLinkV2 is **not deployed** on Mezo testnet yet, so the edition reads "Not deployed yet" until it is |
+| **Contract** | `0x448eCce9711860502806A3d5B021a4f9Ba715082`, the same address on both testnets where it is deployed ([below](#the-contract)) |
 | **Open standard** | [PayLink invoice format v2](../docs/spec/paylink-invoice-v2.md), with a [JSON Schema](../docs/spec/paylink-invoice-v2.schema.json) and test vectors |
 | **Licence** | MIT ([LICENSE](../LICENSE)) |
 
@@ -59,6 +60,7 @@ The app is in English, French and Malagasy (the founder reviews the Malagasy), i
 | Monad (`/monad/`) | Mera passkeys only: no wallet extension, no seed phrase, no MON | AUSD, gasless through the relayer; test AUSD from Agora's faucet through the relayer | [Monad pack §4](../docs/submissions/monad.md#4-judge-access-instructions) |
 | Base (`/base/`) | Browser wallets (EIP-6963) | USDC: gasless for EOA payers, one batch for smart accounts ("Pay with Base" in the Base app or Coinbase Wallet) | [Colosseum pack §8](../docs/submissions/colosseum.md#8-how-a-judge-can-try-it) |
 | All networks (`/`) | Browser wallets | Every route the registry allows, including paying with your own gas | — |
+| Mezo (`/mezo/`, branch `mezo`) | Browser wallets (EIP-6963); no Mezo Passport yet | MUSD: one EIP-2612 permit then `payWithPermit`, or exact approve + `pay`, or one batch for smart accounts. The payer's wallet pays the fee in BTC: MUSD has no EIP-3009, so no MUSD payment is gasless | [Mezo pack §6](../docs/submissions/mezo.md#6-judge-access-instructions) |
 
 ## The contract
 
@@ -89,7 +91,7 @@ Full hashes: Monad testnet `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c1
 | Contract | `protocol/` | Verifies payee signatures, enforces invoice rules, settles without custody | Correctness and settlement |
 | SDK | `packages/sdk` | Invoice codec and signing, strict URL format, payment binding, payment router, receipt verification | Reproducing the contract's rules off chain |
 | Chain registry | `packages/chains` | Every address, token, RPC and gas bound per network, EIP-55 checked | The app's root of trust for addresses |
-| Web app | `apps/web` | Vite and strict TypeScript without a UI framework, PWA, three editions from one codebase, served by Cloudflare Pages with a strict CSP and Trusted Types | Showing exactly what is signed |
+| Web app | `apps/web` | Vite and strict TypeScript without a UI framework, PWA, three editions from one codebase on `main` (a fourth, Mezo, on the branch `mezo`), served by Cloudflare Pages with a strict CSP and Trusted Types | Showing exactly what is signed |
 | Relayer | `apps/relayer` | Submits only `payWithAuthorization` and `cancelBySig`, simulates first, rate-limits, never sends value | Availability only: it can delay a payment, never redirect it |
 | Indexer | `apps/indexer` | Payment history, payee totals and statistics from `Paid` and `InvoiceCancelled` | Nothing authoritative: a cache |
 | Design, translations | `packages/design`, `packages/i18n` | v1's "Precision Terminal" design; EN, FR, MG | Presentation |
@@ -146,12 +148,13 @@ Putting the services online: [Cloudflare Pages](../docs/runbooks/cloudflare-page
 |---|---|---|
 | **Pre-existing: PayLink v1** | `31a4fdd` (2026-10-04) and `93ed4e3` (2026-10-05) | A simpler payment-link contract and web app for Arc (`contracts/PayLink.sol`, `web/`). Frozen and not part of the v2 editions ([ADR 0010](../docs/adr/0010-arc-stays-on-v1.md)). Its own README, at the repository root, describes the Arc Microgrants plan: as of 2026-10-09 v1 is **not** deployed on Arc mainnet (`web/config.js` has no address) |
 | **Built for Monad Metropolis and Colosseum: PayLink v2** | from `88ac2d9` (2026-10-07, the first v2 commit; the design work started on Oct 5) | The PayLinkV2 contract and its tests, the SDK and chain registry, the web app and its Monad and Base editions (Mera passkeys, gasless rails, till, receive card and Send, ledger backup), the relayer, the indexer, the deploy kit, the end-to-end suites, the open invoice specification and the documentation |
+| **Built for the Mezo Buildathon (AKINDO): the Mezo edition** | from `f0fb1ce` (2026-10-13), on the branch `mezo` only | Mezo testnet in the chain registry, the deploy kit and `tools/verify-deployment`; the Mezo edition of the app (MUSD invoices, permit or approval payments, the BTC fee, Mezo's testnet faucet and borrow page); its end-to-end tests on a fork of Mezo testnet; the [research notes](../docs/research/mezo.md) and [ADR 0017](../docs/adr/0017-mezo-edition-chain-layer.md). The contract is unchanged ([Mezo pack §9](../docs/submissions/mezo.md#9-disclosures-and-commit-range)) |
 
 The submission texts, with their disclosures, are in [docs/submissions/](../docs/submissions/README.md).
 
 ## Status and limits
 
-- **Testnets only.** Monad mainnet (143) is in the registry but disabled; there is no mainnet deployment.
+- **Testnets only.** Monad mainnet (143) is in the registry but disabled; there is no mainnet deployment. Mezo testnet (31611) is in the registry for the Mezo edition only, and PayLinkV2 is not deployed there yet.
 - **Not audited.** Our own review only: 100 % line and branch coverage of the contract, 63 of 63 hand-written mutants killed, Slither with no untriaged result, invariants I1 to I11 ([evidence](../protocol/audit/README.md), [self-review](../docs/security/self-review.md)).
 - **Services.** Gasless payments, test AUSD and gasless cancel need the relayer online; the ledger's full history needs the indexer. Without the indexer, the ledger reads the chain's latest blocks and says so. Each edition's Status page shows whether they answer.
 - **No users yet.** PayLink has no users, revenue or partners; demand is a hypothesis under test.

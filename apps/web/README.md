@@ -68,7 +68,7 @@ bash apps/web/scripts/cloudflare-pages.sh # the Pages build command, from the re
 
 End to end: `pnpm --filter @paylink/e2e test` builds `dist-e2e/` (`build --e2e`, with a local chain swapped into the registry) and runs `e2e/specs/app.spec.ts` against anvil under the production headers; `e2e/specs/editions.spec.ts` builds `dist-e2e-editions/` and runs the Monad and Base editions against two anvil chains, the relayer process and Chromium's WebAuthn virtual authenticator with PRF; `e2e/specs/mezo.spec.ts` builds `dist-e2e-mezo/` and runs the Mezo edition against an anvil fork of Mezo testnet with the real MUSD ([e2e README](../../e2e/README.md)).
 
-The Mezo edition's hooks in shared files (`boot.ts`, `funds.ts`, `registry.ts`, the create, pay and status pages) sit behind `__PAYLINK_EDITION__ === "mezo"`, which the build folds: `/`, `/monad/` and `/base/` build byte for byte as without them. Its unit tests run as a second Vitest project with that constant set (`test/mezo/`).
+The Mezo edition's hooks in shared files (`boot.ts`, `funds.ts`, `registry.ts`, `shell.ts`, the create, pay and status pages) sit behind `__PAYLINK_EDITION__ === "mezo"`, which the build folds, so `/`, `/monad/` and `/base/` carry none of them. Their bundles still differ from `main`'s: the shared registry data (Mezo's entry and gas tables) changes the boot chunk's bytes and the service workers' precache revisions ([ADR 0017](../../docs/adr/0017-mezo-edition-chain-layer.md)), so the branch `mezo` is never merged into `main` while the other events are judged. Its unit tests run as a second Vitest project with that constant set (`test/mezo/`).
 
 ## Security
 
