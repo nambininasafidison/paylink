@@ -204,7 +204,6 @@ test("hero flow: a 12.50 MUSD invoice, signed without gas, paid with one permit 
     "https://faucet.test.mezo.org",
     "https://discord.com/invite/mezo",
     "https://testnet.mezo.org/feature/borrow",
-    "https://mezo.org/feature/borrow",
   ]);
   await payee.page.locator("#amount").fill("12.50");
   // The ariary estimate (display only): MUSD is a dollar.
@@ -408,7 +407,7 @@ test("a payer without BTC is sent to Mezo's faucet and pays once funded; one wit
   await key.click();
   await expect(key).toHaveText(/^Switch to /);
   await key.click();
-  await expect(payer.page.locator(".route-note").first()).toHaveText("This wallet holds no BTC for the network fee. On Mezo the payer's wallet pays it: get a little test BTC, then check again.");
+  await expect(payer.page.locator(".route-note").first()).toHaveText("No BTC for the network fee: on Mezo, your wallet pays it.");
   await expect(key).toHaveText("Check my BTC again");
   const row = payer.page.locator(".funds-btc");
   await expect(row).toContainText("The network fee is paid in BTC, and this wallet holds none.");
@@ -471,7 +470,7 @@ test("status: Mezo testnet answers, the genuine release, MUSD read live as the r
   await expect(lights.nth(3)).toHaveText(/Paid in BTC by the payer: about \d+(\.\d+)? sat per payment at the current gas price\./);
   const services = page.locator(".view-status > .vstrip").first();
   await expect(services.locator(".vstrip-name")).toHaveText(["Relayer", "Gasless payments", "History service"]);
-  await expect(services).toContainText("Not configured: payers use their own wallet.");
+  await expect(services).toContainText("Does not serve Mezo testnet: each payer's wallet sends the payment.");
   await expect(services).toContainText("Not on Mezo: MUSD has no signed transfers (EIP-3009)");
   await expect(page.locator(".view-status")).toContainText("edition mezo");
   await shot(page, "11-status-1280-light");

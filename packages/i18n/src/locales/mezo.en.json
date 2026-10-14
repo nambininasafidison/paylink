@@ -9,8 +9,8 @@
   "mezo.pay.assure": "Non-custodial: the MUSD go straight from your wallet to the address above. Your wallet pays the network fee, in BTC.",
   "mezo.pay.networkValue": "{network} · Bitcoin-backed dollars ({symbol})",
   "mezo.pay.thanks": "The MUSD are already in the seller's wallet.",
-  "mezo.ticket.scanSub": "In {symbol}, the Bitcoin-backed dollar, from any wallet on Mezo. The money goes straight to the seller.",
-  "mezo.pay.needsBtc": "This wallet holds no BTC for the network fee. On Mezo the payer's wallet pays it: get a little test BTC, then check again.",
+  "mezo.ticket.scanSub": "In {symbol}, the Bitcoin-backed dollar, from an EVM wallet on Mezo (MetaMask, Rabby…). The money goes straight to the seller.",
+  "mezo.pay.needsBtc": "No BTC for the network fee: on Mezo, your wallet pays it.",
   "mezo.pay.waitBtc": "Waiting for BTC for the fee",
   "mezo.pay.checkBtc": "Check my BTC again",
   "mezo.ledger.cancelNoGas": "Cancelling sends one transaction from your wallet: it needs a little {coin} for the network fee.",
@@ -20,7 +20,7 @@
   "mezo.notes.musd": "MUSD",
   "mezo.notes.musdText": "is the dollar of the Mezo network. People mint it by borrowing against bitcoin they lock as collateral, worth at least 110% of the loan. PayLink moves it from wallet to wallet and never holds it.",
   "mezo.notes.fee": "BTC pays the network fee.",
-  "mezo.notes.feeText": "Signing an invoice sends nothing, so it is free. Paying is one transaction from the payer's wallet, and its fee is paid in BTC, Mezo's gas coin: a tiny amount, but the wallet needs some.",
+  "mezo.notes.feeText": "Signing an invoice sends nothing, so it is free. Paying takes one transaction from the payer's wallet (two for some smart accounts: approve, then pay), and its fee is paid in BTC, Mezo's gas coin: a tiny amount, but the wallet needs some.",
   "mezo.notes.gasless": "No fee service here.",
   "mezo.notes.gaslessText": "Elsewhere PayLink can pay the fee for your client, with dollars that accept signed transfers (EIP-3009). MUSD accepts permits (EIP-2612) instead, so the payer's own wallet sends the payment.",
   "mezo.notes.issuer": "Issuer powers.",
@@ -30,7 +30,6 @@
   "mezo.test.btcText": "From the Mezo faucet, behind a captcha, or by asking in the #testnet channel of Mezo's Discord.",
   "mezo.test.borrow": "Borrow MUSD",
   "mezo.test.borrowText": "MUSD has no faucet: you borrow it against your test BTC in Mezo's testnet app. The smallest loan is 1,800 MUSD, and Mezo adds a 200 MUSD reserve and a 0.1% fee to the debt: plan on about 0.04 test BTC of collateral.",
-  "mezo.test.borrowAlt": "If that page does not open, try",
   "mezo.test.pay": "Pay and get paid",
   "mezo.test.payText": "Send MUSD to your test payers with a plain transfer, and a little test BTC for their fees. Then share your link: each payer opens it and pays.",
   "mezo.link.faucet": "Mezo faucet",
@@ -46,5 +45,6 @@
   "mezo.status.fee": "Network fee",
   "mezo.status.feeValue": "Paid in BTC by the payer: about {sats} sat per payment at the current gas price.",
   "mezo.status.gasless": "Gasless payments",
-  "mezo.status.gaslessValue": "Not on Mezo: MUSD has no signed transfers (EIP-3009), so each payer's wallet sends the payment."
+  "mezo.status.gaslessValue": "Not on Mezo: MUSD has no signed transfers (EIP-3009), so each payer's wallet sends the payment.",
+  "mezo.status.relayerNone": "Does not serve Mezo testnet: each payer's wallet sends the payment."
 }

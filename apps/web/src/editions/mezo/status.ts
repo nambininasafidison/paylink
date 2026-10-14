@@ -104,6 +104,15 @@ export function mezoRelayerUrl(app: App): string | null {
   return app.registry.chains.some((chain) => app.relayer.endpoint(chain.chainId) !== null) ? (app.config.relayer?.url ?? null) : null;
 }
 
+/**
+ * The Relayer line when no relayer serves the edition: "Not configured" only when /config.json names none; a relayer
+ * that serves other chains only (today's, for Monad testnet, Base Sepolia and Arbitrum Sepolia) "does not serve Mezo
+ * testnet".
+ */
+export function mezoRelayerNone(app: App): string {
+  return app.config.relayer === null ? app.i18n.t("status.relayer.none") : app.i18n.t("mezo.status.relayerNone");
+}
+
 /** Adds the Mezo lines: under each chain of `board` (one item per registry chain, in order), and after `relayerLine`. */
 export function mezoStatus(app: App, board: HTMLElement, relayerLine: HTMLElement): void {
   const { t } = app.i18n;

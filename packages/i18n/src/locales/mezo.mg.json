@@ -9,8 +9,8 @@
   "mezo.pay.assure": "Tsy mitazona vola: mandeha mivantana avy amin'ny kitapom-bolanao mankany amin'ny adiresy etsy ambony ny MUSD. Ny kitapom-bolanao no mandoa ny saran'ny tambajotra, amin'ny BTC.",
   "mezo.pay.networkValue": "{network} · dolara iantohan'ny bitcoin ({symbol})",
   "mezo.pay.thanks": "Efa ao amin'ny kitapom-bolan'ny mpivarotra ny MUSD.",
-  "mezo.ticket.scanSub": "Amin'ny {symbol}, ny dolara iantohan'ny bitcoin, avy amin'ny kitapom-bola rehetra ao amin'ny Mezo. Mivantana any amin'ny mpivarotra ny vola.",
-  "mezo.pay.needsBtc": "Tsy manana BTC handoavana ny saran'ny tambajotra ity kitapom-bola ity. Ao amin'ny Mezo, ny kitapom-bolan'ny mpandoa no mandoa izany: makà BTC fitsapana kely, dia hamarino indray.",
+  "mezo.ticket.scanSub": "Amin'ny {symbol}, ny dolara iantohan'ny bitcoin, avy amin'ny kitapom-bola EVM ao amin'ny Mezo (MetaMask, Rabby…). Mivantana any amin'ny mpivarotra ny vola.",
+  "mezo.pay.needsBtc": "Tsy misy BTC handoavana ny saran'ny tambajotra: ao amin'ny Mezo, ny kitapom-bolanao no mandoa azy.",
   "mezo.pay.waitBtc": "Miandry BTC ho an'ny sarany",
   "mezo.pay.checkBtc": "Hamarino indray ny BTC-ko",
   "mezo.ledger.cancelNoGas": "Fifanakalozana iray avy amin'ny kitapom-bolanao ny fanafoanana: mila {coin} kely handoavana ny saran'ny tambajotra izy.",
@@ -20,7 +20,7 @@
   "mezo.notes.musd": "Ny MUSD",
   "mezo.notes.musdText": "no dolaran'ny tambajotra Mezo. Foronin'ny olona izy rehefa mindrana vola ka manidy bitcoin ho antoka, mitentina 110% farafahakeliny amin'ny trosa. Afindran'ny PayLink avy amin'ny kitapom-bola iray mankany amin'ny iray hafa izy, ary tsy tazominy mihitsy.",
   "mezo.notes.fee": "BTC no mandoa ny saran'ny tambajotra.",
-  "mezo.notes.feeText": "Tsy mandefa na inona na inona ny fanaovana sonia faktiora, koa maimaimpoana izany. Fifanakalozana iray avy amin'ny kitapom-bolan'ny mpandoa ny fandoavana, ary BTC, ny vola fandoavana gas ao amin'ny Mezo, no andoavana ny sarany: kely dia kely, nefa tsy maintsy manana kely ny kitapom-bola.",
+  "mezo.notes.feeText": "Tsy mandefa na inona na inona ny fanaovana sonia faktiora, koa maimaimpoana izany. Fifanakalozana iray avy amin'ny kitapom-bolan'ny mpandoa ny fandoavana (roa ho an'ny kaonty marani-tsaina sasany: fankatoavana, avy eo fandoavana), ary BTC, ny vola fandoavana gas ao amin'ny Mezo, no andoavana ny sarany: kely dia kely, nefa tsy maintsy manana kely ny kitapom-bola.",
   "mezo.notes.gasless": "Tsy misy serivisy mandoa sarany eto.",
   "mezo.notes.gaslessText": "Any amin'ny tambajotra hafa, afaka mandoa ny sarany ho an'ny mpanjifanao ny PayLink, amin'ny dolara manaiky famindrana misy sonia (EIP-3009). Ny MUSD kosa manaiky fahazoan-dalana (EIP-2612), koa ny kitapom-bolan'ny mpandoa ihany no mandefa ny fandoavana.",
   "mezo.notes.issuer": "Fahefan'ny mpamoaka.",
@@ -30,7 +30,6 @@
   "mezo.test.btcText": "Ao amin'ny faucet an'ny Mezo, misy captcha, na angataho ao amin'ny fantsona #testnet ao amin'ny Discord an'ny Mezo.",
   "mezo.test.borrow": "Mindrama MUSD",
   "mezo.test.borrowText": "Tsy misy faucet ny MUSD: indramina amin'ny fanomezana BTC fitsapana ho antoka ao amin'ny rindranasa testnet an'ny Mezo izy. 1 800 MUSD ny findramam-bola kely indrindra, ary ampian'ny Mezo tahiry 200 MUSD sy sarany 0,1% ny trosa: kajio ho 0,04 BTC fitsapana eo ho eo ny antoka.",
-  "mezo.test.borrowAlt": "Raha tsy misokatra io pejy io, andramo",
   "mezo.test.pay": "Mandoa sy mahazo vola",
   "mezo.test.payText": "Alefaso amin'ny mpandoa fitsapana ny MUSD amin'ny famindrana tsotra, miaraka amin'ny BTC fitsapana kely ho an'ny sarany. Avy eo zarao ny rohinao: sokafan'ny mpandoa tsirairay izy ary aloany.",
   "mezo.link.faucet": "Faucet an'ny Mezo",
@@ -46,5 +45,6 @@
   "mezo.status.fee": "Saran'ny tambajotra",
   "mezo.status.feeValue": "Aloan'ny mpandoa amin'ny BTC: {sats} sat eo ho eo isaky ny fandoavana, araka ny vidin'ny gas ankehitriny.",
   "mezo.status.gasless": "Fandoavana tsy misy sarany",
-  "mezo.status.gaslessValue": "Tsy misy ao amin'ny Mezo: tsy manana famindrana misy sonia (EIP-3009) ny MUSD, koa ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana."
+  "mezo.status.gaslessValue": "Tsy misy ao amin'ny Mezo: tsy manana famindrana misy sonia (EIP-3009) ny MUSD, koa ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana.",
+  "mezo.status.relayerNone": "Tsy miasa amin'ny Mezo testnet: ny kitapom-bolan'ny mpandoa tsirairay no mandefa ny fandoavana."
 }

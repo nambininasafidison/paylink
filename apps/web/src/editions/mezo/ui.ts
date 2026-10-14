@@ -50,7 +50,7 @@ export function mezoTestSteps(app: App): HTMLElement {
   const { t } = app.i18n;
   const items: readonly (readonly [string, string, Child[] | null])[] = [
     [t("mezo.test.btc"), t("mezo.test.btcText"), links([MEZO_LINKS.faucet, t("mezo.link.faucet")], [MEZO_LINKS.discord, t("mezo.link.discord")])],
-    [t("mezo.test.borrow"), t("mezo.test.borrowText"), [...links([MEZO_LINKS.borrow, t("mezo.link.borrow")]), ". ", t("mezo.test.borrowAlt"), " ", ext(MEZO_LINKS.borrowAlt, "mezo.org"), "."]],
+    [t("mezo.test.borrow"), t("mezo.test.borrowText"), links([MEZO_LINKS.borrow, t("mezo.link.borrow")])],
     [t("mezo.test.pay"), t("mezo.test.payText"), null],
   ];
   return h(

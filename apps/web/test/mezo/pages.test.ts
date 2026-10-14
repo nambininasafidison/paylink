@@ -93,7 +93,9 @@ describe("create terminal", () => {
     expect(document.querySelector("#mezo-notes")?.textContent).toBe("MUSD and BTC on Mezo");
     expect(document.querySelector("#mezo-test")?.textContent).toBe("Test MUSD, step by step");
     const hrefs = [...document.querySelectorAll<HTMLAnchorElement>(".lead-aside a.ext")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual([MEZO_LINKS.faucet, MEZO_LINKS.discord, MEZO_LINKS.borrow, MEZO_LINKS.borrowAlt]);
+    // Testnet pages only: Mezo's own guide calls mezo.org/feature/borrow the Mainnet app, where real BTC backs real MUSD.
+    expect(hrefs).toEqual([MEZO_LINKS.faucet, MEZO_LINKS.discord, MEZO_LINKS.borrow]);
+    expect(hrefs).not.toContain("https://mezo.org/feature/borrow");
     for (const a of document.querySelectorAll<HTMLAnchorElement>(".lead-aside a.ext")) {
       expect(a.getAttribute("rel")).toBe("noopener noreferrer");
     }
@@ -129,8 +131,25 @@ describe("status page", () => {
     expect(names).toEqual(["Network answers", "Genuine contract", "MUSD on the network", "Network fee"]);
     const services = [...document.querySelectorAll(".view-status > .vstrip")][0];
     expect([...(services?.querySelectorAll(".vstrip-name") ?? [])].map((n) => n.textContent)).toEqual(["Relayer", "Gasless payments", "History service"]);
-    expect(services?.textContent).toContain("Not configured: payers use their own wallet.");
+    // config.json names a relayer, but it serves no Mezo chain: never "not configured".
+    expect(services?.textContent).toContain("Does not serve Mezo testnet: each payer's wallet sends the payment.");
+    expect(services?.textContent).not.toContain("payers use their own wallet");
     expect(services?.textContent).toContain("MUSD has no signed transfers (EIP-3009)");
+  });
+
+  it("says the relayer is not configured only when config.json names none", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        return url.endsWith("/config.json")
+          ? Promise.resolve(new Response(JSON.stringify({ version: 1, banner: null, relayer: null, indexer: null, rpc: {} }), { status: 200 }))
+          : Promise.reject(new TypeError("network disabled in unit tests"));
+      }),
+    );
+    await render(statusPage, "/mezo/status/", "en");
+    const services = [...document.querySelectorAll(".view-status > .vstrip")][0];
+    expect(services?.textContent).toContain("Not configured: payers use their own wallet.");
   });
 });
 

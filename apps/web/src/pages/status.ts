@@ -13,7 +13,7 @@ import type { PageDefinition } from "../app/boot.ts";
 import { networkName } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, notes } from "../app/shell.ts";
-import { mezoRelayerUrl, mezoStatus } from "../editions/mezo/status.ts";
+import { mezoRelayerNone, mezoRelayerUrl, mezoStatus } from "../editions/mezo/status.ts";
 import { indexerFor } from "../read/indexer.ts";
 import { hexGroups } from "../ui/atoms.ts";
 import { h } from "../ui/h.ts";
@@ -79,7 +79,11 @@ export const statusPage: PageDefinition = {
       config.set("err", t("status.config.err", { problem: app.configProblem }));
     }
     storage.set(app.store.persistent ? "ok" : "wait", app.store.persistent ? t("status.storage.ok") : t("status.storage.memory"));
-    void service(app, __PAYLINK_EDITION__ === "mezo" ? mezoRelayerUrl(app) : app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
+    if (__PAYLINK_EDITION__ === "mezo") {
+      void service(app, mezoRelayerUrl(app), relayer, "/v1/health", mezoRelayerNone(app));
+    } else {
+      void service(app, app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
+    }
     void indexerHealth(app, indexer);
     if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.getRegistration(app.site.base).then((registration) => {

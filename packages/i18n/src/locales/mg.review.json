@@ -835,7 +835,6 @@
     "mezo.test.btcText",
     "mezo.test.borrow",
     "mezo.test.borrowText",
-    "mezo.test.borrowAlt",
     "mezo.test.pay",
     "mezo.test.payText",
     "mezo.link.faucet",
@@ -852,6 +851,7 @@
     "mezo.status.feeValue",
     "mezo.status.gasless",
     "mezo.status.gaslessValue",
+    "mezo.status.relayerNone",
     "mezo.pay.networkValue",
     "mezo.pay.thanks",
     "mezo.ticket.scanSub"

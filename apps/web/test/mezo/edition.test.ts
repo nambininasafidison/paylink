@@ -108,7 +108,7 @@ describe("the Mezo words", () => {
     expect(t("create.h1b")).toBe("Get paid in MUSD");
     expect(t("create.kicker")).toBe("Bitcoin-backed dollar invoices");
     expect(t("pay.assure")).toContain("in BTC");
-    expect(t("pay.route.needsGas")).toContain("no BTC");
+    expect(t("pay.route.needsGas")).toContain("No BTC for the network fee");
     expect(t("pay.retryRelayer")).not.toContain("fee service");
     expect(t("mezo.notes.title")).toBe("MUSD and BTC on Mezo");
     // Untouched keys stay the core's.

@@ -842,7 +842,6 @@ export type MessageKey =
   | "mezo.test.btcText"
   | "mezo.test.borrow"
   | "mezo.test.borrowText"
-  | "mezo.test.borrowAlt"
   | "mezo.test.pay"
   | "mezo.test.payText"
   | "mezo.link.faucet"
@@ -858,7 +857,8 @@ export type MessageKey =
   | "mezo.status.fee"
   | "mezo.status.feeValue"
   | "mezo.status.gasless"
-  | "mezo.status.gaslessValue";
+  | "mezo.status.gaslessValue"
+  | "mezo.status.relayerNone";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1698,7 +1698,6 @@ export interface MessageParams {
   readonly "mezo.test.btcText": never;
   readonly "mezo.test.borrow": never;
   readonly "mezo.test.borrowText": never;
-  readonly "mezo.test.borrowAlt": never;
   readonly "mezo.test.pay": never;
   readonly "mezo.test.payText": never;
   readonly "mezo.link.faucet": never;
@@ -1715,6 +1714,7 @@ export interface MessageParams {
   readonly "mezo.status.feeValue": { readonly sats: ParamValue };
   readonly "mezo.status.gasless": never;
   readonly "mezo.status.gaslessValue": never;
+  readonly "mezo.status.relayerNone": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1873,7 +1873,6 @@ export type EditionKey =
   | "mezo.test.btcText"
   | "mezo.test.borrow"
   | "mezo.test.borrowText"
-  | "mezo.test.borrowAlt"
   | "mezo.test.pay"
   | "mezo.test.payText"
   | "mezo.link.faucet"
@@ -1889,4 +1888,5 @@ export type EditionKey =
   | "mezo.status.fee"
   | "mezo.status.feeValue"
   | "mezo.status.gasless"
-  | "mezo.status.gaslessValue";
+  | "mezo.status.gaslessValue"
+  | "mezo.status.relayerNone";
