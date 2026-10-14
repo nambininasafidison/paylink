@@ -75,6 +75,7 @@ describe.each(LOCALES)("routes in %s", (locale) => {
     expect(document.querySelector("header.top .brand")).not.toBeNull();
     expect(document.querySelector("main#terminal")).not.toBeNull();
     expect(document.querySelector("footer.foot")).not.toBeNull();
+    expect(document.querySelector("footer .foot-links a.ext")?.getAttribute("href")).toBe("https://github.com/nambininasafidison/paylink");
     expect(document.querySelector(".views")?.children.length).toBeGreaterThan(0);
     expect(document.querySelector(".intro h1")?.textContent).not.toBe("");
     expect(document.body.textContent).not.toMatch(RAW_KEY);

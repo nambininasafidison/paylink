@@ -473,6 +473,7 @@ test("status: Mezo testnet answers, the genuine release, MUSD read live as the r
   await expect(services).toContainText("Does not serve Mezo testnet: each payer's wallet sends the payment.");
   await expect(services).toContainText("Not on Mezo: MUSD has no signed transfers (EIP-3009)");
   await expect(page.locator(".view-status")).toContainText("edition mezo");
+  await expect(page.locator("footer .foot-links a.ext")).toHaveAttribute("href", "https://github.com/nambininasafidison/paylink/tree/mezo");
   await shot(page, "11-status-1280-light");
   expect(problems).toEqual([]);
   expect(relayer).toEqual([]);

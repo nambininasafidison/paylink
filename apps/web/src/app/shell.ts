@@ -4,6 +4,7 @@
  * becomes an account readout with a green LED), the lead column that speaks to whoever is at the terminal, the
  * terminal itself (plate, banners, mode switch) and the footer.
  */
+import type { Edition } from "@paylink/chains";
 import { LOCALE_INFO, LOCALES } from "@paylink/i18n";
 import type { PlainMessageKey } from "@paylink/i18n";
 import { shortHex } from "../core/format.ts";
@@ -16,6 +17,9 @@ import type { Child } from "../ui/h.ts";
 import { rich } from "../ui/rich.ts";
 import type { App } from "./context.ts";
 import { connectLabel, pickWallet } from "./wallet-ui.ts";
+
+/** The edition this bundle was built for (vite.config.ts `define`); comparisons with it fold at build time. */
+declare const __PAYLINK_EDITION__: Edition;
 
 export type LedState = "ok" | "wait" | "err" | "off";
 
@@ -176,7 +180,8 @@ function footer(app: App): HTMLElement {
           h("a", { attrs: { href: routeHref(app, "status") } }, t("app.foot.status")),
           h("a", { attrs: { href: "/deploy/" } }, t("app.foot.deploy")),
           h("a", { attrs: { href: "/arc/" } }, t("app.foot.arc")),
-          ext("https://github.com/nambininasafidison/paylink", t("app.foot.source")),
+          // The Mezo edition's source lives on the branch mezo while main stays as the other events judge it.
+          ext(__PAYLINK_EDITION__ === "mezo" ? "https://github.com/nambininasafidison/paylink/tree/mezo" : "https://github.com/nambininasafidison/paylink", t("app.foot.source")),
         ),
       ),
     ),

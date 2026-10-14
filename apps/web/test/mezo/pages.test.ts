@@ -82,6 +82,8 @@ describe.each(LOCALES)("Mezo routes in %s", (locale) => {
     expect(document.querySelector(".intro h1")?.textContent).not.toBe("");
     expect(document.body.textContent).not.toMatch(RAW_KEY);
     expect(document.querySelector("footer .coords")?.textContent).toBe("MEZO");
+    // The Mezo work is on the branch mezo, not on main (which the repository root shows).
+    expect(document.querySelector("footer .foot-links a.ext")?.getAttribute("href")).toBe("https://github.com/nambininasafidison/paylink/tree/mezo");
   });
 });
 
