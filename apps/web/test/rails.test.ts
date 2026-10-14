@@ -5,11 +5,12 @@
  * the Paid event of this payer for this invoice located in the receipt.
  */
 import { approveCall, gasLimitFor, payLinkV2Abi } from "@paylink/sdk";
-import { decodeFunctionData, encodeAbiParameters, encodeErrorResult, encodeEventTopics, erc20Abi, RawContractError } from "viem";
+import { decodeFunctionData, encodeAbiParameters, encodeErrorResult, encodeEventTopics, erc20Abi, RawContractError, TransactionReceiptNotFoundError } from "viem";
 import type { Hex, TransactionReceipt } from "viem";
 import { describe, expect, it } from "vitest";
 import type { AccountProvider, TransactionRequest } from "../src/accounts/types.ts";
 import { paidLogIndex, TransactionRevertedError, walletRail } from "../src/rails/wallet.ts";
+import { PaymentUnconfirmedError } from "../src/rails/types.ts";
 import type { PaymentContext, PaymentStep } from "../src/rails/types.ts";
 import { memoryOutstandingAuthorizationStore } from "@paylink/sdk";
 import { relayerClient } from "../src/core/relayer.ts";
@@ -64,7 +65,8 @@ async function context(options: { allowance?: bigint; receipts: Map<Hex, Transac
     estimateGas: () => Promise.resolve(options.estimate ?? 120_000n),
     waitForReceipt: (hash: Hex) => {
       const found = options.receipts.get(hash);
-      return found === undefined ? Promise.reject(new Error(`no receipt for ${hash}`)) : Promise.resolve(found);
+      // The client's own answer when its wait ends without the receipt.
+      return found === undefined ? Promise.reject(new TransactionReceiptNotFoundError({ hash })) : Promise.resolve(found);
     },
     call: async (p: Parameters<typeof fake.client.call>[0]) => {
       if (p.blockNumber !== undefined) {
@@ -129,6 +131,23 @@ describe("wallet rail", () => {
     expect(error).toBeInstanceOf(TransactionRevertedError);
     expect((error as TransactionRevertedError).txHash).toBe(TX(4));
     expect((error as TransactionRevertedError).revertData).toBe(SOLD_OUT);
+  });
+
+  it("a payment sent whose receipt the wait never got is unconfirmed, not failed: resume reads it again, nothing is sent twice", async () => {
+    const receipts = new Map<Hex, TransactionReceipt>();
+    const { ctx, sent, link } = await context({ allowance: 25_500_000n, receipts, hashes: [TX(5)] });
+    const error = await walletRail().execute("approve-pay", ctx).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PaymentUnconfirmedError);
+    const unconfirmed = error as PaymentUnconfirmedError;
+    expect(unconfirmed.txHash).toBe(TX(5));
+    expect(sent).toHaveLength(1);
+    // Still not returned: unconfirmed again.
+    await expect(unconfirmed.resume()).rejects.toBeInstanceOf(PaymentUnconfirmedError);
+    // The RPC now returns it (Mezo testnet's answers a mined transaction only some of the time).
+    receipts.set(TX(5), receipt(TX(5), "success", [paidLog(link.key, link.invoice.payee, payer.address, link.invoice.amount, 2)]));
+    const outcome = await unconfirmed.resume();
+    expect([outcome.txHash, outcome.logIndex]).toEqual([TX(5), 2]);
+    expect(sent).toHaveLength(1);
   });
 
   it("refuses paths it cannot carry out", async () => {

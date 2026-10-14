@@ -37,8 +37,16 @@ export interface ChainClient {
   getCode(parameters: { address: Address }): Promise<Hex | undefined>;
   getBlock(parameters: { blockNumber: bigint } | { blockTag: "latest" | "finalized" }): Promise<{ readonly number: bigint | null; readonly timestamp: bigint }>;
   getBlockNumber(): Promise<bigint>;
+  /**
+   * One `eth_getTransactionReceipt`; a `null` answer throws viem's `TransactionReceiptNotFoundError`. On a chain whose
+   * RPC answers `null` for mined transactions (`rpcLimits.inconsistentTxIndex`, Mezo testnet), that is not proof of
+   * absence: the SDK's `verifyReceipt` asks again on the registry's schedule, and `waitForReceipt` keeps polling.
+   */
   getTransactionReceipt(parameters: { hash: Hex }): Promise<TransactionReceipt>;
-  /** Polls for the receipt until it exists (about once per block) or `timeoutMs` passes. */
+  /**
+   * Polls for the receipt until it exists (about once per block) or `timeoutMs` passes, then throws viem's
+   * `TransactionReceiptNotFoundError`: "not seen yet", which the wallet rails turn into `PaymentUnconfirmedError`.
+   */
   waitForReceipt(hash: Hex, options?: { readonly pollingMs?: number; readonly timeoutMs?: number }): Promise<TransactionReceipt>;
   /** `eth_estimateGas`; a revert surfaces as a viem RPC error carrying the revert data. */
   estimateGas(parameters: { from: Address; to: Address; data: Hex; value: bigint }): Promise<bigint>;

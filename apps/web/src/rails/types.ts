@@ -70,6 +70,24 @@ export interface PaymentOutcome {
   readonly elapsedMs: number | null;
 }
 
+/**
+ * The payment's transaction was sent, but its outcome could not be read yet: the registry RPC did not return its
+ * receipt before the wait ended, or returned none for a transaction already seen mined (Mezo testnet's RPC answers
+ * `null` for mined transactions about one time in two, ADR 0017). Not a failure: `resume` reads the same payment again,
+ * and nothing new is signed or sent.
+ */
+export class PaymentUnconfirmedError extends Error {
+  readonly txHash: Hex;
+  readonly resume: () => Promise<PaymentOutcome>;
+
+  constructor(txHash: Hex, resume: () => Promise<PaymentOutcome>, options?: { readonly cause?: unknown }) {
+    super(`the outcome of ${txHash} could not be read yet`, options);
+    this.name = "PaymentUnconfirmedError";
+    this.txHash = txHash;
+    this.resume = resume;
+  }
+}
+
 export interface PaymentRail {
   readonly id: string;
   /** Router paths this rail can execute. */

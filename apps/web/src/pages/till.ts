@@ -10,7 +10,8 @@
  * connected payee lights it, with the amount in large digits, because any amount can arrive on a receive card.
  *
  * Reads the chain directly: `eth_getLogs` every second from `head − 10` (never more than the 100-block cap of Monad's
- * public RPCs), filtered on the key or payee topic; every log is re-verified as a receipt before the LED changes.
+ * public RPCs), filtered on the key or payee topic; every log is re-verified as a receipt before the LED changes. A log
+ * whose receipt cannot be read yet is neither shown nor skipped: the poll fails, and the next one reads the same blocks.
  */
 import { decodeInvoiceFragment, fragmentOf, isPaymentForArmedInvoice, PAID_TOPIC, sanitizeMemoForDisplay, verifyReceipt } from "@paylink/sdk";
 import type { DecodedInvoiceLink, ReceiptProof } from "@paylink/sdk";
@@ -225,9 +226,12 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
           if (log.transactionHash === null || log.logIndex === null || seen.has(id)) {
             continue;
           }
-          seen.add(id);
           const reference = { chainId: chain.chainId, txHash: log.transactionHash, logIndex: Number(log.logIndex) };
-          const verification = await verifyReceipt({ registry: app.registry, client, reference, ...(watch.armed === null ? {} : { paid: watch.armed }) });
+          // The log proves the transaction is mined: a receipt the RPC does not return throws (Mezo testnet answers
+          // null for mined transactions, ADR 0017), and this block range is read again on the next poll.
+          const verification = await verifyReceipt({ registry: app.registry, client, reference, mined: true, ...(watch.armed === null ? {} : { paid: watch.armed }) });
+          // Only a verdict is remembered: a log whose receipt could not be read is checked again, never skipped.
+          seen.add(id);
           if (verification.valid && verification.proof.payee.toLowerCase() === watch.payee.toLowerCase()) {
             arrived(verification.proof, Math.max(0, Date.now() / 1000 - Number(verification.proof.timestamp)));
           }

@@ -705,6 +705,8 @@
     "pay.error.pending",
     "pay.error.notSettled",
     "pay.error.batch",
+    "pay.error.unconfirmed",
+    "pay.checkPayment",
     "pay.relayer.offline",
     "pay.relayer.busy",
     "pay.relayer.budget",

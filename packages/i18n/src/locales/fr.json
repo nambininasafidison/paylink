@@ -681,6 +681,8 @@
   "pay.error.pending": "Le paiement prend plus de temps que d'habitude. Votre signature est conservée : appuyez de nouveau sur Payer pour le suivre, rien de nouveau ne sera signé.",
   "pay.error.notSettled": "Le paiement n'est pas passé et sa signature a expiré. Vous pouvez payer à nouveau.",
   "pay.error.batch": "Votre portefeuille n'a pas terminé le paiement. Rien n'a été payé.",
+  "pay.error.unconfirmed": "Votre paiement a été envoyé ({tx}), mais {network} ne l'a pas encore renvoyé. Vérifiez-le à nouveau avant de payer de nouveau : rien de nouveau n'est signé ni envoyé.",
+  "pay.checkPayment": "Vérifier le paiement à nouveau",
   "pay.relayer.offline": "Le service qui prend en charge les frais n'a pas répondu.",
   "pay.relayer.busy": "Le service de frais est occupé. Réessayez dans {seconds} secondes.",
   "pay.relayer.budget": "Le service de frais a atteint sa limite du jour.",

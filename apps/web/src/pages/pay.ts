@@ -29,6 +29,7 @@ import {
   fragmentOf,
   predictPayment,
   readLinkState,
+  ReceiptUnavailableError,
   sanitizeMemoForDisplay,
   verifyReceipt,
   ZERO_HASH,
@@ -50,11 +51,12 @@ import { pickWallet } from "../app/wallet-ui.ts";
 import { chainTime } from "../core/clients.ts";
 import type { ChainClient } from "../core/clients.ts";
 import { AppError, decodeUiError } from "../core/errors.ts";
-import { displayAmount, parseTypedAmount } from "../core/format.ts";
+import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { receiptUrl } from "../core/links.ts";
 import { btcFundsRow, mezoNotes, showFee } from "../editions/mezo/ui.ts";
 import { recoverConsumedPayment, RelayFallbackError } from "../rails/authorization.ts";
+import { PaymentUnconfirmedError } from "../rails/types.ts";
 import type { PaymentOutcome, PaymentStep } from "../rails/types.ts";
 import { checkLink } from "../read/checks.ts";
 import type { LinkChecks } from "../read/checks.ts";
@@ -307,6 +309,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const ownGasRail = app.edition.rails.find((r) => r.paths.includes("self-authorization"));
   /** Whether this view already looked for the payment of an earlier, used authorisation on its own (once). */
   let recoveryTried = false;
+  /** A payment sent whose outcome could not be read yet: the key reads it again, and never pays twice. */
+  let unconfirmed: PaymentUnconfirmedError | null = null;
 
   void payeeIdentity(app, invoice.payee).then((who) => {
     payeeLabel = who.label;
@@ -426,6 +430,12 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (busy || paid) {
       return;
     }
+    if (unconfirmed !== null) {
+      key.textContent = t("pay.checkPayment");
+      key.disabled = false;
+      key.dataset["action"] = "confirm";
+      return;
+    }
     const account = app.session.account();
     if (offerFor !== null && offerFor.toLowerCase() !== account?.address.toLowerCase()) {
       // The own-gas offer belongs to the account that signed: another account (or none) has nothing to resend.
@@ -532,6 +542,9 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
           await offerFallback(error, account);
           return;
         }
+        if (pending(error)) {
+          return;
+        }
         const decoded = decodeUiError(app, error);
         // A used signature whose payment the network does not show yet is not a failure: amber, and searched again.
         setStatus(status, error instanceof AppError && error.key === "pay.error.consumed" ? "warn" : "err", decoded.message, decoded.code);
@@ -559,7 +572,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     key.setAttribute("aria-busy", "true");
     recoverEarlier(app, { link, chain, client, account, now, status, quiet, onDone: done })
       .catch((error: unknown) => {
-        if (quiet) {
+        if (pending(error) || quiet) {
           // The link is closed anyway: a read that failed here changes nothing on screen.
           return;
         }
@@ -569,9 +582,53 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       .finally(() => {
         busy = false;
         key.removeAttribute("aria-busy");
-        if (!paid && key.dataset["action"] === "recover") {
+        if (unconfirmed !== null) {
+          void refresh();
+        } else if (!paid && key.dataset["action"] === "recover") {
           key.disabled = false;
         }
+      });
+  };
+
+  /**
+   * A payment that was sent but whose outcome the network has not returned yet (`PaymentUnconfirmedError`): amber, and
+   * the key reads the same payment again. True when `error` is one.
+   */
+  const pending = (error: unknown): boolean => {
+    if (!(error instanceof PaymentUnconfirmedError)) {
+      return false;
+    }
+    unconfirmed = error;
+    setStatus(status, "warn", t("pay.error.unconfirmed", { tx: shortHex(error.txHash), network: networkName(chain) }), t("common.errorCode", { code: "PaymentUnconfirmed" }));
+    return true;
+  };
+
+  /** Reads the unconfirmed payment again, then verifies and shows it: nothing is signed or sent. */
+  const confirm = (): void => {
+    const waiting = unconfirmed;
+    if (waiting === null || busy) {
+      return;
+    }
+    busy = true;
+    key.disabled = true;
+    key.setAttribute("aria-busy", "true");
+    setStatus(status, "", t("receipt.checking", { network: networkName(chain) }));
+    waiting
+      .resume()
+      .then(async (outcome) => {
+        unconfirmed = null;
+        await finish(app, { link, chain, client, onDone: done }, outcome);
+      })
+      .catch((error: unknown) => {
+        if (!pending(error)) {
+          const decoded = decodeUiError(app, error);
+          setStatus(status, "err", decoded.message, decoded.code);
+        }
+      })
+      .finally(() => {
+        busy = false;
+        key.removeAttribute("aria-busy");
+        void refresh();
       });
   };
 
@@ -645,6 +702,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       }
     } else if (action === "pay") {
       startPayment(null);
+    } else if (action === "confirm") {
+      confirm();
     } else if (action === "recover") {
       void chainTime(client)
         .catch(() => BigInt(Math.floor(Date.now() / 1000)))
@@ -1023,7 +1082,16 @@ async function finish(app: App, input: Pick<PayInput, "link" | "chain" | "client
   const { t } = app.i18n;
   const { link, chain, client } = input;
   const reference = { chainId: chain.chainId, txHash: outcome.txHash, logIndex: outcome.logIndex };
-  const verification = await verifyReceipt({ registry: app.registry, client, reference, paid: link });
+  let verification: Awaited<ReturnType<typeof verifyReceipt>>;
+  try {
+    // The outcome is proof the transaction is mined: a receipt the RPC does not return is "not read yet", never invalid.
+    verification = await verifyReceipt({ registry: app.registry, client, reference, paid: link, mined: true });
+  } catch (error) {
+    if (error instanceof ReceiptUnavailableError) {
+      throw new PaymentUnconfirmedError(outcome.txHash, () => Promise.resolve(outcome), { cause: error });
+    }
+    throw error;
+  }
   if (!verification.valid) {
     throw new AppError("pay.error.receipt", { reason: app.i18n.lookup(verification.i18nKey, verification.params) ?? verification.failure }, "ReceiptMismatch");
   }

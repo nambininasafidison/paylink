@@ -80,13 +80,14 @@ async function renderReceipt(app: App, ui: PageUi, view: HTMLElement): Promise<v
   setStatus(status, "", t("receipt.checking", { network: networkName(chain) }));
   replace(view, head, status);
   const client = app.client(chain);
+  const retryRow = (): HTMLElement => h("div", { class: "key-row" }, h("button", { class: "key key-line", attrs: { type: "button" }, on: { click: () => { void renderReceipt(app, ui, view); } } }, t("common.retry")));
   let verification: Awaited<ReturnType<typeof verifyReceipt>>;
   try {
     verification = await verifyReceipt({ registry: app.registry, client, reference: decoded, ...(decoded.invoice === null ? {} : { paid: decoded.invoice }) });
   } catch {
     ui.voice("offline");
     setStatus(status, "warn", t("receipt.unreachable", { network: networkName(chain) }));
-    view.append(h("div", { class: "key-row" }, h("button", { class: "key key-line", attrs: { type: "button" }, on: { click: () => { void renderReceipt(app, ui, view); } } }, t("common.retry"))));
+    view.append(retryRow());
     return;
   }
   if (!verification.valid) {
@@ -94,6 +95,10 @@ async function renderReceipt(app: App, ui: PageUi, view: HTMLElement): Promise<v
     ui.plate(plateText(chain), "err");
     const message = app.i18n.lookup(verification.i18nKey, verification.params) ?? t("error.unknown");
     setStatus(status, "err", message, t("common.errorCode", { code: verification.failure }));
+    if (verification.failure === "not-found") {
+      // The network may not show a fresh transaction yet, and Mezo testnet's RPC answers null for mined ones: ask again.
+      view.append(retryRow());
+    }
     return;
   }
   ui.plate(plateText(chain), "ok");

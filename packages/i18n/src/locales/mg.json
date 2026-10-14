@@ -681,6 +681,8 @@
   "pay.error.pending": "Maharitra kokoa noho ny mahazatra ny fandoavana. Voatahiry ny sonianao: tsindrio indray ny Aloavy hanaraha-maso azy, tsy hisy sonia vaovao.",
   "pay.error.notSettled": "Tsy tafita ny fandoavana ary lany ny sonia. Afaka mandoa indray ianao.",
   "pay.error.batch": "Tsy vitan'ny kitapom-bolanao ny fandoavana. Tsy nisy voaloa.",
+  "pay.error.unconfirmed": "Nalefa ny fandoavanao ({tx}), saingy mbola tsy naverin'ny {network}. Hamarino indray alohan'ny handoavanao indray: tsy misy sonia na zavatra vaovao alefa.",
+  "pay.checkPayment": "Hamarino indray ny fandoavana",
   "pay.relayer.offline": "Tsy namaly ny serivisy mandoa ny saran'ny tambajotra.",
   "pay.relayer.busy": "Be atao ny serivisy mandoa sarany. Andramo indray afaka {seconds} segondra.",
   "pay.relayer.budget": "Tratry ny serivisy mandoa sarany ny fetra androany.",

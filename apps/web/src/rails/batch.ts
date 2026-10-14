@@ -14,8 +14,8 @@
 import { approveCall, payCall } from "@paylink/sdk";
 import { pollingIntervalFor } from "../core/clients.ts";
 import { AppError } from "../core/errors.ts";
-import type { PaymentRail } from "./types.ts";
-import { paidLogIndex } from "./wallet.ts";
+import type { PaymentOutcome, PaymentRail } from "./types.ts";
+import { paidLogIndex, unconfirmedOnTimeout } from "./wallet.ts";
 
 export function batchRail(): PaymentRail {
   return {
@@ -35,20 +35,26 @@ export function batchRail(): PaymentRail {
       if (result.status !== "confirmed") {
         throw new AppError("pay.error.batch", {}, "BatchIncomplete");
       }
-      for (const txHash of [...result.txHashes].reverse()) {
-        const receipt = await context.client.waitForReceipt(txHash, { pollingMs: pollingIntervalFor(context.chain), timeoutMs: 60_000 });
-        if (receipt.status !== "success") {
-          continue;
+      const hashes = [...result.txHashes].reverse();
+      const read = async (): Promise<PaymentOutcome> => {
+        for (const txHash of hashes) {
+          const receipt = await context.client.waitForReceipt(txHash, { pollingMs: pollingIntervalFor(context.chain), timeoutMs: 60_000 });
+          if (receipt.status !== "success") {
+            continue;
+          }
+          try {
+            const logIndex = paidLogIndex(receipt, context);
+            context.onStep({ kind: "mined", txHash });
+            return { txHash, receipt, logIndex, elapsedMs: performance.now() - started };
+          } catch {
+            // Another transaction of the batch (a non-atomic wallet split it): look at the next one.
+          }
         }
-        try {
-          const logIndex = paidLogIndex(receipt, context);
-          context.onStep({ kind: "mined", txHash });
-          return { txHash, receipt, logIndex, elapsedMs: performance.now() - started };
-        } catch {
-          // Another transaction of the batch (a non-atomic wallet split it): look at the next one.
-        }
-      }
-      throw new AppError("pay.error.batch", {}, "BatchIncomplete");
+        throw new AppError("pay.error.batch", {}, "BatchIncomplete");
+      };
+      const first = hashes[0];
+      // The wallet says the batch is confirmed: a receipt the RPC does not return yet is read again, never paid again.
+      return first === undefined ? await read() : await unconfirmedOnTimeout(first, read);
     },
   };
 }

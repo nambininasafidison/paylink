@@ -15,9 +15,11 @@
 import type { Erc20Token, PayLinkFunction } from "@paylink/chains";
 import { approveCall, decodePaidLog, gasLimitFor, payCall, payNativeCall, preparePermitPayment, replayRevertData } from "@paylink/sdk";
 import type { CallRequest } from "@paylink/sdk";
+import { TransactionReceiptNotFoundError } from "viem";
 import type { Address, Hex, TransactionReceipt } from "viem";
 import { pollingIntervalFor } from "../core/clients.ts";
 import type { ChainClient } from "../core/clients.ts";
+import { PaymentUnconfirmedError } from "./types.ts";
 import type { PaymentContext, PaymentOutcome, PaymentRail } from "./types.ts";
 
 /** Permit validity: long enough to read the wallet prompt, short enough to stay a one-payment permit. */
@@ -73,10 +75,29 @@ async function settle(context: PaymentContext, fn: PayLinkFunction, call: CallRe
   const txHash = await context.account.sendTransaction({ chainId: context.chain.chainId, to: call.to, data: call.data, value: call.value, gas });
   const started = performance.now();
   context.onStep({ kind: "sent", txHash });
-  const receipt = await waitFor(context, txHash, call, gas);
-  const elapsedMs = performance.now() - started;
-  context.onStep({ kind: "mined", txHash });
-  return { txHash, receipt, logIndex: paidLogIndex(receipt, context), elapsedMs };
+  const outcome = async (): Promise<PaymentOutcome> => {
+    const receipt = await waitFor(context, txHash, call, gas);
+    const elapsedMs = performance.now() - started;
+    context.onStep({ kind: "mined", txHash });
+    return { txHash, receipt, logIndex: paidLogIndex(receipt, context), elapsedMs };
+  };
+  return await unconfirmedOnTimeout(txHash, outcome);
+}
+
+/**
+ * Runs `read`, the wait for a payment transaction that was sent; a wait that ends without its receipt is not a failure
+ * (the payment may be mined, the RPC may not have answered for it): it becomes `PaymentUnconfirmedError`, whose
+ * `resume` waits again. Nothing new is sent either way.
+ */
+export async function unconfirmedOnTimeout(txHash: Hex, read: () => Promise<PaymentOutcome>): Promise<PaymentOutcome> {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof TransactionReceiptNotFoundError) {
+      throw new PaymentUnconfirmedError(txHash, async () => await unconfirmedOnTimeout(txHash, read), { cause: error });
+    }
+    throw error;
+  }
 }
 
 async function ensureAllowance(context: PaymentContext, token: Erc20Token): Promise<void> {

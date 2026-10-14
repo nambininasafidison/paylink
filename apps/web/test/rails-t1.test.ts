@@ -12,7 +12,7 @@
  */
 import { AUTHORIZATION_USED_EVENT, DEFAULT_AUTHORIZATION_TTL_SECONDS, decodePaidLog, gasLimitFor, memoryOutstandingAuthorizationStore, outstandingAuthorizationId, PAID_TOPIC, payLinkV2Abi } from "@paylink/sdk";
 import type { OutstandingAuthorization } from "@paylink/sdk";
-import { decodeFunctionData, encodeAbiParameters, encodeEventTopics, encodeFunctionResult, erc20Abi, parseAbi } from "viem";
+import { decodeFunctionData, encodeAbiParameters, encodeEventTopics, encodeFunctionResult, erc20Abi, parseAbi, TransactionReceiptNotFoundError } from "viem";
 import type { Address, Hex, RpcLog, TransactionReceipt } from "viem";
 import { describe, expect, it, vi } from "vitest";
 import { parseAtomicCapability, parseCallsStatus } from "../src/accounts/eip6963.ts";
@@ -23,6 +23,7 @@ import type { RelayAccepted, RelayerClient } from "../src/core/relayer.ts";
 import { RelayerProblem } from "../src/core/relayer.ts";
 import { recoverConsumedPayment, relayedAuthorizationRail, RelayFallbackError, selfAuthorizationRail, waitForSettlement } from "../src/rails/authorization.ts";
 import { batchRail } from "../src/rails/batch.ts";
+import { PaymentUnconfirmedError } from "../src/rails/types.ts";
 import type { PaymentContext, PaymentStep } from "../src/rails/types.ts";
 import { walletRail } from "../src/rails/wallet.ts";
 import { CONTRACT, fakeChain, issue, localChain, NOW, payer, registry, TOKEN_ADDRESS } from "./helpers.ts";
@@ -134,7 +135,8 @@ async function harness(options: { relay?: (body: unknown) => Promise<RelayAccept
     },
     waitForReceipt: (hash: Hex) => {
       const found = receipts.get(hash);
-      return found === undefined ? Promise.reject(new Error("no receipt")) : Promise.resolve(found);
+      // The client's own answer when its wait ends without the receipt.
+      return found === undefined ? Promise.reject(new TransactionReceiptNotFoundError({ hash })) : Promise.resolve(found);
     },
     // Like an RPC: the address, the block range and every topic position that is not null must match.
     getLogs: (filter: { address: Address; fromBlock: bigint; toBlock: bigint; topics: readonly (Hex | null)[] }) => {
@@ -365,6 +367,24 @@ describe("EIP-5792 batch rail", () => {
     expect(decodeFunctionData({ abi: erc20Abi, data: calls[0]?.data ?? "0x" }).args).toEqual([CONTRACT, h.link.invoice.amount]);
     expect(decodeFunctionData({ abi: payLinkV2Abi, data: calls[1]?.data ?? "0x" }).functionName).toBe("pay");
     expect(h.steps).toEqual(["batch", "mined"]);
+  });
+
+  it("reads a confirmed batch again when its receipt is not returned yet, and never sends it twice", async () => {
+    let batches = 0;
+    const h = await harness({
+      account: account("injected", {
+        sendCalls: () => {
+          batches += 1;
+          return Promise.resolve({ status: "confirmed" as const, txHashes: [TX(6)] });
+        },
+      }),
+    });
+    const error = await batchRail().execute("batched-approve-pay", h.ctx).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PaymentUnconfirmedError);
+    expect((error as PaymentUnconfirmedError).txHash).toBe(TX(6));
+    h.receipts.set(TX(6), success(TX(6), [paidLog(h.link.key, h.link.invoice.payee, payer.address, h.link.invoice.amount, 3, TX(6))]));
+    expect(await (error as PaymentUnconfirmedError).resume()).toMatchObject({ txHash: TX(6), logIndex: 3 });
+    expect(batches).toBe(1);
   });
 
   it("reports a batch the wallet did not complete, and needs an account that batches", async () => {
