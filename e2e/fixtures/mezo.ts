@@ -163,7 +163,10 @@ export async function startMezoFork(): Promise<MezoFork> {
   }
   try {
     const tip = await jsonRpc<Hex>(MEZO.upstream, "eth_maxPriorityFeePerGas").catch((): Hex => "0x10");
-    const price = await jsonRpc<Hex>(MEZO.upstream, "eth_call", [{ to: MEZO.priceFeed, data: FETCH_PRICE }, "latest"]);
+    // Mezo's RPC can drop out after the fork started: that is the network being unreachable, not a failing test.
+    const price = await jsonRpc<Hex>(MEZO.upstream, "eth_call", [{ to: MEZO.priceFeed, data: FETCH_PRICE }, "latest"]).catch((error: unknown): never => {
+      throw new MezoUnreachable(error);
+    });
     return { ...(await prepare(fork)), tip, price };
   } catch (error) {
     await fork.stop();
