@@ -4,7 +4,7 @@
 |---|---|
 | **Event** | "Build with MUSD and MEZO: Bitcoin's Economic Layer", the Mezo Buildathon on AKINDO (Mezo / Supernormal Foundation). Track 2 "Access & Distribution". An MUSD or MEZO integration is mandatory: PayLink's is MUSD ([§4](#4-the-musd-integration-explained)) |
 | **Deadline** | Wave 1 closes **2026-10-26** (time of day unknown: plan to submit by **Oct 24**). Build Oct 16–26, judging Oct 27–Nov 1; wave 2 builds Nov 2–15 (**UNVERIFIED**: third-party pages only, [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo)) |
-| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the deployment transaction on Mezo testnet, a real receipt, the video, a contact, the interviews. **PayLinkV2 is not deployed on Mezo testnet yet**, and the preview that serves the edition is not online yet. **First, before any other polish: [§10](#10-liste-de-contrôle-en-français) steps 3 to 9** (push the branch, deploy, record, verify the source, make the first real MUSD payment). Until then nothing in the edition can be signed or paid, so the pitch, the judge tour, the receipt link and the video cannot be checked live, and waves are judged on progress (**UNVERIFIED**). Date the deployment and the first payments inside the Oct 16–26 window and list them in the wave 1 field ([§5](#5-what-is-new-in-wave-1-what-comes-in-wave-2)) |
+| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the source verification on Mezo's explorer, the receipt and open-invoice links, the video, a contact, the interviews. PayLinkV2 is deployed on Mezo testnet (2026-10-16, block 16183660) and the preview serves the edition; the first real MUSD payment went through it on 2026-10-16 (12.50 MUSD, transaction `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd`, block 16184418). Next: [§10](#10-liste-de-contrôle-en-français) steps 5 bis, 10 and 11 |
 | **Written** | 2026-10-13, from the local branch `mezo` at `119a7d6` (23 commits on top of `main` at `0c3bfed`), and checked against Mezo testnet the same day. Revised 2026-10-14 after a review: Mezo's RPC answers, the borrow estimate, the Mezo-only policy, the business fields, the wording of fees and gas |
 | **Who submits** | The owner, from the owner's AKINDO account. Claude Code drafts only ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 | **Checklist** | [§10](#10-liste-de-contrôle-en-français), in French; [README.md §5](README.md#5-mezo-buildathon-akindo-wave-1) says what is done |
@@ -123,7 +123,7 @@ HOW WE USE MUSD AND MEZO
 - The app discloses MUSD's issuer powers: on testnet, the owner of the MUSD contract can let chosen addresses mint MUSD or burn it from any account.
 
 UNDER THE HOOD
-- PayLinkV2 (Solidity 0.8.30, OpenZeppelin 5.3.0) is immutable, ownerless and fee-less, with exact-delta settlement. It is deployed with the canonical CREATE2 factory at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on Mezo testnet (transaction [TO FILL: deployment transaction hash]), the same bytecode at the same address as on Monad testnet and Base Sepolia.
+- PayLinkV2 (Solidity 0.8.30, OpenZeppelin 5.3.0) is immutable, ownerless and fee-less, with exact-delta settlement. It is deployed with the canonical CREATE2 factory at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on Mezo testnet (transaction 0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e), the same bytecode at the same address as on Monad testnet and Base Sepolia.
 - 335 Foundry tests (unit, fuzz, invariants), 100% line and branch coverage of the contract, 63 of 63 hand-written mutants killed. This is our own review, not a third-party audit.
 - More than 1,500 TypeScript unit and integration tests (SDK, web app, chain registry, deploy tools) and 42 Playwright end-to-end tests, 9 of them for the Mezo edition against an anvil fork of Mezo testnet with the real MUSD, its lending contracts and the CREATE2 factory: the full invoice-to-receipt flow, an RPC that answers "not found" for mined transactions as Mezo's does, smart accounts and batches, a payer without BTC or MUSD (with the live borrow estimate), cancellation, status, security headers, and axe-core WCAG 2.2 AA checks in three languages, two themes and three screen widths.
 - A strict Content-Security-Policy that lets the Mezo edition talk to Mezo's RPC only, with Trusted Types and no third-party script.
@@ -132,7 +132,7 @@ UNDER THE HOOD
 HONEST STATUS
 Testnet only, not audited, no users or revenue yet. PayLink v2 (contract, SDK, web app) was built from Oct 5, 2026 and is also entered at Monad Metropolis and Colosseum; the Mezo edition was built for this buildathon from Oct 13. Claude Code (AI) did much of the engineering under the founder's direction; the founder owns every decision, key and submission.
 ```
-Characters: 6,674 (no stated limit)
+Characters: 6,702 (no stated limit)
 
 ### Target group
 
@@ -320,9 +320,9 @@ New in wave 1 (built from Oct 13, 2026, on top of PayLink v2):
 - Pay without selling bitcoin: the smallest Mezo loan that covers an invoice, and the test BTC it locks, read live from MUSD's BorrowerOperations, PriceFeed and TroveManager, on the pay page and the Status page.
 - Reads that hold on Mezo's public RPC, which sometimes answers "not found" for a mined transaction: the app, the SDK and the deploy tools ask again instead of calling a payment invalid.
 - 9 end-to-end tests of the edition on a fork of Mezo testnet with the real MUSD and lending contracts, including Mezo's "not found" answers for mined transactions and accessibility checks in three languages, and 1 of the deploy kit on Mezo testnet's chain id.
-- PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on 2026-10-16, its source verified on Mezo's explorer on [TO FILL: date], and the first real MUSD payments through it on [TO FILL: date].
+- PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on 2026-10-16, its source verified on Mezo's explorer on [TO FILL: date], and the first real MUSD payment through it on 2026-10-16 (12.50 MUSD, invoice signed by the payee, paid with one permit signature and one transaction).
 ```
-Characters: 1,720 (no stated limit)
+Characters: 1,808 (no stated limit)
 
 **Wave 2 (Nov 2–15, UNVERIFIED dates).** The milestones field above lists them. Each needs its own decision before it is built: Passport brings React and GPL-3.0 code into an MIT app; EIP-7702 sponsorship needs Mezo to include type-4 transactions (**L**) and wallets to support them; ERC-4337 needs a bundler and paymaster on Mezo, and none is known (**UNVERIFIED**); MEZO needs a payment proven on testnet itself ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
 
