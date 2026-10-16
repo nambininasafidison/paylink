@@ -9,14 +9,14 @@
 
 **Signed dollar invoices you share as a link. The client pays with a fingerprint or a wallet and holds no gas token; both sides keep a receipt anyone can verify.**
 
-> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia. A Mezo edition (MUSD on Mezo testnet) is built on the branch `mezo`; PayLinkV2 is not deployed on Mezo testnet yet. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
+> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia, and on Mezo testnet for the Mezo edition (MUSD), which is built on the branch `mezo`. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
 
 | | |
 |---|---|
 | **Monad edition** | <https://paylink-mg.pages.dev/monad/>: Mera passkeys as the only account layer, gasless AUSD, Monad testnet (10143) |
 | **Base edition** | <https://paylink-mg.pages.dev/base/>: browser wallets, gasless USDC, "Pay with Base" batches, Base Sepolia (84532) |
 | **All networks** | <https://paylink-mg.pages.dev/>: every enabled network in the registry, browser wallets |
-| **Mezo edition** | On the branch [`mezo`](https://github.com/nambininasafidison/paylink/tree/mezo), served at <https://mezo.paylink-mg.pages.dev/mezo/> once that preview is online: browser wallets, MUSD (the Bitcoin-backed dollar) on Mezo testnet (31611). PayLinkV2 is **not deployed** on Mezo testnet yet, so the edition reads "Not deployed yet" until it is |
+| **Mezo edition** | On the branch [`mezo`](https://github.com/nambininasafidison/paylink/tree/mezo), served at <https://mezo.paylink-mg.pages.dev/mezo/>: browser wallets, MUSD (the Bitcoin-backed dollar) on Mezo testnet (31611). PayLinkV2 is deployed there at the same address since 2026-10-16 ([transaction](https://explorer.test.mezo.org/tx/0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e)) |
 | **Contract** | `0x448eCce9711860502806A3d5B021a4f9Ba715082`, the same address on both testnets where it is deployed ([below](#the-contract)) |
 | **Open standard** | [PayLink invoice format v2](../docs/spec/paylink-invoice-v2.md), with a [JSON Schema](../docs/spec/paylink-invoice-v2.schema.json) and test vectors |
 | **Licence** | MIT ([LICENSE](../LICENSE)) |
@@ -70,8 +70,9 @@ The app is in English, French and Malagasy (the founder reviews the Malagasy), i
 |---|---|---|---|---|
 | Monad testnet (10143) | [`0x448eCce9711860502806A3d5B021a4f9Ba715082`](https://testnet.monadvision.com/address/0x448eCce9711860502806A3d5B021a4f9Ba715082) | [`0xb86e7536…cb4d6a`](https://testnet.monadvision.com/tx/0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c193e4f903cb4d6a) (CREATE2, sent directly) | 69331735 | [`10143.json`](../protocol/deployments/10143.json) |
 | Base Sepolia (84532) | [`0x448eCce9711860502806A3d5B021a4f9Ba715082`](https://sepolia.basescan.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082) | [`0x2969321d…86b5ed`](https://sepolia.basescan.org/tx/0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed) (CREATE2 reached in a relayed EIP-7702 transaction) | 47859253 | [`84532.json`](../protocol/deployments/84532.json) |
+| Mezo testnet (31611) | [`0x448eCce9711860502806A3d5B021a4f9Ba715082`](https://explorer.test.mezo.org/address/0x448eCce9711860502806A3d5B021a4f9Ba715082) | [`0x1662fb51…e1165e`](https://explorer.test.mezo.org/tx/0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e) (CREATE2, sent directly) | 16183660 | [`31611.json`](../protocol/deployments/31611.json) |
 
-Full hashes: Monad testnet `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c193e4f903cb4d6a`; Base Sepolia `0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed`. Anyone can re-check a deployment against the release (code, masked hash, immutables, EIP-712 domain) with `tools/verify-deployment` ([deployments README](../protocol/deployments/README.md)). The contract source is not yet verified on the block explorers.
+Full hashes: Monad testnet `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c193e4f903cb4d6a`; Base Sepolia `0x2969321db8ce3b1ed12ddf038268c30de4896aaf9e9bad9db2e92e20d886b5ed`; Mezo testnet `0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e`. Anyone can re-check a deployment against the release (code, masked hash, immutables, EIP-712 domain) with `tools/verify-deployment` ([deployments README](../protocol/deployments/README.md)). The contract source is not yet verified on the block explorers.
 
 ## Architecture
 
@@ -154,7 +155,7 @@ The submission texts, with their disclosures, are in [docs/submissions/](../docs
 
 ## Status and limits
 
-- **Testnets only.** Monad mainnet (143) is in the registry but disabled; there is no mainnet deployment. Mezo testnet (31611) is in the registry for the Mezo edition only, and PayLinkV2 is not deployed there yet.
+- **Testnets only.** Monad mainnet (143) is in the registry but disabled; there is no mainnet deployment. Mezo testnet (31611) is in the registry for the Mezo edition only, where PayLinkV2 is deployed (2026-10-16).
 - **Not audited.** Our own review only: 100 % line and branch coverage of the contract, 63 of 63 hand-written mutants killed, Slither with no untriaged result, invariants I1 to I11 ([evidence](../protocol/audit/README.md), [self-review](../docs/security/self-review.md)).
 - **Services.** Gasless payments, test AUSD and gasless cancel need the relayer online; the ledger's full history needs the indexer. Without the indexer, the ledger reads the chain's latest blocks and says so. Each edition's Status page shows whether they answer.
 - **No users yet.** PayLink has no users, revenue or partners; demand is a hypothesis under test.

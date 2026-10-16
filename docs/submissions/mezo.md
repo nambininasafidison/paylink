@@ -271,7 +271,7 @@ Characters: 499 (no stated limit)
 |---|---|
 | Repository | `https://github.com/nambininasafidison/paylink/tree/mezo` once you have pushed the branch (public, MIT). The home page of the repository shows `main`, which has no Mezo edition while Monad and Colosseum are judged: link the branch |
 | Live demo | `https://mezo.paylink-mg.pages.dev/mezo/` ([§2](#2-where-judges-see-it-the-preview-of-branch-mezo)) |
-| Deployed address | `0x448eCce9711860502806A3d5B021a4f9Ba715082` on Mezo testnet (31611), deployment transaction `[TO FILL: hash]` |
+| Deployed address | `0x448eCce9711860502806A3d5B021a4f9Ba715082` on Mezo testnet (31611), deployment transaction [`0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e`](https://explorer.test.mezo.org/tx/0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e), block 16183660, 2026-10-16 |
 | Demo video | The public (or unlisted) YouTube video titled "PayLink on Mezo: MUSD invoices paid by link (testnet demo)", script [§8](#8-demo-video-script-at-most-200-captions-no-narration) |
 
 ### Disclosure (if the form asks for prior work or other events)
@@ -320,9 +320,9 @@ New in wave 1 (built from Oct 13, 2026, on top of PayLink v2):
 - Pay without selling bitcoin: the smallest Mezo loan that covers an invoice, and the test BTC it locks, read live from MUSD's BorrowerOperations, PriceFeed and TroveManager, on the pay page and the Status page.
 - Reads that hold on Mezo's public RPC, which sometimes answers "not found" for a mined transaction: the app, the SDK and the deploy tools ask again instead of calling a payment invalid.
 - 9 end-to-end tests of the edition on a fork of Mezo testnet with the real MUSD and lending contracts, including Mezo's "not found" answers for mined transactions and accessibility checks in three languages, and 1 of the deploy kit on Mezo testnet's chain id.
-- PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on [TO FILL: date], its source verified on Mezo's explorer on [TO FILL: date], and the first real MUSD payments through it on [TO FILL: date].
+- PayLinkV2 deployed on Mezo testnet at 0x448eCce9711860502806A3d5B021a4f9Ba715082 on 2026-10-16, its source verified on Mezo's explorer on [TO FILL: date], and the first real MUSD payments through it on [TO FILL: date].
 ```
-Characters: 1,725 (no stated limit)
+Characters: 1,720 (no stated limit)
 
 **Wave 2 (Nov 2–15, UNVERIFIED dates).** The milestones field above lists them. Each needs its own decision before it is built: Passport brings React and GPL-3.0 code into an MIT app; EIP-7702 sponsorship needs Mezo to include type-4 transactions (**L**) and wallets to support them; ERC-4337 needs a bundler and paymaster on Mezo, and none is known (**UNVERIFIED**); MEZO needs a payment proven on testnet itself ([research §11](../research/mezo.md#11-payment-routes-and-gasless-relaying)).
 
@@ -359,12 +359,12 @@ QUICK LOOK, NO FUNDS (2 minutes)
 - "Ledger" (top menu): each invoice's state read from the contract, the totals and CSV export. "Cancel" then "Confirm cancel" sends one cancel transaction from your wallet (a little BTC).
 
 CHECK IT YOURSELF
-- Contract: 0x448eCce9711860502806A3d5B021a4f9Ba715082 on Mezo testnet, deployed in transaction [TO FILL: deployment transaction hash]; the same address and bytecode as on Monad testnet and Base Sepolia.
+- Contract: 0x448eCce9711860502806A3d5B021a4f9Ba715082 on Mezo testnet, deployed in transaction 0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e (block 16183660, 2026-10-16); the same address and bytecode as on Monad testnet and Base Sepolia.
 - MUSD: 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503.
 - Source and tests: https://github.com/nambininasafidison/paylink/tree/mezo. The Mezo parts: apps/web/src/editions/mezo, e2e/specs/mezo.spec.ts, docs/adr/0017-mezo-edition-chain-layer.md, docs/research/mezo.md.
 - Language: EN, FR or MG at the top of every page.
 ```
-Characters: 3,349 (no stated limit)
+Characters: 3,406 (no stated limit)
 
 ## 7. Honest limitations
 

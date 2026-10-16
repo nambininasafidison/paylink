@@ -233,7 +233,14 @@
           "ceiling": "4077000"
         }
       },
-      "deployment": null,
+      "deployment": {
+        "address": "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+        "method": "CREATE2",
+        "txHash": "0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e",
+        "blockNumber": "16183660",
+        "deployer": "0x3fE5f968b61523CcCe599B99bD4c0cfc39c666cA",
+        "status": "active"
+      },
       "notes": [
         "Gas is test BTC at about 130 to 300 wei; at least 50 % of the gas limit is charged (C): send clamp(estimate x 1.10, floor, ceiling).",
         "Cancun opcodes run (C), not London as Mezo's docs say; the paris artifact runs either way. eth_getLogs spans at most 10,000 blocks (C).",
