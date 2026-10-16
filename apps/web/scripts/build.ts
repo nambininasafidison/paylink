@@ -21,6 +21,12 @@ import { build } from "vite";
 import { APP_DIR, assemble, DEFAULT_EDITIONS, editionBase, PUBLIC, renderHeaders } from "./site.ts";
 
 export const PAY_ROUTE_BUDGET_BYTES = 110_000;
+/**
+ * End-to-end builds bake the test chains (PAYLINK_E2E_CHAINS: tokens, recorded deployments, RPCs) into the bundle, which
+ * production never ships: measured at 0.7 kB gzipped on /monad/pay/. They get this allowance on top of the budget, so
+ * the production build alone enforces PAY_ROUTE_BUDGET_BYTES on what is served.
+ */
+export const E2E_OVERRIDE_ALLOWANCE_BYTES = 1_000;
 const E2E_MARKER = "e2e-local";
 
 interface ManifestChunk {
@@ -87,8 +93,9 @@ async function main(argv: readonly string[]): Promise<void> {
   for (const edition of editions) {
     const out = edition === "all" ? DIST : join(DIST, edition);
     const bytes = entryJsBytes(out, join(out, ".vite/manifest.json"), "pay/index.html");
-    console.log(`${editionBase(edition)}pay/: ${(bytes / 1000).toFixed(1)} kB gzipped JavaScript (budget ${String(PAY_ROUTE_BUDGET_BYTES / 1000)} kB)`);
-    if (bytes > PAY_ROUTE_BUDGET_BYTES) {
+    const budget = PAY_ROUTE_BUDGET_BYTES + (e2e ? E2E_OVERRIDE_ALLOWANCE_BYTES : 0);
+    console.log(`${editionBase(edition)}pay/: ${(bytes / 1000).toFixed(1)} kB gzipped JavaScript (budget ${String(budget / 1000)} kB${e2e ? ", test chains included" : ""})`);
+    if (bytes > budget) {
       throw new Error(`the pay route of edition ${edition} is over budget`);
     }
     rmSync(join(out, ".vite"), { recursive: true, force: true });
