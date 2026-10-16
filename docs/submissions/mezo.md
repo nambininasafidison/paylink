@@ -4,7 +4,7 @@
 |---|---|
 | **Event** | "Build with MUSD and MEZO: Bitcoin's Economic Layer", the Mezo Buildathon on AKINDO (Mezo / Supernormal Foundation). Track 2 "Access & Distribution". An MUSD or MEZO integration is mandatory: PayLink's is MUSD ([§4](#4-the-musd-integration-explained)) |
 | **Deadline** | Wave 1 closes **2026-10-26** (time of day unknown: plan to submit by **Oct 24**). Build Oct 16–26, judging Oct 27–Nov 1; wave 2 builds Nov 2–15 (**UNVERIFIED**: third-party pages only, [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo)) |
-| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the source verification on Mezo's explorer, the receipt and open-invoice links, the video, a contact, the interviews. PayLinkV2 is deployed on Mezo testnet (2026-10-16, block 16183660) and the preview serves the edition; the first real MUSD payment went through it on 2026-10-16 (12.50 MUSD, transaction `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd`, block 16184418). Next: [§10](#10-liste-de-contrôle-en-français) steps 5 bis, 10 and 11 |
+| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the source verification on Mezo's explorer, the video, the interviews. PayLinkV2 is deployed on Mezo testnet (2026-10-16, block 16183660) and the preview serves the edition; the first real MUSD payment went through it on 2026-10-16 (12.50 MUSD, transaction `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd`, block 16184418). Next: [§10](#10-liste-de-contrôle-en-français) steps 5 bis, 10 and 11 |
 | **Written** | 2026-10-13, from the local branch `mezo` at `119a7d6` (23 commits on top of `main` at `0c3bfed`), and checked against Mezo testnet the same day. Revised 2026-10-14 after a review: Mezo's RPC answers, the borrow estimate, the Mezo-only policy, the business fields, the wording of fees and gas |
 | **Who submits** | The owner, from the owner's AKINDO account. Claude Code drafts only ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 | **Checklist** | [§10](#10-liste-de-contrôle-en-français), in French; [README.md §5](README.md#5-mezo-buildathon-akindo-wave-1) says what is done |
@@ -336,8 +336,8 @@ Everything runs on Mezo testnet (chain 31611). You need an EVM browser wallet (M
 
 QUICK LOOK, NO FUNDS (2 minutes)
 - Status: https://mezo.paylink-mg.pages.dev/mezo/status/ reads Mezo testnet live: the network, the genuine PayLink contract, MUSD (permit yes, EIP-3009 no), the BTC fee per payment, and the smallest MUSD loan with the BTC it locks, read from MUSD's own contracts.
-- A real paid receipt: [TO FILL: receipt link of the demo payment]. It re-verifies the payment on chain each time it opens; "View the transaction" opens Mezo's explorer.
-- An open invoice: [TO FILL: open-amount invoice link]. Its four lamps (signature, network, contract, payable) are read from the chain before anything can be paid.
+- A real paid receipt: https://mezo.paylink-mg.pages.dev/mezo/r/#2.31611.0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd.0.P-X5aLYVI8zOWZuZvUwM_DnGZsoRiRekD68c16E9sO9WyG3nlzrFAwAAAAAAAAAArXjrxaxiAAAAAAAAAAAAAAAAAABq2udWAAAAAW2ofx2FnhG7frretwGDNfw5gOiHGNLEjbfrFTjdrsTFPxfZe_U6Zy8jLFAs7MsnW3KlLzXd6EOvICR9BN2RRPU.3fV7lNn-GeYkPjpbe-lhlJ4M6q3Q2jpmeTAvYnOi4bB-RZe2CBAFkWlkRYH-PY92buzmDjyCEtZw8g0kgnbSqhw.TG9nbyBkZXNpZ24g4oCUIHRlc3Q. It re-verifies the payment on chain each time it opens; "View the transaction" opens Mezo's explorer.
+- An open invoice: https://mezo.paylink-mg.pages.dev/mezo/pay/#2.31611.P-X5aLYVI8zOWZuZvUwM_DnGZsoRiRekD68c16E9sO9WyG3nlzrFAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABq-T6zAAAAAGXfCaulgtP9E7uvdyQqFi7jkhLhhDXhtcp6dBaul6AyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.XYsebJEGwdYH3Bfcjdnzr0bWbLsieYWhFG0lY-n_4o8wjyGSifD6_cIE3gOd4N_8DzFlw-EhSi5dh3L8cbjAkRw. Its four lamps (signature, network, contract, payable) are read from the chain before anything can be paid.
 
 1. SELLER: SIGN AN INVOICE (1 minute, no funds needed)
 - Open https://mezo.paylink-mg.pages.dev/mezo/. Type an amount (for example 1.50) and a memo.
@@ -353,7 +353,7 @@ QUICK LOOK, NO FUNDS (2 minutes)
 - Press "Connect a wallet to pay", then "Switch to Mezo testnet" if asked, then "Pay 1.50 MUSD". A plain account signs one permit for exactly the amount, then confirms one transaction. A smart account approves exactly the amount, then pays. The line under the key gives the network fee in sats, paid in BTC by your wallet.
 - "Approved" appears once the receipt is verified on chain. "Open the receipt", then "View the transaction".
 - No BTC or no MUSD: the page says which is missing and links Mezo's faucet and testnet borrow page. Without MUSD it also shows the smallest Mezo loan that covers the invoice and the test BTC it locks, read live. Test MUSD has no faucet; it is borrowed against test BTC (smallest loan 1,800 MUSD plus a 200 MUSD reserve).
-- If you would rather not borrow, send your address to [TO FILL: your Discord or Telegram handle] and we will send you 20 test MUSD and a little test BTC.
+- If you would rather not borrow, send your address to @safidisonraherizo (Telegram or Discord) and we will send you 20 test MUSD and a little test BTC.
 
 4. SELLER: THE BOOKS
 - "Ledger" (top menu): each invoice's state read from the contract, the totals and CSV export. "Cancel" then "Confirm cancel" sends one cancel transaction from your wallet (a little BTC).
@@ -364,7 +364,7 @@ CHECK IT YOURSELF
 - Source and tests: https://github.com/nambininasafidison/paylink/tree/mezo. The Mezo parts: apps/web/src/editions/mezo, e2e/specs/mezo.spec.ts, docs/adr/0017-mezo-edition-chain-layer.md, docs/research/mezo.md.
 - Language: EN, FR or MG at the top of every page.
 ```
-Characters: 3,406 (no stated limit)
+Characters: 4,075 (no stated limit)
 
 ## 7. Honest limitations
 
