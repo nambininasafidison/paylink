@@ -1,0 +1,42 @@
+{
+  "captured": "2026-10-20T18:43:50.011Z",
+  "commit": "81f2e6a2879e45cdc4b2b82b3f32ad88637f93f7",
+  "build": "apps/web/dist (production build, scripts/build.ts)",
+  "origin": "https://paylink-mg.pages.dev",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "locale": "en"
+  },
+  "forks": {
+    "31611": {
+      "rpc": "https://rpc.test.mezo.org",
+      "block": "16266901"
+    }
+  },
+  "note": "Fork captures: the transactions shown exist only on a local anvil fork of Mezo testnet; the BTC price and the suggested tip are Mezo testnet's own, read when the fork started.",
+  "screens": [
+    {
+      "file": "screens/screen-6-mezo-create.png",
+      "what": "Mezo edition, seller: an invoice for 12.50 MUSD signed in a browser wallet (one EIP-712 signature, no transaction, no gas), shown as the card with its QR code."
+    },
+    {
+      "file": "screens/screen-7-mezo-pay.png",
+      "what": "Mezo edition, payer: four lamps read from Mezo testnet, the route (one EIP-2612 permit for exactly the amount, then one payWithPermit transaction) and the network fee in sats, paid in BTC by the payer's wallet."
+    },
+    {
+      "file": "screens/screen-8-mezo-receipt.png",
+      "what": "Mezo edition: the receipt of a 12.50 MUSD payment, re-verified against Mezo testnet (on a fork) on every opening: Paid event, genuine contract, matching invoice."
+    },
+    {
+      "file": "screens/screen-9-mezo-status.png",
+      "what": "Mezo edition, Status: Mezo testnet answers, the genuine PayLinkV2 release, MUSD read live (permit yes, EIP-3009 no), the BTC fee per payment, and the smallest MUSD loan read from MUSD's own contracts."
+    },
+    {
+      "file": "screens/screen-10-mezo-borrow.png",
+      "what": "Mezo edition, a payer without MUSD: no faucet, Mezo's testnet borrow page, and the smallest Mezo loan that covers the invoice with the test BTC it locks, read live from MUSD's BorrowerOperations, PriceFeed and TroveManager."
+    }
+  ]
+}
