@@ -8,6 +8,7 @@
  * | monad   | Mera passkeys only (spec §2.1 T1)   | relayed authorisation, own-gas authorisation, wallet           |
  * | base    | EIP-6963 wallets (EIP-5792 batches) | relayed authorisation (EOAs), EIP-5792 batch, own-gas, wallet  |
  * | mezo    | EIP-6963 wallets (EIP-5792 batches) | EIP-5792 batch (smart accounts), wallet (permit, approve-pay)  |
+ * | paypal  | EIP-6963 wallets                    | own-gas authorisation, wallet (no relayer: D-SCOPE, ADR 0018)  |
  * | all     | EIP-6963 wallets                    | relayed authorisation, own-gas authorisation, wallet           |
  *
  * The PaymentRouter (`selectPaymentPath`) decides the path from the token, the payer's account and the relayer's
@@ -19,6 +20,7 @@ import { passkeyLayer } from "../accounts/passkey.ts";
 import { relayedAuthorizationRail, selfAuthorizationRail } from "../rails/authorization.ts";
 import { batchRail } from "../rails/batch.ts";
 import { walletRail } from "../rails/wallet.ts";
+import { paypalProfile } from "./paypal/profile.ts";
 import type { EditionProfile } from "./types.ts";
 
 declare const __PAYLINK_EDITION__: Edition;
@@ -96,6 +98,11 @@ export function mezoProfile(): EditionProfile {
   };
 }
 
+/** PayPal AI hackathon (docs/paypal/SPEC.md, ADR 0018): PayLink Twin on Ethereum Sepolia; see editions/paypal/profile.ts. */
+export function paypalEditionProfile(): EditionProfile {
+  return paypalProfile(common, editionBase("paypal"));
+}
+
 /** Every chain at the root: injected wallets, gasless where the relayer serves the chain. */
 export function allProfile(): EditionProfile {
   return {
@@ -128,6 +135,8 @@ export function edition(): EditionProfile {
         ? baseProfile()
         : __PAYLINK_EDITION__ === "mezo"
           ? mezoProfile()
-          : allProfile();
+          : __PAYLINK_EDITION__ === "paypal"
+            ? paypalEditionProfile()
+            : allProfile();
   return current;
 }

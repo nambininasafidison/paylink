@@ -15,7 +15,7 @@ The PayLink v2 web app: signed dollar invoices that a payee creates and shares i
 | `/status/` | anyone | Each chain of the edition checked live (RPC, genuine release), the relayer and indexer from `/config.json`, the build, configuration, storage and offline mode. |
 | `404.html` | anyone | Served by Pages for unknown paths. |
 
-The editions `monad`, `base` and `mezo` serve the same routes under `/monad/`, `/base/` and `/mezo/` ([ADR 0008](../../docs/adr/0008-editions.md)); `?chain=` picks among the edition's own chains only.
+The editions `monad`, `base`, `mezo` and `paypal` serve the same routes under `/monad/`, `/base/`, `/mezo/` and `/paypal/` ([ADR 0008](../../docs/adr/0008-editions.md)); `?chain=` picks among the edition's own chains only. The PayPal edition has one route more, its collections desk at `/paypal/desk/` ([ADR 0018](../../docs/adr/0018-paypal-edition.md)), and no `send` tab.
 
 ## Layout
 
@@ -50,6 +50,7 @@ Only `src/editions/index.ts` chooses implementations; pages ask the profile. Wha
 | `monad` (`/monad/`) | PayLink keys (Mera passkeys) only | relayed authorisation, own-gas authorisation, wallet | relayer onboarding (test AUSD), gasless cancel, ariary estimate |
 | `base` (`/base/`) | EIP-6963 wallets | relayed authorisation (EOAs), EIP-5792 batch (smart accounts), own-gas authorisation, wallet | link to Circle's faucet |
 | `mezo` (`/mezo/`) | EIP-6963 wallets (no Mezo Passport: it needs React) | EIP-5792 batch (smart accounts), wallet: `payWithPermit`, then exact `approve` + `pay`; the payer pays the fee in BTC (MUSD has no EIP-3009, so nothing is relayed) | MUSD only, words on MUSD and the BTC fee (`src/editions/mezo/`, the `mezo` edition catalogue), a test-MUSD walkthrough (Mezo's faucet, Discord, testnet borrow page), the fee in sats, MUSD and the fee on Status, ariary estimate, a Content-Security-Policy of its own (Mezo's RPC only) |
+| `paypal` (`/paypal/`) | EIP-6963 wallets (passkeys cut, decision D-SCOPE) | own-gas authorisation, wallet; no relayer, the payer pays Sepolia gas | Ethereum Sepolia only (USDC preselected, PayPal USD offered; "Not deployed" until the owner deploys PayLinkV2 there), the desk (`src/pages/desk.ts`: a "coming" placeholder with the API's health from the `api` endpoint of `/config.json`), the `paypal` edition catalogue (`src/editions/paypal/`), link to Circle's faucet, ariary estimate, a Content-Security-Policy of its own (Sepolia's RPC and the API only) |
 | `all` (`/`) | EIP-6963 wallets | relayed authorisation, wallet | ariary estimate |
 
 ## Commands
@@ -66,9 +67,9 @@ pnpm --filter @paylink/web build          # the whole site into dist/ (as Cloudf
 bash apps/web/scripts/cloudflare-pages.sh # the Pages build command, from the repository root
 ```
 
-End to end: `pnpm --filter @paylink/e2e test` builds `dist-e2e/` (`build --e2e`, with a local chain swapped into the registry) and runs `e2e/specs/app.spec.ts` against anvil under the production headers; `e2e/specs/editions.spec.ts` builds `dist-e2e-editions/` and runs the Monad and Base editions against two anvil chains, the relayer process and Chromium's WebAuthn virtual authenticator with PRF; `e2e/specs/mezo.spec.ts` builds `dist-e2e-mezo/` and runs the Mezo edition against an anvil fork of Mezo testnet with the real MUSD ([e2e README](../../e2e/README.md)).
+End to end: `pnpm --filter @paylink/e2e test` builds `dist-e2e/` (`build --e2e`, with a local chain swapped into the registry) and runs `e2e/specs/app.spec.ts` against anvil under the production headers; `e2e/specs/editions.spec.ts` builds `dist-e2e-editions/` and runs the Monad and Base editions against two anvil chains, the relayer process and Chromium's WebAuthn virtual authenticator with PRF; `e2e/specs/mezo.spec.ts` builds `dist-e2e-mezo/` and runs the Mezo edition against an anvil fork of Mezo testnet with the real MUSD; `e2e/specs/paypal.spec.ts` builds `dist-e2e-paypal/` and runs the PayPal edition's shell with the API's Node entry behind the production API origin ([e2e README](../../e2e/README.md)).
 
-The Mezo edition's hooks in shared files (`boot.ts`, `funds.ts`, `registry.ts`, `shell.ts`, the create, pay and status pages) sit behind `__PAYLINK_EDITION__ === "mezo"`, which the build folds, so `/`, `/monad/` and `/base/` carry none of them. Their bundles still differ from `main`'s: the shared registry data (Mezo's entry and gas tables) changes the boot chunk's bytes and the service workers' precache revisions ([ADR 0017](../../docs/adr/0017-mezo-edition-chain-layer.md)), so the branch `mezo` is never merged into `main` while the other events are judged. Its unit tests run as a second Vitest project with that constant set (`test/mezo/`).
+The Mezo edition's hooks in shared files (`boot.ts`, `funds.ts`, `registry.ts`, `shell.ts`, the create, pay and status pages) sit behind `__PAYLINK_EDITION__ === "mezo"`, which the build folds, so `/`, `/monad/` and `/base/` carry none of them. Their bundles still differ from `main`'s: the shared registry data (Mezo's entry and gas tables) changes the boot chunk's bytes and the service workers' precache revisions ([ADR 0017](../../docs/adr/0017-mezo-edition-chain-layer.md)), so the branch `mezo` is never merged into `main` while the other events are judged. Its unit tests run as a second Vitest project with that constant set (`test/mezo/`). The PayPal edition's hooks work the same way (`__PAYLINK_EDITION__ === "paypal"`, third Vitest project `test/paypal/`); what it adds to the shared code that every edition carries is the `desk` route's path and tab label and the optional `api` endpoint of the configuration schema (measured 2026-10-21: +27 bytes gzipped on `/monad/pay/`, now 109,577 bytes of the 110,000).
 
 ## Security
 

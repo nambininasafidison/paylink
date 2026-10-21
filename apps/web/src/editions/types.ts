@@ -16,11 +16,12 @@ import type { ChainDefinition, Edition, Token } from "@paylink/chains";
 import type { AccountLayer } from "../accounts/types.ts";
 import type { PaymentRail } from "../rails/types.ts";
 
-export type Route = "create" | "pay" | "receipt" | "ledger" | "send" | "till" | "status";
+/** The routes: `desk` exists in the PayPal edition only (its collections desk, ADR 0018); no other build has the page. */
+export type Route = "create" | "pay" | "receipt" | "ledger" | "send" | "till" | "status" | "desk";
 
 export interface EditionProfile {
   readonly id: Edition;
-  /** Path prefix the edition is served under ("/" for `all`, "/monad/", "/base/", "/mezo/"). */
+  /** Path prefix the edition is served under ("/" for `all`, "/monad/", "/base/", "/mezo/", "/paypal/"). */
   readonly base: string;
   /** Engraved tag next to the wordmark. */
   readonly tag: string;

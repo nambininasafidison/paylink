@@ -15,12 +15,24 @@ const valid = {
 };
 
 describe("parseConfig", () => {
-  it("accepts the shipped public/config.json: the production relayer for the relayed testnets, nothing else", () => {
+  it("accepts the shipped public/config.json: the production relayer for the relayed testnets, the PayPal edition's API for Ethereum Sepolia, nothing else", () => {
     const shipped: unknown = JSON.parse(readFileSync(join(import.meta.dirname, "../public/config.json"), "utf8"));
     expect(parseConfig(shipped)).toEqual({
       ok: true,
-      config: { ...DEFAULT_CONFIG, relayer: { url: "https://paylink-relayer.raherizonambinina.workers.dev", chains: [10143, 84532, 421614] } },
+      config: {
+        ...DEFAULT_CONFIG,
+        relayer: { url: "https://paylink-relayer.raherizonambinina.workers.dev", chains: [10143, 84532, 421614] },
+        api: { url: "https://paylink-api.raherizonambinina.workers.dev", chains: [11155111] },
+      },
     });
+  });
+
+  it("takes the PayPal edition's API as optional, nullable and held to the endpoint rules", () => {
+    expect(parseConfig(valid).config.api).toBeUndefined();
+    expect(parseConfig({ ...valid, api: null }).ok).toBe(true);
+    expect(endpointFor(parseConfig({ ...valid, api: { url: "https://api.example", chains: [11155111] } }).config.api ?? null, 11155111)).toBe("https://api.example");
+    expect(parseConfig({ ...valid, api: { url: "http://api.example", chains: [11155111] } }).ok).toBe(false);
+    expect(parseConfig({ ...valid, api: { url: "https://api.example" } }).ok).toBe(false);
   });
 
   it("accepts a complete configuration", () => {

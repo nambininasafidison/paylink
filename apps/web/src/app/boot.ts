@@ -17,6 +17,7 @@ import { appRegistry } from "../core/registry.ts";
 import { edition } from "../editions/index.ts";
 import { mezoClient } from "../editions/mezo/client.ts";
 import { loadMezoCopy, mezoTranslator } from "../editions/mezo/copy.ts";
+import { loadPaypalCopy, paypalTranslator } from "../editions/paypal/copy.ts";
 import type { Route } from "../editions/types.ts";
 import { registerServiceWorker } from "../pwa/register.ts";
 import { openDeviceStore } from "../store/db.ts";
@@ -42,8 +43,15 @@ export async function boot(page: PageDefinition): Promise<void> {
   const profile = edition();
   // The Mezo edition's words (MUSD, the BTC fee) load beside the core catalogue; the build drops this elsewhere.
   const mezoCopy = __PAYLINK_EDITION__ === "mezo" ? loadMezoCopy(locale) : null;
+  // The PayPal edition's words (its desk, ADR 0018) likewise; the build drops this elsewhere.
+  const paypalCopy = __PAYLINK_EDITION__ === "paypal" ? loadPaypalCopy(locale) : null;
   const [messages, configLoad, store, fx] = await Promise.all([loadMessages(locale), loadConfig("/"), openDeviceStore(), profile.fx === null ? Promise.resolve(null) : loadFx()]);
-  const i18n = __PAYLINK_EDITION__ === "mezo" && mezoCopy !== null ? mezoTranslator(locale, messages, await mezoCopy) : createTranslator(locale, messages, { fallback: EN });
+  const i18n =
+    __PAYLINK_EDITION__ === "mezo" && mezoCopy !== null
+      ? mezoTranslator(locale, messages, await mezoCopy)
+      : __PAYLINK_EDITION__ === "paypal" && paypalCopy !== null
+        ? paypalTranslator(locale, messages, await paypalCopy)
+        : createTranslator(locale, messages, { fallback: EN });
   document.documentElement.lang = LOCALE_INFO[locale].tag;
   document.title = `${i18n.t(page.title)} · PayLink`;
   const registry = appRegistry(profile.id);

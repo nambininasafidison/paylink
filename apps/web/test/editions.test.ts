@@ -9,7 +9,7 @@ import { bandOptions, initialChain, plateText } from "../src/app/chains.ts";
 import type { App } from "../src/app/context.ts";
 import { appRegistry, editionChains } from "../src/core/registry.ts";
 import { applyTheme, prefs } from "../src/core/prefs.ts";
-import { allProfile, baseProfile, edition, editionBase, mezoProfile, monadProfile, registryDefaultToken } from "../src/editions/index.ts";
+import { allProfile, baseProfile, edition, editionBase, mezoProfile, monadProfile, paypalEditionProfile, registryDefaultToken } from "../src/editions/index.ts";
 import { createTranslator, EN } from "@paylink/i18n";
 import { SCRIPT_URL } from "./helpers.ts";
 
@@ -72,7 +72,7 @@ describe("edition profile", () => {
   });
 
   it("never relays without the own-gas way out: a signed authorisation must stay payable when the relayer fails (spec §3.5, §3.7)", () => {
-    for (const profile of [allProfile(), monadProfile(null), baseProfile(), mezoProfile()]) {
+    for (const profile of [allProfile(), monadProfile(null), baseProfile(), mezoProfile(), paypalEditionProfile()]) {
       const paths = profile.rails.flatMap((r) => r.paths);
       if (paths.includes("relayed-authorization")) {
         expect(paths, profile.id).toContain("self-authorization");
@@ -87,6 +87,16 @@ describe("edition profile", () => {
     expect(editionBase("all")).toBe("/");
     expect(editionBase("monad")).toBe("/monad/");
     expect(editionBase("base")).toBe("/base/");
+    expect(editionBase("paypal")).toBe("/paypal/");
+  });
+
+  it("gives the PayPal edition injected wallets and the payer's own gas, no relayer (D-SCOPE, ADR 0018)", () => {
+    const paypal = paypalEditionProfile();
+    expect(paypal.base).toBe("/paypal/");
+    expect(paypal.accountLayers.map((l) => [l.id, l.kind])).toEqual([["eip6963", "injected"]]);
+    expect(paypal.rails.map((r) => r.id)).toEqual(["self-authorization", "wallet"]);
+    expect(paypal.tabs).toEqual(["create", "ledger", "desk", "till"]);
+    expect(paypal.payWithBase).toBe(false);
   });
 
   it("preselects the registry's default token, never a hidden one", () => {

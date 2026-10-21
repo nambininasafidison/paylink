@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * Vite multi-page build of one edition (ADR 0006, ADR 0008). `VITE_EDITION` picks the edition (`all` at the root,
- * `monad`, `base` and `mezo` under their own path); scripts/build.ts builds every edition and assembles the site.
+ * `monad`, `base`, `mezo` and `paypal` under their own path); scripts/build.ts builds every edition and assembles the
+ * site. The PayPal edition has one page more, its desk (`desk/`, ADR 0018).
  *
  * Security-relevant settings: no asset is ever inlined as a data: URI (fonts and scripts stay `'self'`); the app's
  * Content-Security-Policy is also written into every page as a `<meta>` (defence in depth if a header is lost; the
@@ -17,7 +18,7 @@ import type { Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { appCsp, connectOrigins, DEFAULT_EDITIONS, editionBase } from "./scripts/site.ts";
 
-const EDITIONS: readonly Edition[] = ["all", "monad", "base", "mezo"];
+const EDITIONS: readonly Edition[] = ["all", "monad", "base", "mezo", "paypal"];
 const edition = (process.env["VITE_EDITION"] ?? "all") as Edition;
 if (!EDITIONS.includes(edition)) {
   throw new Error(`VITE_EDITION must be one of ${EDITIONS.join(", ")}`);
@@ -34,6 +35,7 @@ const PAGES: Readonly<Record<string, string>> = {
   till: "till/index.html",
   status: "status/index.html",
   notfound: "404.html",
+  ...(edition === "paypal" ? { desk: "desk/index.html" } : {}),
 };
 
 function gitCommit(): string {
@@ -133,7 +135,7 @@ export default defineConfig(({ command }) => ({
       includeManifestIcons: false,
       manifest: {
         id: base,
-        name: edition === "all" ? "PayLink" : `PayLink ${edition === "monad" ? "Monad" : edition === "base" ? "Base" : "Mezo"}`,
+        name: edition === "all" ? "PayLink" : `PayLink ${{ monad: "Monad", base: "Base", mezo: "Mezo", paypal: "PayPal" }[edition]}`,
         short_name: "PayLink",
         description: "Signed dollar invoices: create, share and pay payment links, with receipts anyone can verify.",
         lang: "en",
@@ -153,7 +155,7 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{html,js,css,woff2,svg,png,webmanifest}"],
-        globIgnores: ["arc/**", "deploy/**", "v2/**", "monad/**", "base/**", "mezo/**", ".vite/**", "404.html"],
+        globIgnores: ["arc/**", "deploy/**", "v2/**", "monad/**", "base/**", "mezo/**", "paypal/**", ".vite/**", "404.html"],
         navigateFallback: null,
         inlineWorkboxRuntime: true,
         cleanupOutdatedCaches: true,

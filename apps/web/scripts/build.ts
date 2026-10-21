@@ -2,13 +2,13 @@
 /**
  * Production build of the whole site into apps/web/dist (docs/runbooks/cloudflare-pages.md):
  *
- *   1. one Vite build per edition (`all` at the root, then `monad`, `base` and `mezo` under their paths);
+ *   1. one Vite build per edition (`all` at the root, then `monad`, `base`, `mezo` and `paypal` under their paths);
  *   2. assembly: the frozen v1 app under /arc/, the deploy kit under /deploy/ and /v2/deploy/, `_headers`;
  *   3. gates: `public/_headers` is up to date, the pay route stays within 110 kB of gzipped JavaScript
  *      (PAYLINK-V2-SPEC §4.4), no end-to-end hook is left in the bundle, and no source map is shipped.
  *
  * Usage (from apps/web):  node --conditions=@paylink/source scripts/build.ts
- *   PAYLINK_EDITIONS=all,monad   editions to build (default all,monad,base,mezo)
+ *   PAYLINK_EDITIONS=all,monad   editions to build (default all,monad,base,mezo,paypal)
  *   PAYLINK_E2E_CHAINS=<json>    end-to-end builds only: requires --e2e and writes dist-e2e/ instead
  *   PAYLINK_E2E_OUT=dist-e2e-x   end-to-end builds only: the output folder (default dist-e2e)
  */

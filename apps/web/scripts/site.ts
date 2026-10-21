@@ -2,7 +2,7 @@
 /**
  * The production site for Cloudflare Pages (docs/runbooks/cloudflare-pages.md), assembled into one folder:
  *
- *   /            the v2 app, edition `all`            /monad/, /base/, /mezo/   the v2 editions (same routes)
+ *   /            the v2 app, edition `all`            /monad/, /base/, /mezo/, /paypal/   the v2 editions
  *   /arc/        the frozen v1 app (web/), untouched   /deploy/          the browser deploy kit (web/v2/deploy)
  *   /v2/deploy/  the deploy kit at the URL it was first published under (kept working)
  *   /_headers    response headers for every path above (generated here, committed as public/_headers)
@@ -13,10 +13,11 @@
  *
  * - app: `script-src 'self'`, `style-src 'self'`, Trusted Types with the single `paylink-sw` policy, and `connect-src`
  *   limited to the registry RPCs of the built editions and the endpoints of public/config.json;
- * - an edition with a policy of its own (`OWN_POLICY_EDITIONS`: the Mezo edition): the same policy, with `connect-src`
- *   limited to that edition's registry RPCs and the endpoints of public/config.json that serve one of its chains (the
- *   relayer serves no Mezo chain, so `/mezo/` cannot reach it), so the shared policy of `/`, `/monad/` and `/base/` does
- *   not grow by the Mezo RPC;
+ * - an edition with a policy of its own (`OWN_POLICY_EDITIONS`: the Mezo and PayPal editions): the same policy, with
+ *   `connect-src` limited to that edition's registry RPCs and the endpoints of public/config.json that serve one of its
+ *   chains (the relayer serves no Mezo or Sepolia chain, so `/mezo/` and `/paypal/` cannot reach it; the PayPal
+ *   edition's API serves Sepolia, so `/paypal/` alone can), so the shared policy of `/`, `/monad/` and `/base/` does not
+ *   grow by their RPCs or by the API;
  * - deploy kit: exactly its own meta policy (web/v2/deploy/index.html) plus `frame-ancestors 'none'`;
  * - v1: what the frozen pages need and nothing more: their own scripts plus the SHA-256 of deploy.html's one inline
  *   script, inline styles (v1 sets `style` attributes), and `connect-src` to the RPC of web/config.js.
@@ -36,14 +37,18 @@ export const PUBLIC = join(APP_DIR, "public");
 export const DIST = join(APP_DIR, "dist");
 
 /** Editions built by default, the first at the root. */
-export const DEFAULT_EDITIONS: readonly Edition[] = ["all", "monad", "base", "mezo"];
+export const DEFAULT_EDITIONS: readonly Edition[] = ["all", "monad", "base", "mezo", "paypal"];
 
 /**
  * Editions served under a Content-Security-Policy of their own (`/<edition>/*` detaches the app's policy, then sets
- * its own). The Mezo edition talks to Mezo testnet's RPC, which no other edition needs: with a policy of its own, the
- * policy of `/`, `/monad/` and `/base/` stays byte for byte what it was.
+ * its own). The Mezo edition talks to Mezo testnet's RPC and the PayPal edition to Ethereum Sepolia's and to its API
+ * (apps/api), which no other edition needs: with policies of their own, the policy of `/`, `/monad/` and `/base/` stays
+ * byte for byte what it was.
  */
-export const OWN_POLICY_EDITIONS: ReadonlySet<Edition> = new Set(["mezo"]);
+export const OWN_POLICY_EDITIONS: ReadonlySet<Edition> = new Set(["mezo", "paypal"]);
+
+/** Editions whose own chain the registry keeps `disabled` for every other edition (ADR 0017, ADR 0018). */
+const OWN_CHAIN_EDITIONS: ReadonlySet<Edition> = new Set(["mezo", "paypal"]);
 
 export function editionBase(edition: Edition): string {
   return edition === "all" ? "/" : `/${edition}/`;
@@ -51,10 +56,11 @@ export function editionBase(edition: Edition): string {
 
 /**
  * The chains an edition's pages use, as the app's registry has them (src/core/registry.ts): the enabled chains of the
- * edition and, for the Mezo edition, Mezo testnet while the registry keeps it `disabled` for every other edition.
+ * edition and, for the Mezo and PayPal editions, Mezo testnet and Ethereum Sepolia while the registry keeps them
+ * `disabled` for every other edition.
  */
 export function editionChains(edition: Edition): Registry["chains"] {
-  return scopeToEdition(registry, edition, { includeDisabled: edition === "mezo" }).chains;
+  return scopeToEdition(registry, edition, { includeDisabled: OWN_CHAIN_EDITIONS.has(edition) }).chains;
 }
 
 /** Origins of every registry RPC the built editions may call (their chains as the app's registry has them). */
@@ -85,6 +91,8 @@ export function connectOrigins(edition: Edition, editions: readonly Edition[] = 
 export interface ConfigShape {
   readonly relayer: { readonly url: string; readonly chains?: readonly number[] } | null;
   readonly indexer: { readonly url: string; readonly chains?: readonly number[] } | null;
+  /** The PayPal edition's API (apps/api); optional, as in src/core/config.ts. */
+  readonly api?: { readonly url: string; readonly chains?: readonly number[] } | null;
   readonly rpc: Readonly<Record<string, readonly string[]>>;
 }
 
@@ -93,14 +101,16 @@ function readConfig(): ConfigShape {
 }
 
 /**
- * Origins of the endpoints in public/config.json (relayer, indexer, preferred RPCs). With `chains`, only the endpoints
- * that serve one of them (the app calls an endpoint only for a chain it serves: src/core/config.ts `endpointFor`).
+ * Origins of the endpoints in public/config.json (relayer, indexer, PayPal-edition API, preferred RPCs). With `chains`,
+ * only the endpoints that serve one of them (the app calls an endpoint only for a chain it serves: src/core/config.ts
+ * `endpointFor`). Without `chains` (the shared policy), every endpoint but the API: only the PayPal edition, which has a
+ * policy of its own, ever calls it.
  */
 export function configOrigins(config: ConfigShape = readConfig(), chains?: ReadonlySet<number>): string[] {
-  const serves = (endpoint: ConfigShape["relayer"]): string | undefined =>
-    endpoint !== null && (chains === undefined || (endpoint.chains ?? []).some((id) => chains.has(id))) ? endpoint.url : undefined;
+  const serves = (endpoint: ConfigShape["relayer"] | undefined): string | undefined =>
+    endpoint !== null && endpoint !== undefined && (chains === undefined || (endpoint.chains ?? []).some((id) => chains.has(id))) ? endpoint.url : undefined;
   const rpcs = Object.entries(config.rpc).flatMap(([id, urls]) => (chains === undefined || chains.has(Number(id)) ? urls : []));
-  const urls = [serves(config.relayer), serves(config.indexer), ...rpcs].filter((u): u is string => typeof u === "string");
+  const urls = [serves(config.relayer), serves(config.indexer), chains === undefined ? undefined : serves(config.api), ...rpcs].filter((u): u is string => typeof u === "string");
   return [...new Set(urls.map((u) => new URL(u).origin))];
 }
 

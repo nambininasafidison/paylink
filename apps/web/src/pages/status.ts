@@ -82,7 +82,8 @@ export const statusPage: PageDefinition = {
     if (__PAYLINK_EDITION__ === "mezo") {
       void service(app, mezoRelayerUrl(app), relayer, "/v1/health", mezoRelayerNone(app));
     } else {
-      void service(app, app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
+      // The PayPal edition has no relayer (D-SCOPE, ADR 0018): its payers pay Sepolia gas from their own wallet.
+      void service(app, __PAYLINK_EDITION__ === "paypal" || app.config.relayer === null ? null : app.config.relayer.url, relayer, "/v1/health", t("status.relayer.none"));
     }
     void indexerHealth(app, indexer);
     if ("serviceWorker" in navigator) {

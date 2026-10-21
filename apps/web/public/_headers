@@ -22,6 +22,9 @@
 /mezo/*
   ! Content-Security-Policy
   Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://rpc.test.mezo.org; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types paylink-sw
+/paypal/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ethereum-sepolia-rpc.publicnode.com https://paylink-api.raherizonambinina.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types paylink-sw
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 /monad/assets/*
@@ -30,6 +33,8 @@
   Cache-Control: public, max-age=31536000, immutable
 /mezo/assets/*
   Cache-Control: public, max-age=31536000, immutable
+/paypal/assets/*
+  Cache-Control: public, max-age=31536000, immutable
 /sw.js
   Cache-Control: no-cache
 /monad/sw.js
@@ -37,6 +42,8 @@
 /base/sw.js
   Cache-Control: no-cache
 /mezo/sw.js
+  Cache-Control: no-cache
+/paypal/sw.js
   Cache-Control: no-cache
 /config.json
   Cache-Control: no-cache

@@ -151,6 +151,36 @@ describe("_headers", () => {
     expect(OWN_POLICY_EDITIONS.has("mezo")).toBe(true);
   });
 
+  it("gives the PayPal edition a policy of its own: Ethereum Sepolia's RPC and its API, the shared policy without either", () => {
+    const parsed = rules(renderHeaders());
+    const paypal = parsed.get("/paypal/*") ?? [];
+    expect(paypal[0]).toBe("! Content-Security-Policy");
+    const policies = paypal.filter((l) => l.startsWith("Content-Security-Policy:"));
+    expect(policies).toHaveLength(1);
+    const csp = directives((policies[0] ?? "").slice("Content-Security-Policy: ".length));
+    expect(editionChains("paypal").map((chain) => chain.chainId)).toEqual([11155111]);
+    expect(new Set(csp.get("connect-src"))).toEqual(new Set(["'self'", "https://ethereum-sepolia-rpc.publicnode.com", "https://paylink-api.raherizonambinina.workers.dev"]));
+    const shared = directives(appCsp(connectOrigins("all")));
+    for (const [name, values] of shared) {
+      if (name !== "connect-src") {
+        expect(csp.get(name), name).toEqual(values);
+      }
+    }
+    expect(shared.get("connect-src")).not.toContain("https://paylink-api.raherizonambinina.workers.dev");
+    expect(shared.get("connect-src")).not.toContain("https://ethereum-sepolia-rpc.publicnode.com");
+    // The policies of /, /monad/, /base/ and /mezo/ are the ones they had before the PayPal edition existed.
+    const before = rules(renderHeaders(["all", "monad", "base", "mezo"]));
+    for (const area of ["/*", "/mezo/*"]) {
+      expect(parsed.get(area), area).toEqual(before.get(area));
+    }
+    expect(OWN_POLICY_EDITIONS.has("paypal")).toBe(true);
+    // The API counts only where a chain it serves is asked for: never in the shared policy.
+    const config = { relayer: null, indexer: null, api: { url: "https://api.example", chains: [11155111] }, rpc: {} };
+    expect(configOrigins(config)).toEqual([]);
+    expect(configOrigins(config, new Set([11155111]))).toEqual(["https://api.example"]);
+    expect(configOrigins(config, new Set([31611]))).toEqual([]);
+  });
+
   it("serves the frozen v1 app with exactly what it needs: its inline script by hash, its RPC", () => {
     const deployHtml = readFileSync(join(WEB, "deploy.html"), "utf8");
     const inline = [...deployHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash("sha256").update(m[1] ?? "").digest("base64")}'`);

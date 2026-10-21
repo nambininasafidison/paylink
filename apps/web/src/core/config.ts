@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * Runtime configuration: the same-origin `/config.json` (PAYLINK-V2-SPEC §3.6 "No URL-configurable endpoints").
- * It holds what may change without a rebuild: an incident banner, the relayer and indexer endpoints, and preferred
- * RPCs. Contract addresses and tokens never come from here (the registry is the only root of trust for addresses),
+ * It holds what may change without a rebuild: an incident banner, the relayer, indexer and PayPal-edition API
+ * endpoints, and preferred RPCs. Contract addresses and tokens never come from here (the registry is the only root of trust for addresses),
  * and every endpoint must also be listed in the Content-Security-Policy `connect-src` of `_headers`, which
  * `test/headers.test.ts` checks. The file is validated strictly; an invalid file is ignored in favour of the
  * built-in defaults, and the status page says so.
@@ -42,6 +42,11 @@ export const ConfigSchema = z.strictObject({
   relayer: z.nullable(endpoint),
   /** The history indexer (apps/indexer, tier T1). A cache only (ADR 0009): never consulted for payability. */
   indexer: z.nullable(endpoint),
+  /**
+   * The PayPal edition's API (apps/api, ADR 0018), for the chains it serves. Optional: absent or `null`, the edition's
+   * PayPal features read "not configured". Trusted for availability and advice only, never for an address or an amount.
+   */
+  api: z.optional(z.nullable(endpoint)),
   /** RPC endpoints tried before the registry's own, by chain ID. */
   rpc: z.record(z.string().check(z.regex(/^[1-9][0-9]{0,15}$/)), z.array(httpsUrl).check(z.maxLength(4))),
 });

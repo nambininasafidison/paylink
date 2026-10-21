@@ -39,7 +39,7 @@ export interface PageUi {
   voice(state: string | null): void;
 }
 
-const ROUTE_PATH: Readonly<Record<Route, string>> = { create: "", pay: "pay/", receipt: "r/", ledger: "ledger/", send: "send/", till: "till/", status: "status/" };
+const ROUTE_PATH: Readonly<Record<Route, string>> = { create: "", pay: "pay/", receipt: "r/", ledger: "ledger/", send: "send/", till: "till/", status: "status/", desk: "desk/" };
 const TAB_LABEL: Readonly<Record<Route, PlainMessageKey>> = {
   create: "app.nav.create",
   pay: "app.nav.create",
@@ -48,6 +48,8 @@ const TAB_LABEL: Readonly<Record<Route, PlainMessageKey>> = {
   send: "app.nav.send",
   till: "app.nav.till",
   status: "app.nav.status",
+  // The PayPal edition's own tab; its label is in that edition's catalogue, which only its build loads.
+  desk: "paypal.nav.desk",
 };
 
 export function routeHref(app: App, route: Route): string {
@@ -180,8 +182,15 @@ function footer(app: App): HTMLElement {
           h("a", { attrs: { href: routeHref(app, "status") } }, t("app.foot.status")),
           h("a", { attrs: { href: "/deploy/" } }, t("app.foot.deploy")),
           h("a", { attrs: { href: "/arc/" } }, t("app.foot.arc")),
-          // The Mezo edition's source lives on the branch mezo while main stays as the other events judge it.
-          ext(__PAYLINK_EDITION__ === "mezo" ? "https://github.com/nambininasafidison/paylink/tree/mezo" : "https://github.com/nambininasafidison/paylink", t("app.foot.source")),
+          // The Mezo and PayPal editions' sources live on their branches while main stays as the other events judge it.
+          ext(
+            __PAYLINK_EDITION__ === "mezo"
+              ? "https://github.com/nambininasafidison/paylink/tree/mezo"
+              : __PAYLINK_EDITION__ === "paypal"
+                ? "https://github.com/nambininasafidison/paylink/tree/paypal"
+                : "https://github.com/nambininasafidison/paylink",
+            t("app.foot.source"),
+          ),
         ),
       ),
     ),
