@@ -25,6 +25,7 @@ Tags as in the research: **C** confirmed (on chain, or a primary source read), *
 8. [Demo video script (at most 2:00, captions, no narration)](#8-demo-video-script-at-most-200-captions-no-narration)
 9. [Disclosures and commit range](#9-disclosures-and-commit-range)
 10. [Liste de contrôle (en français)](#10-liste-de-contrôle-en-français)
+11. [As submitted on AKINDO (wave 1, 2026-10-21)](#11-as-submitted-on-akindo-wave-1-2026-10-21)
 
 ## 1. Facts this pack relies on
 
@@ -462,3 +463,24 @@ Dans l'ordre. Ne pousse jamais `main` : seulement la branche `mezo`. Les étapes
 10. **Vidéo.** Tourne la démo ([§8](#8-demo-video-script-at-most-200-captions-no-narration)) : au plus 2 min, sous-titres, sans voix. Mets-la sur YouTube.
 11. **Remplir et soumettre.** Donne à Claude le lien du reçu, le lien à montant libre, la vidéo, ton pseudo Discord ou Telegram et les dates (ou remplace toi-même chaque `[TO FILL: …]`, puis `python3 docs/tools/submission_fields.py --update`). Sur AKINDO : piste 2, chaîne Mezo, les textes du [§3](#3-project-page-and-form-fields) et du [§6](#6-judge-access-instructions), le dépôt `…/tree/mezo`, l'adresse, la vidéo. Soumets avant le 26 octobre (vise le 24), puis pose le tag `submission/mezo-wave1-<date>` et pousse-le.
 12. **Pendant le jugement (27 oct.–1er nov.).** Laisse la prévisualisation en ligne, ne pousse rien de cassant sur `mezo`, garde du MUSD et du BTC de test pour les juges, et surveille le Discord.
+
+## 11. As submitted on AKINDO (wave 1, 2026-10-21)
+
+Submitted on 2026-10-21 from commit `79c3e67` of branch `mezo` to "Build with MUSD and MEZO: $7,000 USD in MEZO Grants (1st Wave)". AKINDO answered "Great! Your submission completed!". Team page "PayLink MG" (the name "PayLink" was taken): https://app.akindo.io/communities/3dJ9qxgpgipJnNpP. Product page: https://app.akindo.io/communities/3dJ9qxgpgipJnNpP/products/Mz9la64BOUvBxKMmz. Grant recipient: the owner's AKINDO account.
+
+**AKINDO's real limits**, read in the forms on 2026-10-21 (the guesses in [§3](#3-project-page-and-form-fields) said "no stated limit"):
+
+| AKINDO field | Limit | What was sent |
+|---|---|---|
+| Product name | — | `mezo.name` as is |
+| Tagline | 100 characters (the help text says "100 words"; the form counts characters) | The first sentence of `mezo.tldr` only, word for word (58 characters); the full TL;DR (305) was refused |
+| About | 6,000 characters | `mezo.description` without two bullets of "Under the hood" ("More than 1,500 TypeScript…" and "A strict Content-Security-Policy…"), nothing reworded: 5,974 characters |
+| Tags | 10 at most | Solidity, OpenZeppelin, Foundry, TypeScript, Vite, viem, Vitest, Playwright, Cloudflare Pages, EIP-712 (from `mezo.stack`) |
+| Product type | — | Prototype (from `mezo.readiness`) |
+| Image gallery | — | The five Mezo screenshots, `screen-6` to `screen-10` |
+| Deliverable URL, video, live demo | — | `https://github.com/nambininasafidison/paylink/tree/mezo`, `https://youtu.be/T0OpcTpprFw`, `https://mezo.paylink-mg.pages.dev/mezo/` |
+| Updates in this Wave | 3,000 characters | `mezo.wave1` as is, plus two lines: the repository branch and the live demo (1,984 characters) |
+| Milestone 2nd Wave (required) | — | The "Wave 2 (Nov 2-15)" line and points 1 to 5 of `mezo.milestones` (707 characters) |
+| Milestone 3rd Wave (required) | — | The "Later, only after a third-party audit" line of `mezo.milestones` (185 characters) |
+
+**Not sent, because AKINDO has no field for them:** the track and chain choices ("Build with" was set to Mezo and the category to Payments), `mezo.target`, `mezo.business`, `mezo.validation`, `mezo.stack` (only as tags), `mezo.existing`, `mezo.readiness` (only as "Prototype"), `mezo.integration`, `mezo.disclosure` and `mezo.judges`. The product page shows the repository as `nambininasafidison/paylink`, which opens `main`; the branch link is in "Deliverable URL" and "Updates in this Wave". Tag: `submission/mezo-wave1-2026-10-21` on `79c3e67`.
