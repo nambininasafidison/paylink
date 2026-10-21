@@ -1,0 +1,51 @@
+{
+  "name": "@paylink/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The PayPal edition's API (docs/paypal/SPEC.md, ADR 0018): a Cloudflare Worker (Hono, zod) with Durable Objects Payee and Global, one cron, and the Workers AI binding, that twins PayLink invoices as PayPal Invoicing v2 invoices, verifies PayPal webhooks, reconciles the two rails inside a fence and proposes actions a payee approves; plus a Node entry over the same app for tests, e2e and an offline demo. Holds no chain key and never moves money.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nambininasafidison/paylink.git",
+    "directory": "apps/api"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "node --conditions=@paylink/source scripts/build.ts",
+    "build:check": "node --conditions=@paylink/source scripts/build.ts --check",
+    "start:local": "node --conditions=@paylink/source src/node/main.ts",
+    "dev:offline": "node --conditions=@paylink/source src/node/main.ts --offline",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/worker/tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@paylink/api-contract": "workspace:*",
+    "@paylink/chains": "workspace:*",
+    "@paylink/sdk": "workspace:*",
+    "hono": "catalog:",
+    "viem": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@hono/node-server": "catalog:",
+    "@paylink/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "ajv": "catalog:",
+    "ajv-formats": "catalog:",
+    "eslint": "catalog:",
+    "fast-check": "catalog:",
+    "miniflare": "catalog:",
+    "rolldown": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

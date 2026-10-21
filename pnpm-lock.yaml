@@ -36,6 +36,12 @@ catalogs:
     '@vitest/coverage-v8':
       specifier: 5.0.3
       version: 5.0.3
+    ajv:
+      specifier: 8.20.0
+      version: 8.20.0
+    ajv-formats:
+      specifier: 3.0.1
+      version: 3.0.1
     axe-core:
       specifier: 4.13.0
       version: 4.13.0
@@ -105,6 +111,73 @@ importers:
       ganache:
         specifier: ^7.9.2
         version: 7.9.2
+
+  apps/api:
+    dependencies:
+      '@paylink/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
+      '@paylink/chains':
+        specifier: workspace:*
+        version: link:../../packages/chains
+      '@paylink/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      hono:
+        specifier: 'catalog:'
+        version: 4.13.13
+      viem:
+        specifier: 'catalog:'
+        version: 2.57.3(bufferutil@4.0.7)(typescript@6.0.3)(utf-8-validate@6.0.3)(zod@4.6.5)
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261006.1
+      '@hono/node-server':
+        specifier: 'catalog:'
+        version: 2.1.3(hono@4.13.13)
+      '@paylink/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.3(vitest@5.0.3)
+      ajv:
+        specifier: 'catalog:'
+        version: 8.20.0
+      ajv-formats:
+        specifier: 'catalog:'
+        version: 3.0.1(ajv@8.20.0)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.12.0
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.10.2
+      miniflare:
+        specifier: 'catalog:'
+        version: 5.20261006.0-alpha(@types/node@22.20.5)(bufferutil@4.0.7)(utf-8-validate@6.0.3)
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.2.12
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.2(@types/node@22.20.5)(esbuild@0.28.1)(terser@5.51.2)(tsx@4.21.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5(bufferutil@4.0.7)(utf-8-validate@6.0.3))(vite@8.3.2(@types/node@22.20.5)(esbuild@0.28.1)(terser@5.51.2)(tsx@4.21.0))
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.148.0(@cloudflare/workers-types@5.20261006.1)(@types/node@22.20.5)(bufferutil@4.0.7)(utf-8-validate@6.0.3)
 
   apps/indexer:
     dependencies:
@@ -191,6 +264,9 @@ importers:
       '@category-labs/mera':
         specifier: 'catalog:'
         version: 0.2.0(viem@2.57.3(bufferutil@4.0.7)(typescript@6.0.3)(utf-8-validate@6.0.3)(zod@4.6.5))
+      '@paylink/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
       '@paylink/chains':
         specifier: workspace:*
         version: link:../../packages/chains
@@ -276,6 +352,30 @@ importers:
       viem:
         specifier: 'catalog:'
         version: 2.57.3(bufferutil@4.0.7)(typescript@6.0.3)(utf-8-validate@6.0.3)(zod@4.6.5)
+
+  packages/api-contract:
+    devDependencies:
+      '@paylink/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.3(vitest@5.0.3)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.12.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.2(@types/node@22.20.5)(esbuild@0.28.1)(terser@5.51.2)(tsx@4.21.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.3(@types/node@22.20.5)(@vitest/coverage-v8@5.0.3)(happy-dom@20.14.5(bufferutil@4.0.7)(utf-8-validate@6.0.3))(vite@8.3.2(@types/node@22.20.5)(esbuild@0.28.1)(terser@5.51.2)(tsx@4.21.0))
 
   packages/chains:
     dependencies:
@@ -2218,6 +2318,14 @@ packages:
 
   aes-js@4.0.0-beta.5:
     resolution: {integrity: sha512-G965FqalsNyrPqgEGON7nIx1e/OVENSgiEIzyC63haUMuvNnwIgIjMs52hlTCKhkBny7A2ORNlfY9Zu+jmGk1Q==}
+
+  ajv-formats@3.0.1:
+    resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
 
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
@@ -6113,6 +6221,10 @@ snapshots:
   acorn@8.19.0: {}
 
   aes-js@4.0.0-beta.5: {}
+
+  ajv-formats@3.0.1(ajv@8.20.0):
+    optionalDependencies:
+      ajv: 8.20.0
 
   ajv@6.15.0:
     dependencies:

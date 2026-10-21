@@ -1,0 +1,8 @@
+# Local secrets for `wrangler dev` and the Node entry: never committed (docs/paypal/SPEC.md §12.1).
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+.wrangler/
+coverage/

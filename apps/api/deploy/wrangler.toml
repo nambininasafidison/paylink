@@ -1,0 +1,46 @@
+# PayLink API (PayPal edition): Cloudflare Worker with two Durable Objects (Payee, Global), one cron and Workers AI.
+# Deployed by Cloudflare's Git integration with this folder as the root directory (apps/api/README.md, decision D-HOST);
+# worker.js is the committed, reviewed bundle (apps/api/scripts/build.ts); no_bundle uploads it byte for byte.
+#
+# URL: https://paylink-api.raherizonambinina.workers.dev (account subdomain raherizonambinina.workers.dev, as the relayer).
+#
+# Secrets, set in the dashboard only (Settings > Variables and Secrets > Add > Secret), never [vars], never in this
+# repository (docs/paypal/SPEC.md §12.1):
+#   PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET   the sandbox REST app "PayLink Twin"
+#   PAYPAL_WEBHOOK_ID                        the webhook subscription (P11)
+#   APPROVAL_HMAC_KEY, SESSION_HMAC_KEY      32 random bytes each, hex
+# There are no plain variables: the configuration is code (apps/api/src/core/config.ts).
+
+name = "paylink-api"
+main = "worker.js"
+no_bundle = true
+# Upload worker.js alone (not LICENSES.txt or SHA256SUMS next to it).
+find_additional_modules = false
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# Workers AI (decision D-AI): env.AI in the Worker. Free allocation: 10,000 neurons per day (Cloudflare pricing page).
+[ai]
+binding = "AI"
+
+[[durable_objects.bindings]]
+name = "PAYEE"
+class_name = "Payee"
+
+[[durable_objects.bindings]]
+name = "GLOBAL"
+class_name = "Global"
+
+# The Workers Free plan offers SQLite-backed Durable Objects only.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Payee", "Global"]
+
+# One cron for the whole API (the Free plan allows 5 Cron Triggers per account): the minute poll and the daily cleanup.
+[triggers]
+crons = ["* * * * *"]

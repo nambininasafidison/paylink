@@ -1,0 +1,11 @@
+{
+  "$comment": "Emits dist/ from src/ only: no DOM, no Node types. The contract is types and constants that the browser, the Worker and Node all read.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

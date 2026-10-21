@@ -1,0 +1,8 @@
+# Copy to .dev.vars (git-ignored) for `wrangler dev`, or export the same names for the Node entry.
+# Production values are Cloudflare secrets (dashboard: Workers & Pages > paylink-api > Settings > Variables and Secrets),
+# never [vars] entries and never in this repository, a log or a chat (docs/paypal/SPEC.md §12.1, ADR 0018).
+PAYPAL_CLIENT_ID=
+PAYPAL_CLIENT_SECRET=
+PAYPAL_WEBHOOK_ID=
+APPROVAL_HMAC_KEY=
+SESSION_HMAC_KEY=

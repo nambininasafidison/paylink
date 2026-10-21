@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    include: ["test/**/*.test.ts"],
+    environment: "node",
+    restoreMocks: true,
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      reporter: ["text", "json-summary", "lcov"],
+    },
+  },
+});
