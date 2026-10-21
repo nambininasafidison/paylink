@@ -861,7 +861,26 @@ export type MessageKey =
   | "mezo.status.loan"
   | "mezo.status.loanValue"
   | "mezo.pay.unconfirmed"
-  | "mezo.pay.checkPayment";
+  | "mezo.pay.checkPayment"
+  | "paypal.nav.desk"
+  | "paypal.desk.docTitle"
+  | "paypal.desk.kicker"
+  | "paypal.desk.h1a"
+  | "paypal.desk.h1b"
+  | "paypal.desk.lede"
+  | "paypal.desk.plate"
+  | "paypal.desk.head"
+  | "paypal.desk.coming"
+  | "paypal.desk.twin"
+  | "paypal.desk.check"
+  | "paypal.desk.approve"
+  | "paypal.desk.api"
+  | "paypal.desk.apiOk"
+  | "paypal.desk.apiNone"
+  | "paypal.desk.apiDown"
+  | "paypal.notes.sandbox"
+  | "paypal.notes.title"
+  | "paypal.notes.sandboxHead";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1721,6 +1740,25 @@ export interface MessageParams {
   readonly "mezo.status.loanValue": { readonly btc: ParamValue; readonly debt: ParamValue; readonly loan: ParamValue; readonly price: ParamValue; readonly ratio: ParamValue };
   readonly "mezo.pay.unconfirmed": { readonly network: ParamValue; readonly tx: ParamValue };
   readonly "mezo.pay.checkPayment": never;
+  readonly "paypal.nav.desk": never;
+  readonly "paypal.desk.docTitle": never;
+  readonly "paypal.desk.kicker": never;
+  readonly "paypal.desk.h1a": never;
+  readonly "paypal.desk.h1b": never;
+  readonly "paypal.desk.lede": never;
+  readonly "paypal.desk.plate": never;
+  readonly "paypal.desk.head": never;
+  readonly "paypal.desk.coming": never;
+  readonly "paypal.desk.twin": never;
+  readonly "paypal.desk.check": never;
+  readonly "paypal.desk.approve": never;
+  readonly "paypal.desk.api": never;
+  readonly "paypal.desk.apiOk": never;
+  readonly "paypal.desk.apiNone": never;
+  readonly "paypal.desk.apiDown": never;
+  readonly "paypal.notes.sandbox": never;
+  readonly "paypal.notes.title": never;
+  readonly "paypal.notes.sandboxHead": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1844,7 +1882,8 @@ export type FeatureKey =
 
 /** Edition catalogues, loaded only by that edition's build (`loadEditionMessages`). */
 export type EditionCatalogue =
-  | "mezo";
+  | "mezo"
+  | "paypal";
 
 /** Keys that live in an edition catalogue: only that edition's pages carry them. */
 export type EditionKey =
@@ -1900,4 +1939,23 @@ export type EditionKey =
   | "mezo.status.loan"
   | "mezo.status.loanValue"
   | "mezo.pay.unconfirmed"
-  | "mezo.pay.checkPayment";
+  | "mezo.pay.checkPayment"
+  | "paypal.nav.desk"
+  | "paypal.desk.docTitle"
+  | "paypal.desk.kicker"
+  | "paypal.desk.h1a"
+  | "paypal.desk.h1b"
+  | "paypal.desk.lede"
+  | "paypal.desk.plate"
+  | "paypal.desk.head"
+  | "paypal.desk.coming"
+  | "paypal.desk.twin"
+  | "paypal.desk.check"
+  | "paypal.desk.approve"
+  | "paypal.desk.api"
+  | "paypal.desk.apiOk"
+  | "paypal.desk.apiNone"
+  | "paypal.desk.apiDown"
+  | "paypal.notes.sandbox"
+  | "paypal.notes.title"
+  | "paypal.notes.sandboxHead";

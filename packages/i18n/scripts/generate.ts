@@ -10,7 +10,7 @@
  * catalogue is a reviewed change.
  *
  * Edition catalogues hold the copy of one edition (`EDITION_CATALOGUES`, ADR 0008): the Mezo edition's words for MUSD
- * and BTC fees. Only that edition's build loads them (`loadEditionMessages`), so the other editions' bundles do not
+ * and BTC fees, the PayPal edition's desk and twin (ADR 0018). Only that edition's build loads them (`loadEditionMessages`), so the other editions' bundles do not
  * change by a byte. Same rules as a feature catalogue: each key starts with the edition's name, and lives in
  * `src/locales/<edition>.<locale>.json`.
  *
@@ -27,7 +27,7 @@ export const OUTPUT = resolve(PACKAGE_DIR, "src/generated/messages.ts");
 /** Feature catalogues; each key of feature `f` starts with `f.` and lives in `src/locales/f.<locale>.json`. */
 export const FEATURES = ["books", "history"] as const;
 /** Edition catalogues; each key of edition `e` starts with `e.` and lives in `src/locales/e.<locale>.json`. */
-export const EDITION_CATALOGUES = ["mezo"] as const;
+export const EDITION_CATALOGUES = ["mezo", "paypal"] as const;
 export const featureSource = (feature: string, locale = "en"): string => resolve(PACKAGE_DIR, `src/locales/${feature}.${locale}.json`);
 
 const PLURAL_CATEGORIES = ["zero", "one", "two", "few", "many", "other"] as const;

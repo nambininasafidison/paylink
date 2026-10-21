@@ -1,0 +1,21 @@
+{
+  "paypal.nav.desk": "Birao",
+  "paypal.desk.docTitle": "Birao",
+  "paypal.desk.kicker": "Biraon'ny fanangonana vola",
+  "paypal.desk.h1a": "Ny faktioranao,",
+  "paypal.desk.h1b": "amin'ny lalana roa",
+  "paypal.desk.lede": "Samy manana kambana PayPal ny faktiora PayLink tsirairay. Hasehon'ny birao izay voaloa sy ny toerana nandoavana azy, hanolotra ny dingana manaraka izy, ary tsy hanao zavatra raha tsy ankatoavinao.",
+  "paypal.desk.plate": "Birao · ho avy",
+  "paypal.desk.head": "Ho avy amin'ity fanontana ity",
+  "paypal.desk.coming": "Ho avy",
+  "paypal.desk.twin": "Kambana PayPal ho an'ny faktiora tsirairay: mandoa amin'ny PayPal na amin'ny USDC ny mpanjifanao, araka izay tiany.",
+  "paypal.desk.check": "Hamarino ny faktiorako: izay lazain'ny lalana tsirairay, vakiana indray alohan'ny hanaovana zavatra.",
+  "paypal.desk.approve": "Tolo-kevitra ankatoavinao: mirakitra, mampahatsiahy na manafoana. Tsy manao sonia mihitsy ny mpanampy ary tsy mamindra vola mihitsy.",
+  "paypal.desk.api": "API PayLink",
+  "paypal.desk.apiOk": "Mandeha",
+  "paypal.desk.apiNone": "Tsy voaomana",
+  "paypal.desk.apiDown": "Tsy tratra",
+  "paypal.notes.sandbox": "Sandbox PayPal sy Ethereum Sepolia ihany. Tsy misy vola tena izy.",
+  "paypal.notes.title": "Vola fitsapana ihany",
+  "paypal.notes.sandboxHead": "Sandbox sy tambajotra fitsapana"
+}

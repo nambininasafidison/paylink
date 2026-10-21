@@ -16,10 +16,19 @@ describe("edition catalogues", () => {
     }
   });
 
-  it("keeps the Mezo keys out of the catalogue every page carries", async () => {
+  it("loads the PayPal catalogue in every language, with the English keys", async () => {
+    const en = await loadEditionMessages("paypal", "en");
+    expect(en["paypal.nav.desk"]).toBe("Desk");
+    for (const locale of LOCALES) {
+      const own = await loadEditionMessages("paypal", locale);
+      expect(Object.keys(own).sort(), locale).toEqual(Object.keys(en).sort());
+    }
+  });
+
+  it("keeps the Mezo and PayPal keys out of the catalogue every page carries", async () => {
     for (const locale of LOCALES) {
       const core = locale === "en" ? EN : await loadMessages(locale);
-      expect(Object.keys(core).filter((key) => key.startsWith("mezo.")), locale).toEqual([]);
+      expect(Object.keys(core).filter((key) => key.startsWith("mezo.") || key.startsWith("paypal.")), locale).toEqual([]);
     }
   });
 });

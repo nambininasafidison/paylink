@@ -1,0 +1,21 @@
+{
+  "paypal.nav.desk": "Bureau",
+  "paypal.desk.docTitle": "Bureau",
+  "paypal.desk.kicker": "Bureau de recouvrement",
+  "paypal.desk.h1a": "Vos factures,",
+  "paypal.desk.h1b": "sur les deux rails",
+  "paypal.desk.lede": "Chaque facture PayLink reçoit un jumeau PayPal. Le bureau montrera ce qui a été payé et où, proposera l'étape suivante, et n'agira que si vous l'approuvez.",
+  "paypal.desk.plate": "Bureau · bientôt",
+  "paypal.desk.head": "Bientôt dans cette édition",
+  "paypal.desk.coming": "Bientôt",
+  "paypal.desk.twin": "Un jumeau PayPal pour chaque facture : votre client paie par PayPal ou en USDC, comme il préfère.",
+  "paypal.desk.check": "Vérifier mes factures : ce que dit chaque rail, relu avant toute action.",
+  "paypal.desk.approve": "Des propositions que vous approuvez : enregistrer, relancer ou annuler. L'assistant ne signe jamais et ne déplace jamais d'argent.",
+  "paypal.desk.api": "API PayLink",
+  "paypal.desk.apiOk": "En ligne",
+  "paypal.desk.apiNone": "Non configurée",
+  "paypal.desk.apiDown": "Injoignable",
+  "paypal.notes.sandbox": "Bac à sable PayPal et Ethereum Sepolia uniquement. Pas d'argent réel.",
+  "paypal.notes.title": "Argent de test uniquement",
+  "paypal.notes.sandboxHead": "Bac à sable et réseau de test"
+}
