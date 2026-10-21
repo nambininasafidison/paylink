@@ -4,7 +4,7 @@
 |---|---|
 | **Event** | "Build with MUSD and MEZO: Bitcoin's Economic Layer", the Mezo Buildathon on AKINDO (Mezo / Supernormal Foundation). Track 2 "Access & Distribution". An MUSD or MEZO integration is mandatory: PayLink's is MUSD ([§4](#4-the-musd-integration-explained)) |
 | **Deadline** | Wave 1 closes **2026-10-26** (time of day unknown: plan to submit by **Oct 24**). Build Oct 16–26, judging Oct 27–Nov 1; wave 2 builds Nov 2–15 (**UNVERIFIED**: third-party pages only, [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo)) |
-| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the video, the interviews. PayLinkV2 is deployed on Mezo testnet (2026-10-16, block 16183660) and the preview serves the edition; the first real MUSD payment went through it on 2026-10-16 (12.50 MUSD, transaction `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd`, block 16184418). Next: [§10](#10-liste-de-contrôle-en-français) steps 5 bis, 10 and 11 |
+| **Status** | Paste-ready, with `[TO FILL: …]` placeholders only where a fact does not exist yet: the interviews. PayLinkV2 is deployed on Mezo testnet (2026-10-16, block 16183660) and the preview serves the edition; the first real MUSD payment went through it on 2026-10-16 (12.50 MUSD, transaction `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd`, block 16184418). Next: [§10](#10-liste-de-contrôle-en-français) steps 5 bis, 10 and 11 |
 | **Written** | 2026-10-13, from the local branch `mezo` at `119a7d6` (23 commits on top of `main` at `0c3bfed`), and checked against Mezo testnet the same day. Revised 2026-10-14 after a review: Mezo's RPC answers, the borrow estimate, the Mezo-only policy, the business fields, the wording of fees and gas |
 | **Who submits** | The owner, from the owner's AKINDO account. Claude Code drafts only ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 | **Checklist** | [§10](#10-liste-de-contrôle-en-français), in French; [README.md §5](README.md#5-mezo-buildathon-akindo-wave-1) says what is done |
@@ -48,7 +48,7 @@ Checked from the sandbox on 2026-10-13 unless stated otherwise. If one of them c
 | Where it is served | `https://mezo.paylink-mg.pages.dev/mezo/`, the Cloudflare Pages preview of branch `mezo`, **not online yet**: the branch is pushed, and since 2026-10-14 the project's preview branch setting is "Custom branches" with `mezo` only (it was "All non-Production branches" before, which the owner closed) ([§2](#2-where-judges-see-it-the-preview-of-branch-mezo)). The host is blocked from the sandbox, so check it yourself | [Cloudflare Pages runbook §2](../runbooks/cloudflare-pages.md#2-build-settings) |
 | Production | `https://paylink-mg.pages.dev/monad/` answers 200; `https://paylink-mg.pages.dev/mezo/` answers 404. Production stays on `main`, unchanged, while Monad Metropolis and Colosseum are judged | `curl`, 2026-10-13 |
 | Relayer, indexer | Neither serves Mezo: the relayer cannot carry an MUSD payment with PayLinkV2, and there is no history indexer for Mezo | [ADR 0017](../adr/0017-mezo-edition-chain-layer.md) |
-| Real payments on Mezo testnet | **None yet** (no contract there). Your rehearsal and video make the first ones | — |
+| Real payments on Mezo testnet | One so far: 12.50 MUSD on 2026-10-16, transaction `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd` (block 16184418) | C |
 | Users, revenue, partners, interviews | None to report as of 2026-10-14. Plan: 3 to 6 sessions before Oct 24, reported as "n of N" ([demand validation](#demand-validation)) | [interview protocol](../research/interview-script.md) ready; no session recorded |
 | Buildathon rules | Tracks, rubric (Mezo Integration 30, Product & Business Viability 30, Technical Implementation 20, User Experience 10, Submission Materials 10), wave dates and form fields come from third-party pages; AKINDO cannot be reached from here (**UNVERIFIED**) | [research §10](../research/mezo.md#10-mezo-buildathon-on-akindo) |
 
@@ -269,10 +269,10 @@ Characters: 499 (no stated limit)
 
 | Field | Value |
 |---|---|
-| Repository | `https://github.com/nambininasafidison/paylink/tree/mezo` once you have pushed the branch (public, MIT). The home page of the repository shows `main`, which has no Mezo edition while Monad and Colosseum are judged: link the branch |
+| Repository | `https://github.com/nambininasafidison/paylink/tree/mezo` (public, MIT). The home page of the repository shows `main`, which has no Mezo edition while Monad and Colosseum are judged: link the branch |
 | Live demo | `https://mezo.paylink-mg.pages.dev/mezo/` ([§2](#2-where-judges-see-it-the-preview-of-branch-mezo)) |
 | Deployed address | `0x448eCce9711860502806A3d5B021a4f9Ba715082` on Mezo testnet (31611), deployment transaction [`0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e`](https://explorer.test.mezo.org/tx/0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e), block 16183660, 2026-10-16 |
-| Demo video | The public (or unlisted) YouTube video titled "PayLink on Mezo: MUSD invoices paid by link (testnet demo)", script [§8](#8-demo-video-script-at-most-200-captions-no-narration) |
+| Demo video | `https://youtu.be/T0OpcTpprFw` (public, 1:53): "PayLink on Mezo: MUSD invoices paid by link (testnet demo)". Recorded automatically on a local fork of Mezo testnet (the deployed contract, the real MUSD contract); its last shot opens the receipt of the real Oct 16 payment, verified live on Mezo testnet. Story from [§8](#8-demo-video-script-at-most-200-captions-no-narration) |
 
 ### Disclosure (if the form asks for prior work or other events)
 
