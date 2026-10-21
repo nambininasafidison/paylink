@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: MIT
 /**
- * PayPal REST types used by operations P1–P11 (docs/paypal/SPEC.md §7.1), transcribed from PayPal's OpenAPI files at
- * `paypal/paypal-rest-api-specifications@90e8041` (vendored in test/openapi/, provenance in test/openapi/SOURCE.md):
- * `invoicing_v2.json` (Invoices 2.6) and `notifications_webhooks_v1.json` (Webhooks Management 1.11). Each type names its
- * schema; limits are the schema's `maxLength`/`maxItems`. Only the members PayLink reads or writes are listed, plus every
- * member of the objects PayLink sends, so an outgoing body cannot carry a field PayPal does not define. Response objects
- * may carry more members than listed (PayPal adds fields): parse them leniently, validate them against the vendored
- * schema in tests (L0).
+ * PayPal REST types used by operations P1–P11 (docs/paypal/SPEC.md §7.1) and the two read operations the desk and the
+ * smoke add (P13, P14), transcribed from PayPal's OpenAPI files at `paypal/paypal-rest-api-specifications@90e8041`
+ * (vendored in test/openapi/, provenance in test/openapi/SOURCE.md): `invoicing_v2.json` (Invoices 2.6) and
+ * `notifications_webhooks_v1.json` (Webhooks Management 1.11). Each type names its schema; limits are the schema's
+ * `maxLength`/`maxItems`. Only the members PayLink reads or writes are listed, plus every member of the objects PayLink
+ * sends, so an outgoing body cannot carry a field PayPal does not define. Response objects may carry more members than
+ * listed (PayPal adds fields): src/paypal/parse.ts reads them leniently, and the L0 suite (test/openapi/) validates every
+ * request and response against the vendored schemas.
  *
- * Exception: the OAuth 2.0 token (P1) is in neither file. Its shape is the PayPal Agent Toolkit's
- * (`typescript/src/shared/client.ts` and its README's example response at `a3aa963`, vendored in
- * test/vendor/paypal-agent-toolkit-1.11.0/).
+ * Exception: the OAuth 2.0 token (P1). Its path is the `tokenUrl` of the `Oauth2` security scheme of both files
+ * (`/v1/oauth2/token`, V), but its request and response are in neither: they are the PayPal Agent Toolkit's
+ * (`typescript/src/shared/client.ts` and the section "Generating an Access Token" of its `README.md`, lines 207–248, at `a3aa963`).
  *
- * Behaviours the files do not state are tagged UNVERIFIED in docs/paypal/SPEC.md and decided by the owner's sandbox
- * capture run (§15.1): which open status `send` leaves (`SENT` or `SHARED`), the status after a recorded payment, whether
- * P7's `transaction_id` equals P6's `payment_id`, and whether `reference` search is exact.
+ * Behaviours the files do not state are tagged UNVERIFIED and decided by the owner's sandbox capture run
+ * (apps/api/scripts/capture/, docs/runbooks/paypal.md): which open status `send` leaves (`SENT` or `SHARED`), the status
+ * after a recorded payment, whether P7's `transaction_id` equals P6's `payment_id`, whether `reference` search is
+ * exact, and where an invoicing webhook event carries the invoice.
  *
- * Owner: PayPal spine workstream (each member added names its schema).
+ * Owner: PayPal spine workstream.
  */
-import type { PayPalInvoiceStatus } from "@paylink/api-contract";
 
 // ------------------------------------------------------------------------------------------- shared
 
@@ -52,7 +53,13 @@ export interface PayPalErrorDetail {
   readonly description?: string;
 }
 
-/** The error body of `error_400` … `error_500` (Invoicing) and `error`/`error-2` (Webhooks): name, message, debug_id, details. */
+/**
+ * The error body of `error_400` … `error_503` (Invoicing) and `error-2` (Webhooks, where `name`, `message` and
+ * `debug_id` are required): name, message, debug_id, details. Invoicing's names are fixed per status: `INVALID_REQUEST`
+ * (400), `AUTHENTICATION_FAILURE` (401), `NOT_AUTHORIZED` (403), `RESOURCE_NOT_FOUND` (404), `RESOURCE_CONFLICT` (409),
+ * `UNSUPPORTED_MEDIA_TYPE` (415), `UNPROCESSABLE_ENTITY` (422), `INTERNAL_SERVER_ERROR` (500), `SERVICE_UNAVAILABLE`
+ * (503); the fine-grained reason is `details[].issue` (for example `CANNOT_CANCEL_PAID_INVOICE`, `CANNOT_REMIND_INVOICE`).
+ */
 export interface PayPalErrorBody {
   readonly name?: string;
   readonly message?: string;
@@ -65,7 +72,8 @@ export interface PayPalErrorBody {
 
 /**
  * `POST /v1/oauth2/token` with HTTP Basic `client_id:client_secret` and the form body `grant_type=client_credentials`
- * (Agent Toolkit `client.ts`). Response as in the toolkit README; sandbox tokens last 3–8 hours (toolkit README, S).
+ * (Agent Toolkit `client.ts`). Response as in the toolkit README (`scope`, `access_token`, `token_type: "Bearer"`,
+ * `app_id`, `expires_in: 32400`, `nonce`); "Sandbox Tokens: Valid for 3-8 hours" (toolkit README, line 248).
  */
 export interface OAuthTokenResponse {
   readonly access_token: string;
@@ -75,6 +83,15 @@ export interface OAuthTokenResponse {
   readonly scope?: string;
   readonly app_id?: string;
   readonly nonce?: string;
+}
+
+/**
+ * An OAuth 2.0 error (RFC 6749 §5.2). The toolkit reads `error_description` from a failed token request (`client.ts`
+ * at `a3aa963`); the `error` codes PayPal uses are UNVERIFIED.
+ */
+export interface OAuthErrorBody {
+  readonly error?: string;
+  readonly error_description?: string;
 }
 
 /** OAuth 2.0 scopes per operation (`security` of each operation, V). */
@@ -100,7 +117,7 @@ export interface InvoiceMetadata {
   readonly cancel_time?: DateTime;
   readonly first_sent_time?: DateTime;
   readonly last_sent_time?: DateTime;
-  /** "The URL for the invoice payer view hosted on paypal.com." */
+  /** "The URL for the invoice payer view hosted on paypal.com." Its host is pinned after the capture run (§12.3). */
   readonly recipient_view_url?: string;
   /** "The URL for the invoice merchant view hosted on paypal.com." */
   readonly invoicer_view_url?: string;
@@ -111,11 +128,11 @@ export interface InvoiceDetail {
   /** ≤ 120: PayLink puts the invoice key K here (66 characters). Searchable (`search_data.reference`). */
   readonly reference?: string;
   readonly currency_code: CurrencyCode;
-  /** ≤ 4000: "A note to the invoice recipient." */
+  /** ≤ 4000: "A note to the invoice recipient. Also appears on the invoice notification email." */
   readonly note?: string;
   /** ≤ 4000. */
   readonly terms_and_conditions?: string;
-  /** ≤ 500: "A private bookkeeping memo for the user." */
+  /** ≤ 500: "A private bookkeeping memo for the user." PayLink keeps the payee's address here (src/paypal/invoice.ts). */
   readonly memo?: string;
   /** ≤ 25. */
   readonly invoice_number?: string;
@@ -192,18 +209,21 @@ export interface PaymentDetail {
   readonly payment_id?: string;
   readonly payment_date?: DateNoTime;
   readonly method: PaymentMethod;
-  /** ≤ 2000: PayLink's echo signature (docs/paypal/SPEC.md §7.3). */
+  /** ≤ 2000: PayLink's echo signature (docs/paypal/SPEC.md §7.3, src/paypal/echo.ts). */
   readonly note?: string;
   /** "If you omit this parameter, the total invoice amount is marked as paid. This amount cannot exceed the amount due." */
   readonly amount?: Money;
 }
+
+/** A payment as PayPal reports it in `payments.transactions[]`: `method` (a `PaymentMethod`) may be absent or new. */
+export type ReportedPayment = Omit<PaymentDetail, "method"> & { readonly method?: string };
 
 /** `payments`. */
 export interface InvoicePayments {
   /** Read-only: the aggregated payment amounts. */
   readonly paid_amount?: Money;
   /** `payment_detail_list`, ≤ 100. */
-  readonly transactions?: readonly PaymentDetail[];
+  readonly transactions?: readonly ReportedPayment[];
 }
 
 /** `refunds` (read only for PayLink: refunds are never made from the app). */
@@ -223,7 +243,11 @@ export interface AmountSummary {
 export interface Invoice {
   /** Read-only, ≤ 30. */
   readonly id?: string;
-  readonly status?: PayPalInvoiceStatus;
+  /**
+   * `invoice_status`: one of the 16 statuses of `PAYPAL_INVOICE_STATUSES` (@paylink/api-contract), or one PayPal adds
+   * later, whose class is `unknown` (situation S0). Typed as a string so a new status reads as data, not as a parse error.
+   */
+  readonly status?: string;
   readonly detail: InvoiceDetail;
   readonly invoicer?: unknown;
   /** `recipient_info_list`, ≤ 100. */
@@ -259,13 +283,13 @@ export interface Notification {
   readonly note?: string;
   /** Default false. */
   readonly send_to_invoicer?: boolean;
-  /** Default true. false = "share link, not through PayPal" for `send`. */
+  /** Default true. false = "send the invoice through a share link and not through PayPal" for `send`. */
   readonly send_to_recipient?: boolean;
   readonly additional_recipients?: readonly string[];
 }
 
 /** `invoice_status_list`: at most 5 statuses. */
-export type InvoiceStatusList = readonly PayPalInvoiceStatus[];
+export type InvoiceStatusList = readonly string[];
 
 /** `search_data` (P2): PayLink searches by `reference` only. */
 export interface SearchInvoicesRequest {
@@ -277,7 +301,7 @@ export interface SearchInvoicesRequest {
   readonly archived?: boolean;
 }
 
-/** Query parameters of `search-invoices` and `GET /v2/invoicing/invoices`: page ≥ 1, page_size 1–100 (default 20). */
+/** Query parameters of `search-invoices` and `GET /v2/invoicing/invoices`: page 1–1000, page_size 1–100 (default 20). */
 export interface PageQuery {
   readonly page?: number;
   readonly page_size?: number;
@@ -292,12 +316,15 @@ export interface InvoicePage {
   readonly links?: readonly LinkDescription[];
 }
 
-/** `payment_reference` (P6 response): `payment_id` ≤ 22, pattern `^[0-9A-Za-z_-]+$`. */
+/** `payment_reference` (P6 response): `payment_id` 1–22 characters, pattern `^[0-9A-Za-z_-]+$`. */
 export interface PaymentReference {
   readonly payment_id: string;
 }
 
-/** P4's answer: 200 = sent now, 202 = "execute at a later time" (V); both carry a `link_description`. */
+/**
+ * P4's answer: 200 "when the invoice issue date is current date", 202 "The server has accepted the request and will
+ * execute it at a later time" (V); both carry a `link_description`.
+ */
 export interface SendInvoiceResult {
   readonly status: 200 | 202;
   readonly link: LinkDescription | null;
@@ -314,27 +341,35 @@ export interface WebhookEvent {
   readonly event_type?: string;
   readonly summary?: string;
   readonly resource_version?: string;
+  /** `resource`: "additionalProperties": true. Its shape for invoicing events is not in the file (UNVERIFIED). */
   readonly resource?: Readonly<Record<string, unknown>>;
   readonly links?: readonly LinkDescription[];
 }
 
 /**
- * `verify_webhook_signature` (P10, every member required). The header names the values come from (`PAYPAL-AUTH-ALGO`,
- * `PAYPAL-CERT-URL`, `PAYPAL-TRANSMISSION-ID`, `PAYPAL-TRANSMISSION-SIG`, `PAYPAL-TRANSMISSION-TIME`) are named in the
- * members' descriptions (V). `webhook_event` must be the raw body spliced in, not a re-serialisation (§7.5).
+ * The five transmission values of a delivered webhook, each read from the request header the member's description in
+ * `verify_webhook_signature` names (V): `PAYPAL-AUTH-ALGO`, `PAYPAL-CERT-URL`, `PAYPAL-TRANSMISSION-ID`,
+ * `PAYPAL-TRANSMISSION-SIG`, `PAYPAL-TRANSMISSION-TIME`.
  */
-export interface VerifyWebhookSignatureRequest {
-  /** ≤ 100. */
+export interface WebhookTransmission {
+  /** ≤ 100, `^[a-zA-Z0-9]+$`. */
   readonly auth_algo: string;
   /** ≤ 500, a URI. */
   readonly cert_url: string;
-  /** ≤ 50. */
+  /** ≤ 50, `^(?!\d+$)\w+\S+`. */
   readonly transmission_id: string;
-  /** ≤ 500. */
+  /** ≤ 500, `^(?!\d+$)\w+\S+`. */
   readonly transmission_sig: string;
   /** ≤ 100, date-time. */
   readonly transmission_time: string;
-  /** ≤ 50: the subscription's id (`PAYPAL_WEBHOOK_ID`). */
+}
+
+/**
+ * `verify_webhook_signature` (P10, every member required) without `webhook_event`, which the client splices in raw:
+ * `webhook_event` must be the body exactly as received, not a re-serialisation (§7.5).
+ */
+export interface VerifyWebhookSignatureRequest extends WebhookTransmission {
+  /** ≤ 50, `^[a-zA-Z0-9]+$`: the subscription's id (`PAYPAL_WEBHOOK_ID`). */
   readonly webhook_id: string;
 }
 
@@ -361,3 +396,5 @@ export interface Webhook {
 
 /** The webhook events PayLink subscribes to (names S: PayPal's event-names page, docs/research/paypal/paypal-tech.md §5.2). */
 export const SUBSCRIBED_EVENTS = ["INVOICING.INVOICE.PAID", "INVOICING.INVOICE.CANCELLED", "INVOICING.INVOICE.UPDATED"] as const;
+
+export type SubscribedEvent = (typeof SUBSCRIBED_EVENTS)[number];
