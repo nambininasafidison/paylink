@@ -31,6 +31,9 @@ export type { FakeBehaviour, FakeDelivery } from "./model.ts";
 /** The fake's default credentials: not secrets, they only open the fake. */
 export const FAKE_CREDENTIALS = { clientId: "FAKE-CLIENT-ID-PAYLINK-TWIN", clientSecret: "FAKE-CLIENT-SECRET-PAYLINK-TWIN" } as const;
 
+/** Requests kept in `requests` (the latest; tests never come close). */
+const MAX_RECORDED = 1_000;
+
 /** The base the in-process client calls (`.invalid`: never resolvable, RFC 2606). */
 export const FAKE_BASE_URL = "http://paypal.fake.invalid";
 
@@ -248,6 +251,10 @@ export function createPayPalFake(options: PayPalFakeOptions = {}): PayPalFake {
       response: null,
     };
     requests.push(record);
+    if (requests.length > MAX_RECORDED) {
+      // A long-running offline demo keeps the latest requests only.
+      requests.splice(0, requests.length - MAX_RECORDED);
+    }
     const fault = op === null ? undefined : faults.find((f) => f.op === op && f.remaining > 0);
     if (fault !== undefined) {
       fault.remaining -= 1;

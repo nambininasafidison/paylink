@@ -185,6 +185,34 @@ describe("retries", () => {
     }
   });
 
+  it("treats an answer that breaks off while its body is read as no answer", async () => {
+    const { fake } = fakeAndClient();
+    let broken = 0;
+    const breaking: typeof fetch = async (input, init) => {
+      const response = await fake.fetch(input, init);
+      const path = new URL(new Request(input, init).url).pathname;
+      if (path.endsWith("/token") || broken >= 1) {
+        return response;
+      }
+      broken += 1;
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.error(new Error("connection reset"));
+          },
+        }),
+        { status: response.status, headers: response.headers },
+      );
+    };
+    const reader = fakeAndClient({ client: { transport: breaking } }).client;
+    expect((await reader.listInvoices()).items).toEqual([]);
+    broken = 0;
+    const writer = fakeAndClient({ client: { transport: breaking } }).client;
+    const error = await failure(writer.createInvoice(twinCreateBody(twinInput())));
+    expect(error).toMatchObject({ operation: "P3", status: 201, paypalName: "E_PAYPAL_NO_ANSWER", ambiguous: true });
+    expect(fake.state.invoices.size).toBe(1);
+  });
+
   it("times out an attempt that never answers", async () => {
     const { fake } = fakeAndClient();
     const hanging: typeof fetch = (input, init) =>

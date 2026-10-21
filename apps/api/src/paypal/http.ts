@@ -313,7 +313,18 @@ class HttpPayPalClient implements PayPalClient {
       }
       const { response, accept, read } = answer;
       const status = response.status;
-      const body = await readBody(response);
+      let body: unknown;
+      try {
+        body = await readBody(response);
+      } catch {
+        // The answer broke off (or timed out) while its body was read: as good as no answer.
+        this.logCall(op, status, attempt, started, null, requestId);
+        if (!write && attempt < attempts) {
+          await this.sleep(this.backoff(attempt));
+          continue;
+        }
+        throw new PayPalError(op, status, { name: "E_PAYPAL_NO_ANSWER", ambiguous: write, retryable: true });
+      }
       if (accept.includes(status)) {
         const result = body === undefined ? null : read(status, body);
         this.logCall(op, status, attempt, started, debugIdOf(response, null), requestId);

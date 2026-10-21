@@ -356,6 +356,21 @@ describe("faults, controls, mounting and the payer's page", () => {
     expect((await fake.handle(new Request("http://127.0.0.1:8788/__paypal-fake/nothing"))).status).toBe(404);
   });
 
+  it("keeps the latest 1,000 requests, events and settled deliveries in a long run", async () => {
+    const fake = createPayPalFake({ clock: () => T0, deliver: () => Promise.resolve(new Response(null, { status: 200 })) });
+    fake.connect({ webhookUrl: "https://api.example/hook" });
+    for (let i = 0; i < 1_005; i += 1) {
+      fake.state.emit("INVOICING.INVOICE.PAID", (id) => JSON.stringify({ id }));
+      await fake.fetch(`${fake.baseUrl}/v1/notifications/certs/CERT-FAKE-PAYLINK-1`);
+    }
+    await fake.flush();
+    fake.state.emit("INVOICING.INVOICE.UPDATED", (id) => JSON.stringify({ id }));
+    expect(fake.requests).toHaveLength(1_000);
+    expect(fake.state.events.size).toBe(1_000);
+    expect(fake.state.eventOrder).toHaveLength(1_000);
+    expect(fake.state.deliveries.filter((d) => d.state !== "pending").length).toBeLessThanOrEqual(1_000);
+  });
+
   it("knows which operation a request is", () => {
     expect(operationOf("POST", "/v2/invoicing/invoices")).toBe("P3");
     expect(operationOf("GET", "/v2/invoicing/invoices")).toBe("P13");

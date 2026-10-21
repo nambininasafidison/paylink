@@ -140,6 +140,9 @@ export interface FakeDelivery {
   lastStatus: number | null;
 }
 
+/** Events and settled deliveries kept (the latest). */
+const MAX_KEPT = 1_000;
+
 /** The id of the subscription every fake starts with (`webhook_id` pattern `^[a-zA-Z0-9]+$`, ≤ 50, V). */
 export const FAKE_WEBHOOK_ID = "0FAKEWEBHOOKPAYLINK0";
 
@@ -405,6 +408,25 @@ export class FakeState {
     for (const subscription of this.subscriptions.values()) {
       if (subscription.eventTypes.includes(eventType) || subscription.eventTypes.includes("*")) {
         this.deliveries.push({ eventId: id, subscriptionId: subscription.id, attempts: 0, state: "pending", lastStatus: null });
+      }
+    }
+    // A long-running offline demo keeps the latest events and settled deliveries only.
+    while (this.eventOrder.length > MAX_KEPT) {
+      const oldest = this.eventOrder.shift();
+      if (oldest !== undefined) {
+        this.events.delete(oldest);
+      }
+    }
+    const settled = this.deliveries.filter((d) => d.state !== "pending").length;
+    if (settled > MAX_KEPT) {
+      let drop = settled - MAX_KEPT;
+      for (let i = 0; i < this.deliveries.length && drop > 0; ) {
+        if (this.deliveries[i]?.state === "pending") {
+          i += 1;
+        } else {
+          this.deliveries.splice(i, 1);
+          drop -= 1;
+        }
       }
     }
     return event;
