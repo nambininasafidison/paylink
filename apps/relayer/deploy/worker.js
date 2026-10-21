@@ -22772,6 +22772,25 @@ function cancelBySigCall(contract, cancel) {
 * `ReceiveWithAuthorization` (§8.3). Every function is pure; golden vectors from the Solidity side
 * (protocol/test/vectors) pin the results byte for byte.
 */
+/** `EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)`; there is no salt. */
+const EIP712_DOMAIN_FIELDS = [
+	{
+		name: "name",
+		type: "string"
+	},
+	{
+		name: "version",
+		type: "string"
+	},
+	{
+		name: "chainId",
+		type: "uint256"
+	},
+	{
+		name: "verifyingContract",
+		type: "address"
+	}
+];
 const INVOICE_TYPES = { Invoice: [
 	{
 		name: "payee",
@@ -22847,6 +22866,16 @@ function payLinkDomain({ chainId, verifyingContract }) {
 		chainId,
 		verifyingContract
 	};
+}
+/** `domainSeparator = hashStruct(EIP712Domain)` of any four-field domain. */
+function domainSeparator(domain) {
+	return hashDomain({
+		domain: {
+			...domain,
+			chainId: BigInt(domain.chainId)
+		},
+		types: { EIP712Domain: EIP712_DOMAIN_FIELDS }
+	});
 }
 /** The typed data a payee signs for an invoice (`eth_signTypedData_v4`, primaryType `Invoice`). */
 function invoiceTypedData(deployment, invoice) {
@@ -23237,7 +23266,7 @@ async function verifySignatureWithCode(parameters) {
 
 //#endregion
 //#region packages/sdk/src/token-domain.ts
-init_decodeFunctionResult(), init_encodeFunctionData();
+init_abi(), init_decodeFunctionResult(), init_encodeFunctionData();
 const TOKEN_DOMAIN_ABI = [
 	{
 		type: "function",
@@ -23294,6 +23323,16 @@ const TOKEN_DOMAIN_ABI = [
 			name: "",
 			type: "string"
 		}]
+	},
+	{
+		type: "function",
+		name: "DOMAIN_SEPARATOR",
+		stateMutability: "view",
+		inputs: [],
+		outputs: [{
+			name: "",
+			type: "bytes32"
+		}]
 	}
 ];
 async function callString(client, token, functionName) {
@@ -23311,10 +23350,54 @@ async function callString(client, token, functionName) {
 	});
 }
 /**
+* Calls a view the token may not implement: `undefined` when it reverts or returns nothing (no such function, or a
+* fallback that answers empty), the decoded value otherwise. Transport failures are thrown.
+*/
+async function optionalView(read) {
+	try {
+		return await read();
+	} catch (error) {
+		if (isRevertError(error) || error instanceof AbiDecodingZeroDataError) return;
+		throw error;
+	}
+}
+/**
+* The domain of a token without `version()`: the registry's stated version, accepted only when
+* `keccak256(EIP712Domain(name(), version, chainId, token))` equals the token's `DOMAIN_SEPARATOR()`.
+*/
+async function provenDomain(client, chainId, token, name, stated) {
+	if (stated === null || stated === void 0) throw new PayLinkError("E_TOKEN_DOMAIN_UNKNOWN", `token ${token} has no version(); the registry must state its EIP-712 domain`, { token });
+	const separator = await optionalView(async () => {
+		const result = await client.call({
+			to: token,
+			data: encodeFunctionData({
+				abi: TOKEN_DOMAIN_ABI,
+				functionName: "DOMAIN_SEPARATOR"
+			})
+		});
+		return decodeFunctionResult({
+			abi: TOKEN_DOMAIN_ABI,
+			functionName: "DOMAIN_SEPARATOR",
+			data: result.data ?? "0x"
+		});
+	});
+	const domain = {
+		name,
+		version: stated.version,
+		chainId,
+		verifyingContract: token
+	};
+	if (separator === void 0 || separator.toLowerCase() !== domainSeparator(domain).toLowerCase()) throw new PayLinkError("E_TOKEN_DOMAIN_UNKNOWN", `token ${token} has no version(), and its DOMAIN_SEPARATOR() does not prove version ${stated.version}`, { token });
+	return domain;
+}
+/**
 * Reads a token's EIP-712 domain from the chain. Only the four-field domain (name, version, chainId,
 * verifyingContract) is supported, because that is what EIP-3009 tokens sign; anything else is refused.
+*
+* `stated` is the registry's domain for the token: used only for a token that implements neither `eip712Domain()` nor
+* `version()`, and then only when it hashes to the token's `DOMAIN_SEPARATOR()` (`E_TOKEN_DOMAIN_UNKNOWN` otherwise).
 */
-async function readTokenDomain(client, chainId, token) {
+async function readTokenDomain(client, chainId, token, stated) {
 	let returned;
 	try {
 		returned = (await client.call({
@@ -23338,8 +23421,8 @@ async function readTokenDomain(client, chainId, token) {
 		reported = void 0;
 	}
 	if (reported === void 0) {
-		const [name, version] = await Promise.all([callString(client, token, "name"), callString(client, token, "version")]);
-		return {
+		const [name, version] = await Promise.all([callString(client, token, "name"), optionalView(async () => await callString(client, token, "version"))]);
+		return version === void 0 ? await provenDomain(client, chainId, token, name, stated) : {
 			name,
 			version,
 			chainId,
@@ -23372,7 +23455,7 @@ async function resolveTokenDomain(parameters) {
 			verifyingContract: token.address
 		};
 	}
-	const onChain = await readTokenDomain(client, chainId, token.address);
+	const onChain = await readTokenDomain(client, chainId, token.address, expected);
 	if (expected !== null && (expected.name !== onChain.name || expected.version !== onChain.version)) throw new PayLinkError("E_TOKEN_DOMAIN_MISMATCH", `${token.symbol} signs as ${onChain.name}/${onChain.version}, the registry says ${expected.name}/${expected.version}`, { token: token.address });
 	return onChain;
 }
@@ -23951,6 +24034,116 @@ const baseSepolia = {
 };
 
 //#endregion
+//#region packages/chains/src/chains/ethereum-sepolia.ts
+/**
+* Ethereum Sepolia (11155111): the PayPal edition's chain (ADR 0018, decision D-CHAIN of 2026-10-21). Every fact below
+* was read on chain through the registry's RPC on 2026-10-21 (block 11,958,755; docs/research/paypal/sepolia.md);
+* confidence C unless a note says otherwise.
+*
+* Disabled for every other edition, and offered by the PayPal edition only (it takes the chain explicitly, as the Mezo
+* edition takes Mezo testnet): `/`, `/monad/`, `/base/` and `/mezo/` do not change. No PayLinkV2 deployment is recorded
+* yet: the owner deploys the release at its CREATE2 address with the deploy kit, and until
+* `protocol/deployments/11155111.json` exists the chain reads "not deployed yet" and nothing can be signed or paid there.
+* No relayer serves it (D-SCOPE cut): payers pay their own Sepolia gas.
+*/
+const ethereumSepolia = {
+	chainId: 11155111,
+	caip2: "eip155:11155111",
+	key: "ethereum-sepolia",
+	name: "Ethereum Sepolia",
+	label: "ETH",
+	testnet: true,
+	local: false,
+	status: "disabled",
+	tier: "later",
+	protocol: "v2",
+	editions: ["paypal"],
+	nativeCurrency: {
+		name: "Sepolia Ether",
+		symbol: "ETH",
+		decimals: 18
+	},
+	rpc: [{
+		url: "https://ethereum-sepolia-rpc.publicnode.com",
+		confidence: "C"
+	}],
+	rpcLimits: { maxLogBlockRange: 5e4 },
+	explorers: [{
+		name: "Etherscan",
+		url: "https://sepolia.etherscan.io",
+		confidence: "C"
+	}],
+	tokens: [{
+		kind: "erc20",
+		symbol: "USDC",
+		name: "USDC (Circle)",
+		address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+		decimals: 6,
+		capabilities: {
+			eip3009: true,
+			eip2612: true,
+			native: false
+		},
+		eip712Domain: {
+			name: "USDC",
+			version: "2"
+		},
+		listing: "default",
+		confidence: "C",
+		pendingVerification: [],
+		note: "Circle FiatToken (ZeppelinOS proxy; receiveWithAuthorization and permit in its implementation). Test USDC from faucet.circle.com."
+	}, {
+		kind: "erc20",
+		symbol: "PYUSD",
+		name: "PayPal USD (Paxos)",
+		address: "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9",
+		decimals: 6,
+		capabilities: {
+			eip3009: true,
+			eip2612: true,
+			native: false
+		},
+		eip712Domain: {
+			name: "PayPal USD",
+			version: "1"
+		},
+		listing: "listed",
+		confidence: "C",
+		pendingVerification: [],
+		note: "Paxos PaxosTokenV2 behind an upgradeable proxy: Paxos can pause it and freeze any address, including PayLinkV2's. An already-used EIP-3009 nonce returns without a transfer (PayLinkV2 then reverts ReceivedMismatch)."
+	}],
+	deniedTokens: [],
+	contracts: {
+		create2Deployer: {
+			address: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+			confidence: "C",
+			note: "Canonical runtime, checked live: PayLinkV2 deploys at 0x448e…5082 (rehearsed on an anvil fork)."
+		},
+		multicall3: {
+			address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+			confidence: "C",
+			note: "Code present, checked live."
+		}
+	},
+	gasModel: { chargesGasLimit: false },
+	gas: SNAPSHOT_GAS_TABLE,
+	relay: DEFAULT_RELAY_TIMING,
+	deployment: recordedDeployment(11155111),
+	v1: null,
+	indexing: null,
+	confidence: {
+		chainId: "C",
+		rpc: "C",
+		explorers: "C"
+	},
+	notes: [
+		"Gas is Sepolia ETH, paid by the payer: no relayer serves this chain (ADR 0018). eth_getLogs spans at most 50,000 blocks (C).",
+		"Logs older than about 10,000 blocks may read as unavailable on the public RPC (C): retry, or read from the payment's receipt.",
+		"PYUSD: test tokens from faucet.paxos.com or the Google Cloud Web3 faucet (U); Paxos can pause the token or freeze an address."
+	]
+};
+
+//#endregion
 //#region packages/chains/src/chains/mezo-testnet.ts
 /**
 * Mezo testnet (31611, "matsnet"): the Mezo edition (PAYLINK-V2-SPEC §9, ADR 0017). Facts from
@@ -24288,6 +24481,7 @@ const CHAIN_DEFINITIONS = [
 	baseSepolia,
 	arbitrumSepolia,
 	mezoTestnet,
+	ethereumSepolia,
 	arc
 ];
 
@@ -24299,7 +24493,8 @@ const EDITIONS = /* @__PURE__ */ new Set([
 	"all",
 	"monad",
 	"base",
-	"mezo"
+	"mezo",
+	"paypal"
 ]);
 const FUNCTIONS = [
 	"payWithAuthorization",
@@ -24506,8 +24701,12 @@ function rpcTransport(chain, options = {}) {
 *
 * @packageDocumentation
 */
-/** The shipped registry: every chain of PAYLINK-V2-SPEC §3.4 used by the product, validated at load. */
-const registry$1 = createRegistry(CHAIN_DEFINITIONS);
+/**
+* The shipped registry: every chain of PAYLINK-V2-SPEC §3.4 used by the product, validated at load. Marked pure so a
+* client bundle that builds its own registry from the chains it serves (apps/web/src/core/registry.ts) drops it, and
+* with it the chains of the other editions.
+*/
+const registry$1 = /* @__PURE__ */ createRegistry(CHAIN_DEFINITIONS);
 
 //#endregion
 //#region packages/sdk/src/error-decoder.ts
