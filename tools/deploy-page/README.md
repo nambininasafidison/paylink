@@ -76,6 +76,22 @@ PAYLINK_FORK_MEZO=1 NODE_USE_ENV_PROXY=1 pnpm --filter @paylink/deploy-page exec
 
 `NODE_USE_ENV_PROXY=1` is for the sandbox's egress proxy only. The fork test is skipped unless `PAYLINK_FORK_MEZO=1`, because it needs egress to `rpc.test.mezo.org`.
 
+## Ethereum Sepolia rehearsed on a fork
+
+[`scripts/sepolia-fork.ts`](scripts/sepolia-fork.ts) does the same for the PayPal edition's chain ([ADR 0018](../../docs/adr/0018-paypal-edition.md)), on an anvil fork of Ethereum Sepolia, against the chain's real CREATE2 factory, Circle USDC and PayPal USD. Nothing is sent to Sepolia; test dollars exist only on the fork (`anvil_dealERC20`).
+
+1. **Facts.** The factory holds the canonical runtime; each token's `DOMAIN_SEPARATOR()` is the registry's stated domain (USDC/2, PayPal USD/1); PayPal USD has no `version()` and no `eip712Domain()`, and `@paylink/sdk` still resolves its domain, proven against the separator.
+2. **Deploy.** As for Mezo: the page plans CREATE2 to `0x448eCce9711860502806A3d5B021a4f9Ba715082`, its verifier passes all ten checks, and `tools/verify-deployment` prints the same record (Etherscan links).
+3. **Pay.** No relayer serves Sepolia, so the router offers a code-less payer `self-authorization` (EIP-3009, the payer submits), then `permit`. USDC and PayPal USD are each paid both ways: exact amounts, PayLinkV2 left empty, no allowance left, receipts verified, a second payment `SoldOut`, and every estimate under the registry's ceilings (the snapshot table). PayPal USD returns silently on an already-used EIP-3009 nonce (USDC reverts): the same authorisation submitted twice on an open-amount link reverts in PayLinkV2 with `ReceivedMismatch`.
+
+```bash
+source ~/.paylink-toolchain/env.sh                     # anvil 1.8.5
+NODE_USE_ENV_PROXY=1 node --conditions=@paylink/source scripts/sepolia-fork.ts                           # the rehearsal
+PAYLINK_FORK_SEPOLIA=1 NODE_USE_ENV_PROXY=1 pnpm --filter @paylink/deploy-page exec vitest run test/sepolia-fork.test.ts   # as assertions
+```
+
+The fork test is skipped unless `PAYLINK_FORK_SEPOLIA=1`, because it needs egress to `ethereum-sepolia-rpc.publicnode.com`.
+
 ## Gates
 
 ```bash
