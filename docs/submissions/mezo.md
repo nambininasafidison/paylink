@@ -190,9 +190,9 @@ Characters: 3,410 (no stated limit)
 
 <!-- field: mezo.validation max=0 -->
 ```text
-We have not validated demand yet, and we say so. What exists: a written interview protocol with six hypotheses (H1 to H6) and their falsifiers, a consent form, and reporting rules that count only what participants describe from their own past ("n of N", never "would you use it"). Planned: 3 to 6 sessions before October 24, 2026, with freelancers in Antananarivo and with payers who hold bitcoin. Sessions held as of [TO FILL: date]: [TO FILL: N]. Findings: [TO FILL: "n of N" lines with their limitations, or "none yet"].
+We have not validated demand yet, and we say so. What exists: a written interview protocol with six hypotheses (H1 to H6) and their falsifiers, a consent form, and reporting rules that count only what participants describe from their own past ("n of N", never "would you use it"). Sessions held as of October 21, 2026: none. Planned for wave 2: 3 to 6 sessions with freelancers in Antananarivo and with payers who hold bitcoin, reported as "n of N" with their limitations.
 ```
-Characters: 523 (no stated limit)
+Characters: 472 (no stated limit)
 
 ### Tech stack
 
