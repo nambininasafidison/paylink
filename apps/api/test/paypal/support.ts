@@ -13,7 +13,7 @@ import type { PayPalFake, PayPalFakeOptions } from "../../src/paypal/fake/index.
 import { createPayPalFake } from "../../src/paypal/fake/index.ts";
 import type { HttpPayPalClientOptions } from "../../src/paypal/http.ts";
 import { createHttpPayPalClient } from "../../src/paypal/http.ts";
-import { webhookHandlers } from "../../src/routes/webhook.ts";
+import { createWebhookHandlers, scheduleTwinCheck } from "../../src/routes/webhook.ts";
 import type { GlobalStore, PayeeStore, ScheduledCheck, StoreFactory } from "../../src/store/types.ts";
 import { T0, testRuntime } from "../helpers.ts";
 
@@ -155,7 +155,7 @@ export function spineServices(options: { readonly paypal: PayPalClient; readonly
   };
 }
 
-/** The app with the spine's routes only. */
+/** The app with the webhook route only, its sink planning the reconciliation (no reconciler behind it). */
 export function spineApp(services: ApiServices): ReturnType<typeof createApp> {
-  return createApp(services, [webhookHandlers]);
+  return createApp(services, [createWebhookHandlers(scheduleTwinCheck)]);
 }

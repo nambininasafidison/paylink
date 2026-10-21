@@ -14,10 +14,10 @@
  * 4. Events that are not `INVOICING.INVOICE.*`, or that name no invoice, answer 200 `ignored`: PayPal stops retrying.
  * 5. P5: the invoice as PayPal holds it. Only an invoice whose `detail.reference` is a PayLink key and whose private memo
  *    names a payee on this API's chain is a twin (src/paypal/invoice.ts); any other answers 200 `ignored`.
- * 6. The twin is handed to the sink, which by default plans its reconciliation now in the Global store's schedule
- *    (`scheduleCheck`, run by the cron, src/reconciler/). Truth comes from P5 and the chain there, never from the body.
- *    P5 failing after a verified delivery answers 200 `deferred`: the event id is already recorded, and the cron's own
- *    schedule reads the twin again.
+ * 6. The twin is handed to the sink: the reconciler's `reconcileTwinEvent` (src/reconciler/engine.ts), which reconciles
+ *    it at once with P5's answer and the chain, or plans it for the cron when another reconciliation holds the twin.
+ *    Truth comes from P5 and the chain there, never from the body. P5 failing after a verified delivery answers 200
+ *    `deferred`: the event id is already recorded, and the cron's own schedule reads the twin again.
  *
  * Answers to PayPal carry no detail beyond the outcome. Logs carry the event type, the outcome and PayPal's ids, never
  * the body or the headers.
@@ -35,6 +35,7 @@ import { webhookIdFor } from "../paypal/factory.ts";
 import { parseTwinMemo } from "../paypal/invoice.ts";
 import type { Invoice } from "../paypal/types.ts";
 import { eventFacts, INVOICE_EVENT_PREFIX, parseEventBody, readTransmission, verifyDelivery, WEBHOOK_ID_PATTERN } from "../paypal/webhook.ts";
+import { reconcileTwinEvent } from "../reconciler/engine.ts";
 import type { RouteHandlers } from "./types.ts";
 import { BODY_LIMITS, DEFAULT_BODY_LIMIT } from "./types.ts";
 
@@ -52,7 +53,7 @@ export interface VerifiedTwinEvent {
 /** What happens to a verified twin event: reconciled now, or planned for the cron. */
 export type TwinEventSink = (services: ApiServices, event: VerifiedTwinEvent, now: number) => Promise<"reconciled" | "scheduled">;
 
-/** The default sink: plan the twin's reconciliation for now (the cron reads due checks every minute, §7.5). */
+/** A sink that only plans the twin's reconciliation for now (the cron reads due checks every minute, §7.5). */
 export const scheduleTwinCheck: TwinEventSink = async (services, event, now) => {
   await services.stores.global().scheduleCheck({ payee: event.payee, key: event.key, dueAt: now });
   return "scheduled";
@@ -61,7 +62,7 @@ export const scheduleTwinCheck: TwinEventSink = async (services, event, now) => 
 /** The answer's body: the outcome only. */
 export type WebhookOutcome = "processed" | "duplicate" | "ignored" | "deferred";
 
-export function createWebhookHandlers(sink: TwinEventSink = scheduleTwinCheck): RouteHandlers {
+export function createWebhookHandlers(sink: TwinEventSink = reconcileTwinEvent): RouteHandlers {
   return {
     "paypal.webhook": async ({ c, services, now }) => {
       const { logger } = services.runtime;
