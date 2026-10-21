@@ -77,8 +77,8 @@ describe("release data", () => {
 });
 
 describe("chain data", () => {
-  it("lists exactly the deploy targets (the three testnets, then Mezo testnet), as the registry describes them", () => {
-    expect([...chains.keys()]).toEqual([10143, 84532, 421614, 31611]);
+  it("lists exactly the deploy targets (the three testnets, then Mezo testnet and Ethereum Sepolia), as the registry describes them", () => {
+    expect([...chains.keys()]).toEqual([10143, 84532, 421614, 31611, 11155111]);
     for (const c of chains.values()) {
       const r = registry.getOrThrow(c.chainId);
       expect(c.name).toBe(r.name);
@@ -106,6 +106,17 @@ describe("chain data", () => {
       deployGas: { profile: "mezo" },
     });
     expect(chain(84532).gasModel.minChargedPercentOfLimit).toBeNull();
+    // Ethereum Sepolia (ADR 0018): Sepolia ETH as gas, charged on the gas used, Ethereum's anvil profile, no record yet.
+    expect(chain(11155111)).toMatchObject({
+      name: "Ethereum Sepolia",
+      label: "ETH",
+      nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+      rpc: ["https://ethereum-sepolia-rpc.publicnode.com"],
+      explorers: [{ name: "Etherscan", url: "https://sepolia.etherscan.io" }],
+      gasModel: { chargesGasLimit: false, txGasCap: null, reserveBalance: null, minChargedPercentOfLimit: null },
+      deployGas: { profile: "ethereum" },
+      deployment: null,
+    });
     expect([...chains.values()].filter((c) => c.inconsistentTxIndex).map((c) => c.chainId)).toEqual([31611]);
   });
 

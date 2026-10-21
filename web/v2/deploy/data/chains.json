@@ -246,6 +246,58 @@
         "Cancun opcodes run (C), not London as Mezo's docs say; the paris artifact runs either way. eth_getLogs spans at most 10,000 blocks (C).",
         "No gasless MUSD payment with PayLinkV2: MUSD has no EIP-3009 (ADR 0017). Test BTC: faucet.test.mezo.org; test MUSD is borrowed against it."
       ]
+    },
+    {
+      "chainId": 11155111,
+      "caip2": "eip155:11155111",
+      "name": "Ethereum Sepolia",
+      "label": "ETH",
+      "tier": "later",
+      "testnet": true,
+      "nativeCurrency": {
+        "name": "Sepolia Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpc": [
+        "https://ethereum-sepolia-rpc.publicnode.com"
+      ],
+      "explorers": [
+        {
+          "name": "Etherscan",
+          "url": "https://sepolia.etherscan.io"
+        }
+      ],
+      "gasModel": {
+        "chargesGasLimit": false,
+        "txGasCap": null,
+        "reserveBalance": null
+      },
+      "deployGas": {
+        "profile": "ethereum",
+        "hardfork": "Bpo1",
+        "network": "ethereum",
+        "provisional": true,
+        "evidence": "anvil profile \"ethereum\" (hardfork Bpo1, network ethereum): packages/chains/data/gas-measurements.json",
+        "create": {
+          "estimate": "2673065",
+          "gasUsed": "2673065",
+          "floor": "2674000",
+          "ceiling": "4011000"
+        },
+        "create2": {
+          "estimate": "2717457",
+          "gasUsed": "2678851",
+          "floor": "2718000",
+          "ceiling": "4077000"
+        }
+      },
+      "deployment": null,
+      "notes": [
+        "Gas is Sepolia ETH, paid by the payer: no relayer serves this chain (ADR 0018). eth_getLogs spans at most 50,000 blocks (C).",
+        "Logs older than about 10,000 blocks may read as unavailable on the public RPC (C): retry, or read from the payment's receipt.",
+        "PYUSD: test tokens from faucet.paxos.com or the Google Cloud Web3 faucet (U); Paxos can pause the token or freeze an address."
+      ]
     }
   ]
 }

@@ -129,7 +129,7 @@ describe("usage", () => {
     for (const chain of ["1", "143", "5042", "31337"]) {
       const r = await run("--chain", chain, "--address", CREATE2, "--rpc", url);
       expect(r.code).toBe(2);
-      expect(r.stderr).toContain(`chain ${chain} is not a PayLink v2 deployment target (allowed: 10143, 84532, 421614, 31611)`);
+      expect(r.stderr).toContain(`chain ${chain} is not a PayLink v2 deployment target (allowed: 10143, 84532, 421614, 31611, 11155111)`);
     }
   });
 
@@ -218,6 +218,37 @@ describe("verification and record", () => {
  * packed as factory ‖ salt ‖ initCode; the manager calls the user's account, which calls the factory. The manager
  * swallows failures, as a batching entry point may, so a transaction can succeed although its inner deployment did not.
  */
+describe("Ethereum Sepolia (11155111), staged ahead of the PayPal edition (ADR 0018)", () => {
+  // anvil with Ethereum Sepolia's chain id; it predeploys the CREATE2 proxy, as Sepolia has it (checked live 2026-10-21).
+  let sepolia: { process: ChildProcess; url: string };
+  let tx = "";
+
+  beforeAll(async () => {
+    sepolia = await startAnvil(11155111);
+    tx = await rpcAt<string>(sepolia.url, "eth_sendTransaction", [{ from: SENDER, to: data.release.create2.factory, data: `${data.release.create2.salt}${data.initCode.slice(2)}` }]);
+    await mined(sepolia.url, tx);
+  });
+
+  afterAll(() => {
+    sepolia.process.kill();
+  });
+
+  it("verifies the release at its CREATE2 address and writes Sepolia's record, with Etherscan links", async () => {
+    const r = await run("--chain", "11155111", "--address", CREATE2, "--tx", tx, "--rpc", sepolia.url, "--out", "-");
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stderr).toContain("PayLinkV2 2.0.0 on Ethereum Sepolia (11155111)");
+    expect(r.stderr).toContain("[ok] EIP-712 immutables bound to this chain and address");
+    const record = JSON.parse(r.stdout) as { chainId: number; caip2: string; network: string; address: string; deployment: { method: string }; explorers: { name: string; address: string; tx: string }[] };
+    expect(record).toMatchObject({ chainId: 11155111, caip2: "eip155:11155111", network: "Ethereum Sepolia", address: CREATE2, deployment: { method: "CREATE2" } });
+    expect(record.explorers).toEqual([{ name: "Etherscan", address: `https://sepolia.etherscan.io/address/${CREATE2}`, tx: `https://sepolia.etherscan.io/tx/${tx}` }]);
+  });
+
+  it("refuses the same code read through an RPC of another chain", async () => {
+    const r = await run("--chain", "11155111", "--address", CREATE2, "--rpc", url);
+    expect(r.code).toBe(1);
+  });
+});
+
 describe("Mezo testnet (31611), staged ahead of its edition (ADR 0017)", () => {
   // anvil with Mezo testnet's chain id; it predeploys the CREATE2 proxy, as Mezo testnet has it (checked live).
   let mezo: { process: ChildProcess; url: string };

@@ -48,7 +48,7 @@ describe("generated data (pnpm --filter @paylink/deploy-page run generate)", () 
     expect(CREATE2_PROXY_PRESIGNED_TX.startsWith("0xf8a58085174876e800830186a0")).toBe(true);
   });
 
-  it("deploys only to v2 testnets of the registry that are enabled, or staged ahead of their edition (Mezo)", () => {
+  it("deploys only to v2 testnets of the registry that are enabled, or staged ahead of their edition (Mezo, PayPal)", () => {
     for (const id of DEPLOY_CHAIN_IDS) {
       const chain = registry.getOrThrow(id);
       expect(chain).toMatchObject({ protocol: "v2", testnet: true, local: false });
@@ -56,8 +56,9 @@ describe("generated data (pnpm --filter @paylink/deploy-page run generate)", () 
       expect(chain.tokens.every((t) => t.pendingVerification.length === 0), String(id)).toBe(true);
     }
     // Staged means the registry has not enabled it yet: the edition goes live once the deployment is recorded.
-    expect([...STAGED_CHAIN_IDS]).toEqual([31611]);
+    expect([...STAGED_CHAIN_IDS]).toEqual([31611, 11155111]);
     expect(registry.getOrThrow(31611).status).toBe("disabled");
+    expect(registry.getOrThrow(11155111).status).toBe("disabled");
   });
 
   it("refuses to generate data for a chain that is neither enabled nor staged", () => {

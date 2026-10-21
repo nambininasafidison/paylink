@@ -24,7 +24,7 @@ In the Claude Code sandbox, Node's `fetch` ignores `HTTPS_PROXY`: prefix the com
 
 | Option | Meaning |
 |---|---|
-| `--chain <id>` | 10143, 84532, 421614 or 31611 (Mezo testnet); any other chain id is refused (exit 2) |
+| `--chain <id>` | 10143, 84532, 421614, 31611 (Mezo testnet) or 11155111 (Ethereum Sepolia); any other chain id is refused (exit 2) |
 | `--address <0x…>` | the contract; a mixed-case address must carry a valid EIP-55 checksum |
 | `--tx <hash>` | the deployment transaction; required to write the record (deployer, hash and block come from it) |
 | `--out <path>` | default `protocol/deployments/<chainId>.json`; `-` prints the record |
@@ -55,4 +55,4 @@ For a relayed transaction the CLI prints, for each endpoint, the evidence it obt
 
 ## Tests
 
-`pnpm --filter @paylink/verify-deployment test` runs the CLI against an anvil chain with Mezo testnet's chain id (the release at its CREATE2 address, Mezo's record with its Mezo Explorer links) and an anvil chain with Base Sepolia's chain id: usage refusals, unknown chains, write / up to date / protected / `--force` / `--check` / `--compare`, copied code, a transaction that did not deploy the contract, an RPC on the wrong chain, an empty address. On a second anvil chain it rehearses a relayed EIP-7702 deployment, with a signed authorization and a manager contract that swallows failures. It records that deployment, with the trace's confirmation, and refuses two relayed transactions that carry the payload: one that created nothing and one sent after the contract existed.
+`pnpm --filter @paylink/verify-deployment test` runs the CLI against anvil chains with Mezo testnet's and Ethereum Sepolia's chain ids (the release at its CREATE2 address, each record with its explorer's links: Mezo Explorer, Etherscan) and an anvil chain with Base Sepolia's chain id: usage refusals, unknown chains, write / up to date / protected / `--force` / `--check` / `--compare`, copied code, a transaction that did not deploy the contract, an RPC on the wrong chain, an empty address. On a second anvil chain it rehearses a relayed EIP-7702 deployment, with a signed authorization and a manager contract that swallows failures. It records that deployment, with the trace's confirmation, and refuses two relayed transactions that carry the payload: one that created nothing and one sent after the contract existed.

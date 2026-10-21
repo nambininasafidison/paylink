@@ -38,17 +38,18 @@ export const SOURCES = {
 } as const;
 
 /**
- * The chains the page deploys to: the task's three testnets (PAYLINK-V2-SPEC §6.4 order), then Mezo testnet (ADR 0017).
- * Each must be a v2 testnet of the registry with a measured deployment gas table and no unverified token fact, and be
- * enabled or staged (below); anything else is refused at generation.
+ * The chains the page deploys to: the task's three testnets (PAYLINK-V2-SPEC §6.4 order), then Mezo testnet (ADR 0017)
+ * and Ethereum Sepolia (ADR 0018). Each must be a v2 testnet of the registry with a measured deployment gas table and no
+ * unverified token fact, and be enabled or staged (below); anything else is refused at generation.
  */
-export const DEPLOY_CHAIN_IDS: readonly number[] = [10143, 84532, 421614, 31611];
+export const DEPLOY_CHAIN_IDS: readonly number[] = [10143, 84532, 421614, 31611, 11155111];
 
 /**
  * Chains the page deploys to while the registry still has them `disabled`: an edition's chain gets its deployment
- * before it is enabled (ADR 0017), because enabling it offers it to payers. Mezo testnet until the Mezo edition goes live.
+ * before it is enabled (ADR 0017), because enabling it offers it to payers. Mezo testnet until the Mezo edition goes
+ * live; Ethereum Sepolia, which only the PayPal edition offers (ADR 0018).
  */
-export const STAGED_CHAIN_IDS: ReadonlySet<number> = new Set([31611]);
+export const STAGED_CHAIN_IDS: ReadonlySet<number> = new Set([31611, 11155111]);
 
 /**
  * The canonical presigned deployment of the deterministic-deployment proxy (github.com/Arachnid/deterministic-

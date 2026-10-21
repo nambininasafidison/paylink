@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io https://rpc.test.mezo.org; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://testnet-rpc.monad.xyz https://rpc-testnet.monadinfra.com https://sepolia.base.org https://sepolia-rollup.arbitrum.io https://rpc.test.mezo.org https://ethereum-sepolia-rpc.publicnode.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Deploy PayLink v2</title>
-<meta name="description" content="Deploy the PayLinkV2 release contract to Monad testnet, Base Sepolia, Arbitrum Sepolia or Mezo testnet from your own wallet, verify it on-chain and print its deployment record.">
+<meta name="description" content="Deploy the PayLinkV2 release contract to Monad testnet, Base Sepolia, Arbitrum Sepolia, Mezo testnet or Ethereum Sepolia from your own wallet, verify it on-chain and print its deployment record.">
 <meta name="theme-color" content="#EEECE6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E0E0D" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161615'/%3E%3Cpath d='M9 23A14 14 0 0 1 23 9' fill='none' stroke='%23EEECE6' stroke-width='2.6'/%3E%3Ccircle cx='9' cy='23' r='2.6' fill='%23161615' stroke='%23EEECE6' stroke-width='2'/%3E%3Ccircle cx='23' cy='9' r='3.8' fill='%23FF5A1F'/%3E%3C/svg%3E">
@@ -42,7 +42,7 @@
       <p class="lede">This page publishes the <strong>PayLinkV2</strong> <span data-bind="release">2.0.0</span> release (self-reviewed, not audited) from <strong>your own wallet</strong>, checks the contract it creates on-chain, and prints the deployment record for the repository. Your key never leaves the wallet.</p>
       <dl class="specs">
         <div><dt>Approvals</dt><dd>1</dd></div>
-        <div><dt>Networks</dt><dd data-bind="chain-count">4</dd></div>
+        <div><dt>Networks</dt><dd data-bind="chain-count">5</dd></div>
         <div><dt>Owner</dt><dd>None</dd></div>
         <div><dt>Keys</dt><dd>Yours</dd></div>
       </dl>
@@ -63,7 +63,7 @@
       <aside class="about notes" aria-labelledby="before">
         <h2 class="eyebrow" id="before">Before you start</h2>
         <ul class="note-list">
-          <li><b>Gas on the chain you pick.</b> About 0.31&nbsp;MON on Monad testnet, where the whole gas limit is charged; a fraction of a cent of Sepolia ETH on Base or Arbitrum; less than a billionth of a test BTC on Mezo testnet, where at least half the gas limit is charged.</li>
+          <li><b>Gas on the chain you pick.</b> About 0.31&nbsp;MON on Monad testnet, where the whole gas limit is charged; a fraction of a cent of Sepolia ETH on Base or Arbitrum, and a few thousandths of a Sepolia ETH on Ethereum Sepolia; less than a billionth of a test BTC on Mezo testnet, where at least half the gas limit is charged.</li>
           <li><b>Same address everywhere.</b> Where the deterministic-deployment proxy exists, the contract lands at its CREATE2 address on every chain. If it already exists there, the page only verifies it.</li>
           <li><b>One deployment per chain.</b> The contract has no owner and no admin: whoever sends the transaction only pays its gas.</li>
           <li><b>Smart accounts are supported.</b> MetaMask’s smart-account mode (EIP-7702) may relay the deployment: a relayer submits a transaction through which your account calls the proxy. The page recognises that route, proves the proxy call, the address and the block it was created in, and prints the record with your account as deployer. A chain without the proxy (plain CREATE) needs a standard account.</li>
