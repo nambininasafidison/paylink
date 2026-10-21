@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   authorizePayment,
   decodeInvoiceFragment,
+  domainSeparator,
   ERC1271_MAGIC_VALUE,
   expiresIn,
   invoiceKey,
@@ -306,6 +307,60 @@ describe("token domain (spec §8.3)", () => {
     expect((await resolveTokenDomain({ chainId: CHAIN_ID, token: token3009, client: same })).name).toBe("USDC");
     const permitDomain = mockClient({ answers: { [EIP712_DOMAIN]: domainResult({ name: "Mezo USD", version: "1", verifyingContract: PERMIT_TOKEN }) } });
     expect((await resolveTokenDomain({ chainId: CHAIN_ID, token: tokenPermit, client: permitDomain })).name).toBe("Mezo USD");
+  });
+
+  describe("a token without eip712Domain() or version() (Paxos PYUSD, ADR 0018)", () => {
+    const SEPARATOR = toFunctionSelector("DOMAIN_SEPARATOR()");
+    const bytes32 = (value: Hex): Hex =>
+      encodeFunctionResult({ abi: [{ type: "function", name: "f", inputs: [], outputs: [{ type: "bytes32" }], stateMutability: "view" }], functionName: "f", result: value });
+    const reverts = new RawContractError({ data: "0x" });
+    const pyusd = { name: "PayPal USD", version: "1" } as const;
+    const proven = domainSeparator({ ...pyusd, chainId: CHAIN_ID, verifyingContract: TOKEN });
+    const paxos = (separator: Hex | Error | undefined) =>
+      mockClient({
+        answers: {
+          [EIP712_DOMAIN]: reverts,
+          [NAME]: stringResult("PayPal USD"),
+          [VERSION]: reverts,
+          ...(separator === undefined ? {} : { [SEPARATOR]: separator instanceof Error ? separator : bytes32(separator) }),
+        },
+      });
+
+    it("takes the registry's version only when it hashes to the token's DOMAIN_SEPARATOR()", async () => {
+      expect(await readTokenDomain(paxos(proven), CHAIN_ID, TOKEN, pyusd)).toEqual({ ...pyusd, chainId: CHAIN_ID, verifyingContract: TOKEN });
+      const listed = { ...token3009, symbol: "PYUSD", eip712Domain: pyusd };
+      expect(await resolveTokenDomain({ chainId: CHAIN_ID, token: listed, client: paxos(proven) })).toEqual({ ...pyusd, chainId: CHAIN_ID, verifyingContract: TOKEN });
+      // A version() that answers nothing (a fallback) is read the same way as one that reverts.
+      const silent = mockClient({ answers: { [EIP712_DOMAIN]: reverts, [NAME]: stringResult("PayPal USD"), [SEPARATOR]: bytes32(proven) } });
+      expect((await readTokenDomain(silent, CHAIN_ID, TOKEN, pyusd)).version).toBe("1");
+    });
+
+    it("refuses without a stated domain, with a separator that proves another version, or with none", async () => {
+      await expectCode(() => readTokenDomain(paxos(proven), CHAIN_ID, TOKEN), "E_TOKEN_DOMAIN_UNKNOWN");
+      await expectCode(() => readTokenDomain(paxos(proven), CHAIN_ID, TOKEN, null), "E_TOKEN_DOMAIN_UNKNOWN");
+      await expectCode(() => readTokenDomain(paxos(proven), CHAIN_ID, TOKEN, { ...pyusd, version: "2" }), "E_TOKEN_DOMAIN_UNKNOWN");
+      const otherChain = domainSeparator({ ...pyusd, chainId: CHAIN_ID + 1, verifyingContract: TOKEN });
+      await expectCode(() => readTokenDomain(paxos(otherChain), CHAIN_ID, TOKEN, pyusd), "E_TOKEN_DOMAIN_UNKNOWN");
+      await expectCode(() => readTokenDomain(paxos(reverts), CHAIN_ID, TOKEN, pyusd), "E_TOKEN_DOMAIN_UNKNOWN");
+      await expectCode(() => readTokenDomain(paxos(undefined), CHAIN_ID, TOKEN, pyusd), "E_TOKEN_DOMAIN_UNKNOWN");
+      // The registry's name must still match the chain's.
+      const renamed = { ...token3009, eip712Domain: { name: "PayPal USD v2", version: "1" } };
+      await expectCode(() => resolveTokenDomain({ chainId: CHAIN_ID, token: renamed, client: paxos(proven) }), "E_TOKEN_DOMAIN_MISMATCH");
+    });
+
+    it("rethrows a transport failure of version() or DOMAIN_SEPARATOR() instead of reading it as absent", async () => {
+      const down = new HttpRequestError({ url: "https://rpc.example" });
+      const versionDown = mockClient({ answers: { [EIP712_DOMAIN]: reverts, [NAME]: stringResult("PayPal USD"), [VERSION]: down } });
+      await expect(readTokenDomain(versionDown, CHAIN_ID, TOKEN, pyusd)).rejects.toBeInstanceOf(HttpRequestError);
+      await expect(readTokenDomain(paxos(down), CHAIN_ID, TOKEN, pyusd)).rejects.toBeInstanceOf(HttpRequestError);
+    });
+
+    it("matches PayPal USD on Ethereum Sepolia as read on chain on 2026-10-21", () => {
+      // DOMAIN_SEPARATOR() of 0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9 at Sepolia block 11958755 (docs/research/paypal/sepolia.md).
+      expect(domainSeparator({ ...pyusd, chainId: 11155111, verifyingContract: "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9" })).toBe(
+        "0x299bc5624e503ead448a8620a85ecf64a3be318a90c1a987563385c582d4e6cd",
+      );
+    });
   });
 
   it("verifies a payee signature end to end with the issued key", async () => {
