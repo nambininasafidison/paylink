@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /**
  * The vendored PayPal OpenAPI files (test/openapi/, provenance in SOURCE.md) are the ones the provenance names, and the
- * scaffold's operation table and types agree with them: each operation P2–P11 exists with its method, and the request
- * bodies PayLink builds validate against the request schemas with ajv. The PayPal spine workstream extends this into
- * the full L0 suite (every outgoing request and every recorded response).
+ * client's operation table and types agree with them: each operation P2–P11, P13 and P14 exists with its method, P1 is
+ * the files' `tokenUrl`, and the request bodies of the specification validate against the request schemas with ajv.
+ * The full L0 suite (every request the client sends and every answer it parses, against the fake) is
+ * test/openapi/contract.test.ts.
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -45,7 +46,10 @@ describe("vendored OpenAPI files (paypal-rest-api-specifications@90e8041)", () =
     expect(invoicing.servers.map((s) => s.url)).toEqual(["https://api-m.sandbox.paypal.com", "https://api-m.paypal.com"]);
   });
 
-  it("define every operation P2–P11 with the method the client uses (P1 is in neither file)", () => {
+  it("define every operation P2–P11, P13 and P14 with the method the client uses, and P1 as their token URL", () => {
+    for (const spec of [invoicing, webhooks]) {
+      expect(JSON.stringify(spec)).toContain('"tokenUrl":"/v1/oauth2/token"');
+    }
     for (const [id, op] of Object.entries(PAYPAL_OPERATIONS)) {
       if (id === "P1") {
         continue;
