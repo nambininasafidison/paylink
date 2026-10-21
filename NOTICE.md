@@ -60,7 +60,17 @@ Cloudflare deploys the committed, unminified bundle `apps/relayer/deploy/worker.
 | @noble/curves | 1.9.1 | MIT, © Paul Miller |
 | @noble/hashes | 1.8.0 | MIT, © Paul Miller |
 
-### 3.2 Distributed in the web site build (`apps/web/dist`)
+### 3.2 Distributed in the PayPal edition's API Worker bundle (`apps/api/deploy/`)
+
+The bundle Cloudflare deploys as `paylink-api` ([ADR 0018](docs/adr/0018-paypal-edition.md)) contains, besides PayLink's own code (including `@paylink/api-contract`, `@paylink/chains` and the SDK functions it imports), the packages `apps/api/deploy/LICENSES.txt` lists with their licence texts:
+
+| Component | Version | Licence |
+|---|---|---|
+| hono | 4.13.13 | MIT, © Yusuke Wada and Hono contributors |
+| viem (the functions the API imports) | 2.57.3 | MIT, © weth, LLC |
+| @noble/hashes | 1.8.0 | MIT, © Paul Miller |
+
+### 3.3 Distributed in the web site build (`apps/web/dist`)
 
 The site Cloudflare Pages serves holds the v2 app, the frozen v1 app under `/arc/` (the components of §1, unchanged) and the deploy kit under `/deploy/` and `/v2/deploy/` (§1.1, unchanged). The v2 app's own bundles contain:
 
@@ -74,6 +84,15 @@ The site Cloudflare Pages serves holds the v2 app, the frozen v1 app under `/arc
 | Workbox runtime | 7.4.1 | MIT | `sw.js` |
 
 The Base edition's "Pay with Base" uses the standard EIP-5792 wallet calls on the payer's own wallet; `@base-org/account` (pinned in the workspace catalogue, Apache-2.0) is **not** shipped ([ADR 0015](docs/adr/0015-editions-t1-passkeys-gasless-rails.md)).
+
+### 3.4 Third-party files kept in the repository as test data of the API (`apps/api/test/`)
+
+Not shipped in any bundle; read by tests only.
+
+| Component | Version | Licence | Where |
+|---|---|---|---|
+| PayPal REST API specifications: `invoicing_v2.json` (Invoices 2.6), `notifications_webhooks_v1.json` (Webhooks 1.11) | `paypal/paypal-rest-api-specifications` at `90e8041` | Apache-2.0, © PayPal (licence text copied unchanged) | `apps/api/test/openapi/` with `LICENSE` and `SOURCE.md` (checksums) |
+| PayPal Agent Toolkit: `tools.ts`, `parameters.ts`, `regex.ts`, `configuration.ts` of `typescript/src/shared/`, kept as `.ts.txt` | `paypal/agent-toolkit` at `a3aa963` (npm `@paypal/agent-toolkit` 1.11.0) | The repository's `LICENSE` is Apache-2.0 (copied unchanged); the package's `package.json` says ISC. Both are permissive; the files are used under Apache-2.0, © PayPal | `apps/api/test/vendor/paypal-agent-toolkit-1.11.0/` with `LICENSE` and `SOURCE.md` (checksums) |
 
 ## 4. Indexer: Envio HyperIndex (not open source)
 
@@ -111,11 +130,12 @@ Credit: **This project's indexer (`apps/indexer`) is built with HyperIndex by En
 | Playwright (@playwright/test) | 1.56.1 | Apache-2.0 |
 | axe-core | 4.13.0 | MPL-2.0 (e2e only, injected unmodified into the page under test) |
 | rolldown | 1.2.12 | MIT (bundles the deploy page's vendored viem subset) |
-| wrangler | 4.148.0 | MIT OR Apache-2.0 (relayer: deploy-config check and `wrangler dev` tests; the Git integration deploys with the same version) |
+| wrangler | 4.148.0 | MIT OR Apache-2.0 (relayer and API: deploy-config checks and dry runs; the Git integration deploys with the same version) |
 | miniflare, @cloudflare/workers-types | 5.20261006.0-alpha, 5.20261006.1 | MIT; MIT OR Apache-2.0 (relayer tests and Worker type-checking) |
 | happy-dom | 20.14.5 | MIT (the web app's unit-test DOM) |
 | fake-indexeddb | 6.2.5 | Apache-2.0 (the web app's device-store tests) |
-| @hono/node-server | 2.1.3 | MIT (the relayer's Node adapter for local e2e and demos; not in the Worker bundle) |
+| @hono/node-server | 2.1.3 | MIT (the relayer's and the API's Node adapter for local e2e and demos; not in the Worker bundles) |
+| ajv, ajv-formats | 8.20.0, 3.0.1 | MIT (the API's OpenAPI contract tests) |
 | size-limit | exact pin | MIT |
 | v1 tooling: solc-js, ganache | 0.8.26, 7.9.2 | MIT, MIT |
 

@@ -8,7 +8,7 @@ PayLink records significant engineering decisions as ADRs in the [MADR 4](https:
 - decision outcome, with consequences and confirmation;
 - pros and cons of each option.
 
-Each record starts with YAML front matter for its status, date and decision-makers. ADRs 0011 to 0017 were written with the workspace and toolchain changes they decide, and use an equivalent header list (status, date, deciders, related) with Context, Options, Decision and Consequences sections.
+Each record starts with YAML front matter for its status, date and decision-makers. ADRs 0011 to 0018 were written with the workspace and toolchain changes they decide, and use an equivalent header list (status, date, deciders, related) with Context, Options, Decision and Consequences sections.
 
 An ADR is never edited to reverse a decision. A new ADR supersedes it, and the old one's status becomes `superseded by ADR-NNNN`. Editorial fixes are allowed.
 
@@ -31,6 +31,7 @@ An ADR is never edited to reverse a decision. A new ADR supersedes it, and the o
 | [0015](0015-editions-t1-passkeys-gasless-rails.md) | Editions at T1: Mera passkeys, gasless rails and "Pay with Base" | accepted | 2026-10-08 |
 | [0016](0016-ledger-backup-second-prf-namespace.md) | Ledger backup with the passkey's second key (PRF namespace `paylink.books.v1`) | accepted | 2026-10-09 |
 | [0017](0017-mezo-edition-chain-layer.md) | The Mezo edition's chain layer: MUSD by permit or approval, no relayed payments, the deployment before the edition | accepted | 2026-10-13 |
+| [0018](0018-paypal-edition.md) | The PayPal edition: Ethereum Sepolia, Workers AI, a cut scope, a separate API Worker, and its trust boundaries | accepted | 2026-10-21 |
 
 ## Writing a new ADR
 

@@ -121,7 +121,7 @@ flowchart LR
 | **Account providers** | inside `apps/web` | EIP-6963 discovery; `@category-labs/mera` 0.2.0 (preview, lazy); `@base-org/account` 2.5.13 (lazy) | One `AccountProvider` interface `{address, chainId, kind, signTypedData, sendCalls?}` | Producing signatures the user approved |
 | **Relayer** | `apps/relayer` | Cloudflare Worker, Hono 4.13.13, zod 4.6.5, viem; one Durable Object `ChainSender` per chain; Node adapter for e2e; deployed by Cloudflare's Git integration from the committed bundle `apps/relayer/deploy/` ([runbook](runbooks/relayer.md)) | Submits `payWithAuthorization` and `cancelBySig` only; testnet onboarding; nonce, queue, caps and gas budget | **Availability only.** It can delay a payment but cannot redirect it ([ADR 0003](adr/0003-bind-3009-nonce-to-payment.md), [ADR 0007](adr/0007-relayer-durable-object-per-chain.md)) |
 | **Indexer** | `apps/indexer` | Envio HyperIndex 3.12.1 on the Envio Cloud free development plan | Entities `Invoice`, `Payment`, `Payee`, `PayeeToken`, `PayerPayee`, `DailyVolume`, `DailyActivity` from `Paid` and `InvoiceCancelled` on Monad testnet and Base Sepolia, for history, statistics and the trust line ([README](../apps/indexer/README.md), [runbook](runbooks/envio.md)) | **Nothing authoritative.** Cache only ([ADR 0009](adr/0009-read-model-chain-device-indexer.md)) |
-| **API** (from Oct 28) | `apps/api` | Hono on Workers | PayPal bridge and AI back-office copilot (PayPal edition) | Out of scope for v2.0 |
+| **API** (from Oct 21) | `apps/api` | Hono on Workers, Durable Objects, Workers AI | PayPal twin invoices, webhooks, reconciliation and the AI collections desk of the PayPal edition ([ADR 0018](adr/0018-paypal-edition.md), [README](../apps/api/README.md)) | **Availability and advice only.** No chain key, no wallet client, no PayPal operation that moves money; outside v2.0's scope |
 | **End-to-end tests** | `e2e/` | Playwright 1.56.1 on Chromium 141; anvil chains; EIP-1193 test wallet; CDP WebAuthn virtual authenticator with PRF | Release gate for user flows and accessibility | Evidence |
 | **CI/CD** | `.github/workflows/` | GitHub Actions pinned by commit SHA | Gates, nightly proofs, deployments, Pages and Worker deploys | Release integrity |
 
@@ -268,6 +268,7 @@ Both show the predicted address and the `initCodeHash` before anything is signed
 | Base Sepolia 84532 | Colosseum edition | USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (6, EIP-2612 + EIP-3009). Not the `…dCF7c` typo from the Base docs | C |
 | Arbitrum Sepolia 421614 | optional | USDC `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` (6) | C |
 | Mezo testnet 31611 | from Oct 16 | MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` (18, EIP-2612 only, domain `Mezo USD`/`1`) | C; Cancun opcodes run (C), not London as Mezo's docs say; charges at least 50 % of the gas limit ([ADR 0017](adr/0017-mezo-edition-chain-layer.md)) |
+| Ethereum Sepolia 11155111 | PayPal edition only, disabled elsewhere | Circle USDC `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` (6, EIP-2612 + EIP-3009, domain `USDC`/`2`); PayPal USD `0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9` (6, listed; `version()` reverts, domain `PayPal USD`/`1` proven by `DOMAIN_SEPARATOR()`) | C ([ADR 0018](adr/0018-paypal-edition.md), [research](research/paypal/sepolia.md)) |
 | Monad mainnet 143 | ready, disabled (T2) | AUSD `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`; USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` | C |
 | Arc mainnet 5042 | v1 only | native USDC (18 decimals) | C |
 
@@ -380,3 +381,4 @@ The blocking gates, the nightly evidence jobs and the commit conventions are sum
 | [0015](adr/0015-editions-t1-passkeys-gasless-rails.md) | Editions at T1: Mera passkeys, gasless rails and "Pay with Base" |
 | [0016](adr/0016-ledger-backup-second-prf-namespace.md) | Ledger backup with the passkey's second key (PRF namespace `paylink.books.v1`) |
 | [0017](adr/0017-mezo-edition-chain-layer.md) | The Mezo edition's chain layer: MUSD by permit or approval, no relayed payments, the deployment before the edition |
+| [0018](adr/0018-paypal-edition.md) | The PayPal edition: Ethereum Sepolia, Workers AI, a cut scope, a separate API Worker, and its trust boundaries |
