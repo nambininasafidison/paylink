@@ -24,6 +24,7 @@ import type { InvoiceKey } from "@paylink/api-contract";
 import type { PayPalClient } from "../../src/paypal/client.ts";
 import { isPayPalError } from "../../src/paypal/client.ts";
 import { CANCEL_SILENTLY, REMIND_RECIPIENT, SHARE_LINK, twinCreateBody } from "../../src/paypal/invoice.ts";
+import { echoNote } from "../../src/reconciler/echo.ts";
 import type { CreateInvoiceRequest, Invoice } from "../../src/paypal/types.ts";
 import type { CaptureFindings, CaptureReport, CaptureStep, StepOutcome } from "./report.ts";
 import { paths, redact, urlShape } from "./report.ts";
@@ -169,9 +170,9 @@ export async function runCapture(options: CaptureOptions): Promise<CaptureReport
   let afterRecord: Invoice | null = null;
   let afterUndo: Invoice | null = null;
   let afterCancel: Invoice | null = null;
-  // The §7.3 note exactly as the reconciler writes it on a recorded chain payment (src/reconciler/echo.ts), with a zero
-  // transaction hash: whether PayPal keeps it byte for byte (the "·" separators included) is one of the findings.
-  const note = `PayLink · eip155:${String(CHAIN_ID)} · tx 0x${"0".repeat(64)} · key ${keyD}`;
+  // The §7.3 note exactly as the reconciler writes it on a recorded chain payment, with a zero transaction hash: whether
+  // PayPal keeps it byte for byte (the "·" separators included) is one of the findings.
+  const note = echoNote(CHAIN_ID, `0x${"0".repeat(64)}`, keyD);
   if (d?.id !== undefined) {
     const id = d.id;
     await step("send-d", "P4", () => paypal.sendInvoice(id, SHARE_LINK), (s) => ({ status: s.status }));

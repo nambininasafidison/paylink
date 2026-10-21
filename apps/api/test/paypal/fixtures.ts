@@ -8,6 +8,7 @@ import type { PayPalClient } from "../../src/paypal/client.ts";
 import type { TwinInvoiceInput } from "../../src/paypal/invoice.ts";
 import { SHARE_LINK, twinCreateBody } from "../../src/paypal/invoice.ts";
 import type { Invoice } from "../../src/paypal/types.ts";
+import { echoNote } from "../../src/reconciler/echo.ts";
 
 export const KEY: InvoiceKey = `0x${"3fa9c0e17b2d".padEnd(64, "a")}`;
 export const OTHER_KEY: InvoiceKey = `0x${"7e57c0de0b0b".padEnd(64, "b")}`;
@@ -37,7 +38,7 @@ export async function sharedTwin(paypal: PayPalClient, overrides: Partial<TwinIn
   return await paypal.getInvoice(created.id ?? "");
 }
 
-/** The §7.3 note PayLink writes on a recorded payment (the reconciler's `echoNote` builds the same string). */
+/** The §7.3 note PayLink writes on a recorded payment (the reconciler's `echoNote`, src/reconciler/echo.ts). */
 export function echoNoteFor(key: InvoiceKey, txHash: `0x${string}` = TX_HASH, chainId = SEPOLIA): string {
-  return `PayLink · eip155:${String(chainId)} · tx ${txHash} · key ${key}`;
+  return echoNote(chainId, txHash, key);
 }
