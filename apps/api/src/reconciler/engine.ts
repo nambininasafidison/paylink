@@ -43,6 +43,8 @@ export const UNDO_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const PROPOSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** An approved chain cancel waits this long for the payee's signature and the chain (the Cancel deadline + 10 min). */
 export const CANCEL_WAIT_MS = 70 * 60 * 1000;
+/** Any other approval left half-done this long (a crash between the approval and the effect) is released (E). */
+export const APPROVING_WAIT_MS = 10 * 60 * 1000;
 
 const MINUTE = 60_000;
 
@@ -308,6 +310,9 @@ async function syncProposals(services: ApiServices, store: PayeeStore, twin: Twi
         // Approved but never signed: offer it again (a fresh approval gives a fresh deadline).
         await move(p, "open", "unsigned");
       }
+    } else if (p.state === "approving" && now - p.updatedAt >= APPROVING_WAIT_MS) {
+      // The executor stopped between the approval and the effect: the fence decides whether it is offered again.
+      await move(p, held ? "open" : "stale", "interrupted");
     }
   }
 }

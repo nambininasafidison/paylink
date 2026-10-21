@@ -90,6 +90,12 @@ export async function approveProposal(services: ApiServices, payee: Address, id:
   let response: ApproveResponse;
   try {
     response = await execute(services, store, proposal, now);
+  } catch (error) {
+    // A failure that is not one of the executor's own answers (a store or runtime fault): release the approval.
+    if (!(error instanceof ProblemError)) {
+      await store.transitionProposal(id, "approving", "open", now);
+    }
+    throw error;
   } finally {
     await store.unlock(proposal.key, holder);
   }

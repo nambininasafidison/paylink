@@ -400,3 +400,20 @@ describe("the desk assistant's proposals, held to the fence (A2, AI-2, AI-3)", (
     expect(failing.proposals.length).toBeGreaterThan(0);
   });
 });
+
+describe("an approval interrupted between the tap and the effect", () => {
+  it("is released by the executor on a fault, and by the next reconciliation after 10 minutes", async () => {
+    const w = await registered();
+    w.cancelOnChain(KEY);
+    await reconcileNow(w);
+    const cancel = await openOf(w, "cancel_paypal");
+    (w.services.paypal as { cancelInvoice: () => Promise<void> }).cancelInvoice = () => Promise.reject(new Error("runtime fault"));
+    await expect(approve(w, cancel)).rejects.toThrow();
+    expect((await store(w).getProposal(cancel.id))?.state).toBe("open");
+    // A crash after the compare-and-set leaves it approving: the reconciler releases it later.
+    await store(w).transitionProposal(cancel.id, "open", "approving", w.clock.now);
+    w.advance(11 * 60_000);
+    await reconcileNow(w);
+    expect((await store(w).getProposal(cancel.id))?.state).toBe("open");
+  });
+});
