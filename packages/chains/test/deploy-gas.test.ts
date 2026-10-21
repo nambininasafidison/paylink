@@ -23,6 +23,8 @@ describe("deployGasFor", () => {
     expect(deployGasFor(10143)?.hardfork).toBe("MonadTen");
     expect(deployGasFor(84532)?.profile).toBe("base");
     expect(deployGasFor(421614)?.profile).toBe("ethereum");
+    // Ethereum Sepolia runs Ethereum's own schedule (ADR 0018); the fork rehearsal checks the estimate against it.
+    expect(deployGasFor(11155111)).toMatchObject({ profile: "ethereum", create2: { floor: 2_718_000n, ceiling: 4_077_000n } });
     expect(deployGasFor(31611)).toMatchObject({ profile: "mezo", hardfork: "Prague" });
     expect(deployGasFor(31611)?.evidence).toMatch(/^anvil fork "mezo" of https:\/\/rpc\.test\.mezo\.org at block \d+/);
   });

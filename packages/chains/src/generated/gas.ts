@@ -70,7 +70,7 @@ export const GAS_MEASUREMENTS = {
     chainId: 31337,
     hardfork: "Bpo1",
     network: "ethereum",
-    appliesTo: [421614],
+    appliesTo: [421614, 11155111],
     measurements: {
       cancel: { estimate: 57628, gasUsed: 52647 },
       cancelBySig: { estimate: 66517, gasUsed: 61542 },
@@ -201,7 +201,7 @@ export const DEPLOY_GAS = {
     create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
   },
   ethereum: {
-    appliesTo: [421614],
+    appliesTo: [421614, 11155111],
     create: { estimate: 2_673_065n, gasUsed: 2_673_065n, floor: 2_674_000n, ceiling: 4_011_000n },
     create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
   },

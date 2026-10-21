@@ -315,6 +315,10 @@ abstract contract PayLinkRelease is Script {
             explorerUrls = _one("https://explorer.test.mezo.org");
         } else if (chainId == 31_612) {
             name = "Mezo mainnet";
+        } else if (chainId == 11_155_111) {
+            name = "Ethereum Sepolia";
+            explorerNames = _one("Etherscan");
+            explorerUrls = _one("https://sepolia.etherscan.io");
         } else if (chainId == 5042) {
             name = "Arc mainnet";
         } else if (chainId == 5_042_002) {

@@ -11,7 +11,7 @@ import type { Address } from "viem";
 import type { ChainDefinition, DeniedAddress, Deployment, Edition, PayLinkFunction, Token, TokenCapabilities } from "./types.ts";
 
 /** Every edition and every function, for validation. */
-const EDITIONS: ReadonlySet<Edition> = new Set(["all", "monad", "base", "mezo"]);
+const EDITIONS: ReadonlySet<Edition> = new Set(["all", "monad", "base", "mezo", "paypal"]);
 const FUNCTIONS: readonly PayLinkFunction[] = ["payWithAuthorization", "pay", "payWithPermit", "payNative", "cancel", "cancelBySig"];
 const MAX_UINT53 = 2 ** 53 - 1;
 const LOCAL_HOSTS: ReadonlySet<string> = new Set(["127.0.0.1", "localhost", "[::1]"]);

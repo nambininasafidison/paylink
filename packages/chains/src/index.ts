@@ -8,7 +8,7 @@ import { CHAIN_DEFINITIONS } from "./chains/index.ts";
 import { createRegistry } from "./registry.ts";
 import type { Registry } from "./registry.ts";
 
-export { arbitrumSepolia, arc, baseSepolia, CHAIN_DEFINITIONS, mezoTestnet, monad, monadTestnet } from "./chains/index.ts";
+export { arbitrumSepolia, arc, baseSepolia, CHAIN_DEFINITIONS, ethereumSepolia, mezoTestnet, monad, monadTestnet } from "./chains/index.ts";
 export { DEFAULT_RELAY_TIMING, deploymentFromRecord, MEZO_GAS_TABLE, MONAD_GAS_TABLE, nativeToken, SNAPSHOT_GAS_TABLE } from "./define.ts";
 export { deployGasFor } from "./deploy-gas.ts";
 export { explorerAddressUrl, explorerBlockUrl, explorerTxUrl } from "./explorers.ts";
@@ -26,5 +26,9 @@ export { TX_LOOKUP_RETRY_MS, txLookupRetryMs } from "./tx-lookup.ts";
 export { rpcTransport, toViemChain } from "./viem.ts";
 export type { RpcTransportOptions } from "./viem.ts";
 
-/** The shipped registry: every chain of PAYLINK-V2-SPEC §3.4 used by the product, validated at load. */
-export const registry: Registry = createRegistry(CHAIN_DEFINITIONS);
+/**
+ * The shipped registry: every chain of PAYLINK-V2-SPEC §3.4 used by the product, validated at load. Marked pure so a
+ * client bundle that builds its own registry from the chains it serves (apps/web/src/core/registry.ts) drops it, and
+ * with it the chains of the other editions.
+ */
+export const registry: Registry = /* @__PURE__ */ createRegistry(CHAIN_DEFINITIONS);

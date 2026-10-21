@@ -11,7 +11,8 @@
       "hardfork": "Bpo1",
       "network": "ethereum",
       "appliesTo": [
-        421614
+        421614,
+        11155111
       ],
       "measurements": {
         "payWithAuthorization_first": {

@@ -10,6 +10,7 @@ import {
   DEFAULT_RELAY_TIMING,
   defineLocalChain,
   DEPLOYMENT_RECORDS,
+  ethereumSepolia,
   mezoTestnet,
   monad,
   monadTestnet,
@@ -49,6 +50,7 @@ describe("spec §3.4 facts", () => {
       [84532, "BASE", "enabled", "v2"],
       [421614, "ARB", "enabled", "v2"],
       [31611, "MEZO", "disabled", "v2"],
+      [11155111, "ETH", "disabled", "v2"],
       [5042, "ARC", "enabled", "v1"],
     ]);
   });
@@ -64,6 +66,7 @@ describe("spec §3.4 facts", () => {
       [84532, 120],
       [421614, 120],
       [31611, 120],
+      [11155111, 120],
       [5042, null],
     ]);
   });
@@ -171,6 +174,44 @@ describe("spec §3.4 facts", () => {
     expect(mezoTestnet.notes.join(" ")).not.toMatch(/london \(L\)/);
   });
 
+  it("Ethereum Sepolia: USDC default (6, 2612 + 3009, USDC/2) and PYUSD listed (6, 2612 + 3009, PayPal USD/1); PayPal edition only", () => {
+    // docs/research/paypal/sepolia.md: read on chain on 2026-10-21 through the registry's RPC (block 11,958,755).
+    expect(ethereumSepolia.status).toBe("disabled");
+    expect(ethereumSepolia.editions).toEqual(["paypal"]);
+    expect(ethereumSepolia.tier).toBe("later");
+    expect(ethereumSepolia.rpc.map((r) => r.url)).toEqual(["https://ethereum-sepolia-rpc.publicnode.com"]);
+    expect(ethereumSepolia.explorers.map((e) => [e.name, e.url])).toEqual([["Etherscan", "https://sepolia.etherscan.io"]]);
+    expect(ethereumSepolia.nativeCurrency).toEqual({ name: "Sepolia Ether", symbol: "ETH", decimals: 18 });
+    // "exceed maximum block range: 50000", read live; no lookup-by-hash flag (receipts answered consistently).
+    expect(ethereumSepolia.rpcLimits).toEqual({ maxLogBlockRange: 50_000 });
+    expect(txLookupRetryMs(ethereumSepolia)).toEqual([]);
+    const usdc = erc20(ethereumSepolia, "USDC");
+    expect([usdc.address, usdc.decimals, usdc.listing, usdc.capabilities, usdc.eip712Domain, usdc.pendingVerification]).toEqual([
+      "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      6,
+      "default",
+      { eip3009: true, eip2612: true, native: false },
+      { name: "USDC", version: "2" },
+      [],
+    ]);
+    const pyusd = erc20(ethereumSepolia, "PYUSD");
+    expect([pyusd.address, pyusd.decimals, pyusd.listing, pyusd.capabilities, pyusd.eip712Domain, pyusd.pendingVerification]).toEqual([
+      "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9",
+      6,
+      "listed",
+      { eip3009: true, eip2612: true, native: false },
+      { name: "PayPal USD", version: "1" },
+      [],
+    ]);
+    // Never reuse a token address across chains: PYUSD's Arbitrum Sepolia address is not this chain's.
+    expect(registry.findToken(11155111, "0x637A1259C6afd7E3AdF63993cA7E58BB438aB1B1")).toBeUndefined();
+    expect(ethereumSepolia.tokens).toHaveLength(2);
+    expect(ethereumSepolia.contracts.create2Deployer).toMatchObject({ address: RELEASE.create2.factory, confidence: "C" });
+    expect(ethereumSepolia.contracts.multicall3).toMatchObject({ address: "0xcA11bde05977b3631167028862bE2a173976CA11", confidence: "C" });
+    expect(ethereumSepolia.gasModel).toEqual({ chargesGasLimit: false });
+    expect(ethereumSepolia.relay).toBe(DEFAULT_RELAY_TIMING);
+  });
+
   it("Arc mainnet: v1 only, native USDC (18) and its 6-decimal ERC-20 view, facts from web/config.js", () => {
     expect(arc.protocol).toBe("v1");
     expect(arc.deployment).toBeNull();
@@ -267,12 +308,18 @@ describe("lookups", () => {
     expect(registry.forEdition("monad", { includeDisabled: true }).map((c) => c.chainId)).toEqual([10143, 143]);
     expect(registry.forEdition("base").map((c) => c.chainId)).toEqual([84532, 421614]);
     expect(registry.forEdition("mezo").map((c) => c.chainId)).toEqual([]);
+    expect(registry.forEdition("paypal").map((c) => c.chainId)).toEqual([]);
     expect(registry.forEdition("all").map((c) => c.chainId)).toEqual([10143, 84532, 421614]);
-    expect(registry.forEdition("all", { includeDisabled: true }).map((c) => c.chainId)).toEqual([10143, 143, 84532, 421614, 31611]);
+    expect(registry.forEdition("all", { includeDisabled: true }).map((c) => c.chainId)).toEqual([10143, 143, 84532, 421614, 31611, 11155111]);
     const base = scopeToEdition(registry, "base");
     expect(base.get(10143)).toBeUndefined();
     expect(base.get(84532)).toBe(baseSepolia);
     expect(scopeToEdition(registry, "mezo", { includeDisabled: true }).chains.map((c) => c.chainId)).toEqual([31611]);
+    // The PayPal edition's chain is no other edition's (ADR 0018).
+    expect(scopeToEdition(registry, "paypal", { includeDisabled: true }).chains.map((c) => c.chainId)).toEqual([11155111]);
+    for (const edition of ["monad", "base", "mezo"] as const) {
+      expect(registry.forEdition(edition, { includeDisabled: true }).map((c) => c.chainId)).not.toContain(11155111);
+    }
   });
 
   it("is deeply frozen", () => {
@@ -348,7 +395,7 @@ describe("createRegistry validation", () => {
     [{ chainId: 2 ** 53 }, /chainId must be an integer/],
     [{ caip2: "eip155:1" }, /caip2 must be eip155:31337/],
     [{ testnet: false }, /local chain has key "local" and is a testnet/],
-    [{ editions: ["paypal"] }, /unknown edition paypal/],
+    [{ editions: ["arbitrum"] }, /unknown edition arbitrum/],
     [{ rpc: [{ url: "not a url", confidence: "C" }] }, /is not a URL/],
     [{ rpc: [{ url: "http://rpc.example.org", confidence: "C" }] }, /must use https/],
     [{ rpc: [{ url: "https://user:pw@rpc.example.org", confidence: "C" }] }, /credentials, a query or a fragment/],

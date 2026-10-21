@@ -10,11 +10,16 @@
  * there (native BTC) stay on the allowlist, so their links still decode and verify, but are not offered when creating
  * one, because the edition's words are about MUSD. The branch is folded at build time, so other editions are unchanged.
  *
+ * The PayPal edition takes Ethereum Sepolia the same way (ADR 0018): disabled in the registry, offered by that edition
+ * only, "Not deployed yet" until `protocol/deployments/11155111.json` is recorded. Each build bundles only the chain
+ * definitions it can serve (`shippedChains`): the PayPal build Ethereum Sepolia alone, the other builds every other
+ * chain, so a chain added for one edition does not grow the others' pay route (PAYLINK-V2-SPEC §4.4 budget).
+ *
  * End-to-end builds only: `__PAYLINK_E2E_CHAINS__` replaces chains by chain ID with definitions that point at local
  * anvil deployments and mock tokens (e2e/). Production builds define it as `null`, so the branch and its marker
  * string are removed by the minifier; `test/bundle.test.ts` checks the built files for the marker.
  */
-import { createRegistry, registry as shipped, scopeToEdition } from "@paylink/chains";
+import { arbitrumSepolia, arc, baseSepolia, createRegistry, ethereumSepolia, mezoTestnet, monad, monadTestnet, scopeToEdition } from "@paylink/chains";
 import type { ChainDefinition, Edition, Registry } from "@paylink/chains";
 import type { Address, Hex } from "viem";
 
@@ -88,11 +93,27 @@ function defaultTokenOnly(chain: ChainDefinition): ChainDefinition {
   return { ...chain, tokens: chain.tokens.map((token) => (token.listing === "default" ? token : { ...token, listing: "hidden" as const })) };
 }
 
-/** The edition's registry (enabled chains only; the Mezo build also has its own chain), validated by `createRegistry`. */
+/**
+ * The chain definitions this build may serve, compared with the build constant so the minifier keeps one branch: the
+ * PayPal build carries Ethereum Sepolia alone; every other build carries the chains it carried before that edition.
+ */
+function shippedChains(): readonly ChainDefinition[] {
+  return __PAYLINK_EDITION__ === "paypal" ? [ethereumSepolia] : [monadTestnet, monad, baseSepolia, arbitrumSepolia, mezoTestnet, arc];
+}
+
+/**
+ * The edition's registry (enabled chains only; the Mezo and PayPal builds also have their own disabled chain), validated
+ * by `createRegistry`.
+ */
 export function appRegistry(edition: Edition): Registry {
+  const shipped = createRegistry(shippedChains());
   if (__PAYLINK_EDITION__ === "mezo") {
     const chains = scopeToEdition(shipped, edition, { includeDisabled: edition === "mezo" }).chains;
     return createRegistry(e2eChains(edition === "mezo" ? chains.map(defaultTokenOnly) : chains));
+  }
+  if (__PAYLINK_EDITION__ === "paypal") {
+    // USDC (default) and PayPal USD (listed) are both offered: the edition invoices in either (ADR 0018).
+    return createRegistry(e2eChains(scopeToEdition(shipped, edition, { includeDisabled: edition === "paypal" }).chains));
   }
   return createRegistry(e2eChains(scopeToEdition(shipped, edition).chains));
 }

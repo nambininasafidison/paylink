@@ -73,7 +73,8 @@ export interface Profile {
 }
 
 export const PROFILES: readonly Profile[] = [
-  { name: "ethereum", chainId: 31337, anvilArgs: [], appliesTo: [421614] },
+  // Arbitrum Sepolia and Ethereum Sepolia (ADR 0018) price execution with Ethereum's schedule.
+  { name: "ethereum", chainId: 31337, anvilArgs: [], appliesTo: [421614, 11155111] },
   { name: "monad", chainId: 10143, anvilArgs: ["--network", "monad"], appliesTo: [10143, 143] },
   { name: "base", chainId: 84532, anvilArgs: ["--network", "base"], appliesTo: [84532] },
   { name: "london", chainId: 31611, anvilArgs: ["--hardfork", "london"], appliesTo: [31611] },

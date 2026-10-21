@@ -20,10 +20,10 @@ import type { Address, Hex } from "viem";
 export type Confidence = "UV" | "C" | "L" | "U";
 
 /** Stable identifiers of the chains in the registry. */
-export type ChainKey = "monad-testnet" | "monad" | "base-sepolia" | "arbitrum-sepolia" | "mezo-testnet" | "arc" | "local";
+export type ChainKey = "monad-testnet" | "monad" | "base-sepolia" | "arbitrum-sepolia" | "mezo-testnet" | "ethereum-sepolia" | "arc" | "local";
 
-/** Web-app editions (ADR 0008). `all` lists every registry chain. */
-export type Edition = "all" | "monad" | "base" | "mezo";
+/** Web-app editions (ADR 0008). `all` lists every registry chain; `paypal` is the PayPal edition (ADR 0018). */
+export type Edition = "all" | "monad" | "base" | "mezo" | "paypal";
 
 /** Which PayLink contract generation a chain runs. Arc mainnet stays on v1 (ADR 0010). */
 export type ProtocolVersion = "v1" | "v2";
@@ -298,7 +298,7 @@ export interface ChainDefinition {
   readonly caip2: `eip155:${number}`;
   readonly key: ChainKey;
   readonly name: string;
-  /** Engraved band label (MONAD · BASE · ARB · MEZO · ARC); never a brand colour (spec §3.6). */
+  /** Engraved band label (MONAD · BASE · ARB · MEZO · ETH · ARC); never a brand colour (spec §3.6). */
   readonly label: string;
   readonly testnet: boolean;
   /** Local development chains (anvil) may use `http://127.0.0.1` RPCs; real chains never. */
