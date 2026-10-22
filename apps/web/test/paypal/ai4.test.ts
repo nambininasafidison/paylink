@@ -7,7 +7,8 @@
  * - only `editions/paypal/assistant.ts` and `editions/paypal/desk.ts` write a `data-ai` attribute, and in `desk.ts`
  *   only the assistant's note does, never the exact-values grid or the verdict;
  * - the money screens' modules import nothing from the edition's AI-facing modules or its API client;
- * - the pay page's rail chooser writes only fixed words and code-computed values (no API text, no `data-ai`).
+ * - the pay page's rail chooser writes only fixed words and code-computed values (no API text, no `data-ai`);
+ * - the till names its source in fixed words and reads PayPal only through the twin (`GET /v1/twin/:key`).
  *
  * And the edition's stylesheet keeps the design system's palette: tokens only, no colour literal.
  */
@@ -65,6 +66,17 @@ describe("AI-4: model text stays out of the money screens", () => {
       expect(source, path).not.toMatch(/editions\/paypal\/(assistant|desk|api|session|context)\.ts/);
       expect(source, path).not.toContain("data-ai");
     }
+  });
+
+  it("lets the till name its source in fixed words, from PayPal's GET of the twin and nothing else", () => {
+    const till = read("pages/till.ts");
+    expect(new Set([...till.matchAll(/editions\/paypal\/(\w+)\.ts/g)].map((m) => m[1]))).toEqual(new Set(["money", "till"]));
+    const source = read("editions/paypal/till.ts");
+    expect(source).not.toContain("data-ai");
+    expect(source).not.toMatch(/from "\.\/(assistant|desk)\.ts"/);
+    // One route of the API: the twin as PayPal's GET returned it (a twin carries no model text).
+    expect(source).toMatch(/^import \{ ApiError, getTwin \} from "\.\/api\.ts";$/m);
+    expect(source).not.toMatch(/\b(postDraft|getDesk|postSweep|postApprove|postCheck)\b/);
   });
 
   it("lets the rail chooser show only fixed words and values computed by code", () => {

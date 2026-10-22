@@ -85,6 +85,13 @@
   .check-verdict .vstrip-name { color: var(--screen-ink); }
   .check-verdict .vstrip-detail { color: var(--screen-dim); }
 
+  /* The till: the rail that lit the verdict (fixed words), and the PayPal line under the window. */
+  .till-source { margin-top: 4px; font: 600 12px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--screen-ink); word-spacing: 0; overflow-wrap: anywhere; }
+  .till-source:empty { display: none; }
+  .till-paypal { margin-top: 10px; }
+  .till-paypal .field-hint { margin: 0; }
+  .till-paypal .key { margin-top: 10px; }
+
   /* The ledger's rail column. */
   .row-rail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 6px; vertical-align: middle; }
   .row-rail .twin-no { font: 400 10.5px/1.4 var(--mono); letter-spacing: .04em; color: var(--muted); word-spacing: 0; }

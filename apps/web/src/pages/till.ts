@@ -12,6 +12,10 @@
  * Reads the chain directly: `eth_getLogs` every second from `head − 10` (never more than the 100-block cap of Monad's
  * public RPCs), filtered on the key or payee topic; every log is re-verified as a receipt before the LED changes. A log
  * whose receipt cannot be read yet is neither shown nor skipped: the poll fails, and the next one reads the same blocks.
+ *
+ * PayPal edition (docs/paypal/SPEC.md §14.2 F4): an armed till also watches the invoice's PayPal twin with the payee's
+ * desk session (editions/paypal/till.ts), and every lit verdict names its source in fixed words: "via USDC · on the
+ * chain", or "via PAYPAL · verified with PayPal 14:02:31" when PayPal's own GET says PAID at the exact amount.
  */
 import { decodeInvoiceFragment, fragmentOf, isPaymentForArmedInvoice, PAID_TOPIC, sanitizeMemoForDisplay, verifyReceipt } from "@paylink/sdk";
 import type { DecodedInvoiceLink, ReceiptProof } from "@paylink/sdk";
@@ -28,10 +32,16 @@ import { decodeUiError } from "../core/errors.ts";
 import { prefs } from "../core/prefs.ts";
 import { displayAmount, shortHex } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
+import { seconds } from "../editions/paypal/money.ts";
+import { paypalTill } from "../editions/paypal/till.ts";
+import type { PaypalTill } from "../editions/paypal/till.ts";
 import { num, setStatus, statusLine } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce } from "../ui/live.ts";
-import type { ChainDefinition } from "@paylink/chains";
+import type { ChainDefinition, Edition } from "@paylink/chains";
+import type { TwinView } from "@paylink/api-contract";
+
+declare const __PAYLINK_EDITION__: Edition;
 
 const LOOKBACK_BLOCKS = 10n;
 
@@ -160,6 +170,8 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
   const fxLine = h("p", { class: "till-fx" }, armed !== null && armed.invoice.amount !== 0n ? ariaryLabel(armed.invoice.amount, armed.token, app.fx, app.locale, (p) => t("fx.estimate", p)) : null);
   const caption = h("p", { class: "till-caption" }, armed?.memo === null || armed === null ? t("till.watching", { address: shortHex(payee) }) : sanitizeMemoForDisplay(armed.memo));
   const settled = h("p", { class: "till-settled", attrs: { "aria-live": "polite" } });
+  /** PayPal edition: which rail lit the verdict, in fixed words (U3: the screen names its source). */
+  const source = __PAYLINK_EDITION__ === "paypal" ? h("p", { class: "till-source", attrs: { "data-source": "" } }) : null;
   const log = h("ul", { class: "till-log", attrs: { "aria-label": t("till.log") } }, h("li", null, t("till.noPayments")));
   const display = h(
     "div",
@@ -170,6 +182,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
     fxLine,
     caption,
     settled,
+    source,
     log,
   );
   const status = statusLine();
@@ -202,6 +215,11 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
     fxLine.textContent = ariaryLabel(proof.amount, proof.tokenInfo, app.fx, app.locale, (p) => t("fx.estimate", p)) ?? "";
     light("paid", t("till.paid"));
     settled.textContent = t("till.settled", { seconds: formatSeconds(app.locale, delay) });
+    if (__PAYLINK_EDITION__ === "paypal" && source !== null) {
+      source.setAttribute("data-source", proof.tokenInfo.symbol);
+      source.textContent = t("paypal.till.viaChain", { rail: proof.tokenInfo.symbol });
+      paypal?.stop();
+    }
     if (watch.armed !== null && watch.armed.invoice.amount === 0n) {
       setStatus(status, "warn", t("till.openAmountNotice"));
     } else {
@@ -247,6 +265,30 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
     }
   };
 
+  /**
+   * PayPal edition, armed till: the twin's PayPal payment, verified by PayPal's own GET at the exact amount
+   * (editions/paypal/till.ts decides; this only lights the window).
+   */
+  const paidOnPaypal = (twin: TwinView): void => {
+    if (watch.armed === null || display.getAttribute("data-state") === "paid" || source === null) {
+      return;
+    }
+    const amount = displayAmount(watch.armed.invoice.amount, watch.armed.token, app.locale);
+    const at = seconds(twin.checkedAt) ?? Math.floor(Date.now() / 1000);
+    const time = formatDateTime(app.locale, at, { timeStyle: "medium" });
+    entries.unshift(h("li", null, h("span", null, time), h("b", null, `${amount} USD · PAYPAL`)));
+    replace(log, entries.slice(0, 5));
+    replace(figure, num(amount), h("span", { class: "unit" }, "USD"));
+    light("paid", t("till.paid"));
+    settled.textContent = "";
+    source.setAttribute("data-source", "PAYPAL");
+    source.textContent = t("paypal.till.viaPaypal", { time });
+    setStatus(status, "ok", t("paypal.till.received", { amount }));
+    announce(t("paypal.till.receivedSaid", { amount }));
+    chime.play();
+  };
+  const paypal: PaypalTill | null = __PAYLINK_EDITION__ === "paypal" && armed !== null ? paypalTill(app, armed, paidOnPaypal) : null;
+
   const loop = (): void => {
     if (!running) {
       return;
@@ -269,12 +311,18 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
       from = null;
       light("waiting", t("till.waiting"));
       startKey.textContent = t("till.stop");
+      if (__PAYLINK_EDITION__ === "paypal" && source !== null) {
+        source.setAttribute("data-source", "");
+        source.textContent = "";
+        paypal?.start();
+      }
       if ("wakeLock" in navigator) {
         navigator.wakeLock.request("screen").then((sentinel) => { wakeLock = sentinel; }).catch(() => undefined);
       }
       loop();
     } else {
       window.clearTimeout(timer);
+      paypal?.stop();
       light("idle", t("till.idle"));
       startKey.textContent = t("till.start");
       void wakeLock?.release().catch(() => undefined);
@@ -303,6 +351,7 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
     h("div", { class: "view-head" }, h("h2", { attrs: { id: "till-head" } }, t("till.head")), h("span", { class: "view-meta" }, armed === null ? t("till.modeWatch") : t("till.modeArmed"))),
     display,
     status,
+    paypal?.element,
     startKey,
     h("div", { class: "key-row" }, chimeKey, fullKey),
   );
