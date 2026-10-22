@@ -23366,7 +23366,8 @@ async function optionalView(read) {
 * `keccak256(EIP712Domain(name(), version, chainId, token))` equals the token's `DOMAIN_SEPARATOR()`.
 */
 async function provenDomain(client, chainId, token, name, stated) {
-	if (stated === null || stated === void 0) throw new PayLinkError("E_TOKEN_DOMAIN_UNKNOWN", `token ${token} has no version(); the registry must state its EIP-712 domain`, { token });
+	const version = stated?.version;
+	if (version === void 0) throw new PayLinkError("E_TOKEN_DOMAIN_UNKNOWN", `token ${token} has no version(); the registry must state its EIP-712 domain`, { token });
 	const separator = await optionalView(async () => {
 		const result = await client.call({
 			to: token,
@@ -23383,11 +23384,11 @@ async function provenDomain(client, chainId, token, name, stated) {
 	});
 	const domain = {
 		name,
-		version: stated.version,
+		version,
 		chainId,
 		verifyingContract: token
 	};
-	if (separator === void 0 || separator.toLowerCase() !== domainSeparator(domain).toLowerCase()) throw new PayLinkError("E_TOKEN_DOMAIN_UNKNOWN", `token ${token} has no version(), and its DOMAIN_SEPARATOR() does not prove version ${stated.version}`, { token });
+	if (separator?.toLowerCase() !== domainSeparator(domain).toLowerCase()) throw new PayLinkError("E_TOKEN_DOMAIN_UNKNOWN", `token ${token} has no version(), and its DOMAIN_SEPARATOR() does not prove version ${version}`, { token });
 	return domain;
 }
 /**
