@@ -28,12 +28,12 @@ The part of [`apps/api`](../../README.md) that decides, from what PayPal's `GET`
 | S0 | unreadable, unknown status, `SCHEDULED`, `DRAFT`, reference, currency, amount or paid amount not the signed ones | unreadable, not deployed, a payment of another amount or token | nothing; an alert |
 | S1 | open | payable | `share_reminder_text`; `send_reminder` when due or 3 days after sending, with a recipient email, at most once per 24 h |
 | S2 | paid with a non-echo transaction, or marked paid by the merchant | payable | `cancel_paylink` (tap and the payee's signature) |
-| S3 | open | paid, verified | `record_external_payment` automatically; after an Undo only by a tap; `cancel_paypal` if PayPal stays open after the record |
+| S3 | open | paid, verified | `record_external_payment` automatically; after an Undo only by a tap; `cancel_paypal` if PayPal stays open after the record; a record gone from PayPal without an Undo here (`record-missing`, an alert): a tap to record again or `cancel_paypal` |
 | S4 | paid with a non-echo transaction | paid | nothing; alert `paid-twice` |
 | S5 | `PAYMENT_PENDING`, `PARTIALLY_PAID`; or a chain payment still confirming (15 min) | any | nothing (wait) |
 | S6 | cancelled | payable | `cancel_paylink` |
 | S7 | open | cancelled or expired (on chain time) | `cancel_paypal` |
-| S8 | closed and consistent | closed and consistent | nothing |
+| S8 | closed and consistent | closed and consistent | nothing (read again once a day for 30 days, and by "Check my invoices": PayPal's side can reopen) |
 | S9 | refunded | any | nothing (information) |
 
 `test/reconciler/situation.test.ts` checks all 17 × 8 × 4 combinations of status, chain and transactions against a hand-written table; `test/reconciler/properties.test.ts` checks with fast-check that no situation but S0, S1 or S5 leaves both rails open, that once a rail took money the other is closed, closed by the fence, waited on or alarmed, and that the executor admits exactly the fence's tap actions with exactly their values.
@@ -41,8 +41,10 @@ The part of [`apps/api`](../../README.md) that decides, from what PayPal's `GET`
 ## For the other workstreams
 
 - **PayPal spine.** After P3/P4 (or a P2 hit), call `registerTwin(services, newTwin, now, { invoice })` with the signed invoice's token, `validUntil` and amount: it stores, indexes and reconciles (idempotent, so re-registering a payee's links rebuilds a lost store, §11). Charge `chargeQuota(services, payee, "twins", now)` first. The webhook can hand verified events to `reconcileTwinEvent` (a `TwinEventSink`). `GET /v1/twin/:key` reads `situation` and `fence` from the payee's store; the public rails route finds the payee with `findTwinByKey`.
-- **AI.** Implement `DeskAgent` (`desk.ts`): it receives the payee's open twins, `allowedActions(K)` and `propose(...)`; it returns the assistant's state. `propose` keeps only a tap action of the fence, with the fence's values and reason code; the text is kept only when `grounded` is true. Charge `chargeQuota(…, "aiCalls", …)` and `chargeNeurons` before each call.
+- **AI.** Implement `DeskAgent` (`desk.ts`): it receives the payee's open twins, `allowedActions(K)` and `propose(...)`; it returns the assistant's state. `propose` keeps only a tap action of the fence, with the fence's values and reason code; the text is kept only when `grounded` is true and it holds again against the twin's own facts (`checkMessage(text, factsOfTwin(twin))`, AI-5). Admit each run with `admitAssistant` (src/ai/admission.ts: the payee's, the source's and the lane's quotas and neurons).
 - **Web.** The desk's shapes are `@paylink/api-contract`'s `desk.ts`: approve with the `hash` and `token` of the `ProposalView`; a `cancel_paylink` answers `signature-required` with the `Cancel(key, deadline)` to sign and submit from the payee's wallet (no relayer on Sepolia).
+
+"Recorded on PayPal" is P5's to say (an echo of the chain transaction among the invoice's transactions, §10.3): the `AutoRecord` of an earlier P6 only holds off a second one for `RECORD_LAG_MS` (10 minutes). Past that, a record P5 no longer shows is marked `missing` and never recorded blind again; a P7 whose answer is lost is settled by reading P5. Every write carries the deterministic `PayPal-Request-Id` of `src/paypal/idempotency.ts`; a P9 whose answer is lost counts as sent (`unconfirmed`).
 
 ## Run
 

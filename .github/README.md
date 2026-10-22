@@ -5,11 +5,59 @@
 
 <p align="center"><img src="../docs/submissions/assets/logo-512.png" alt="PayLink mark" width="96" height="96"></p>
 
-# PayLink
+# PayLink Twin
 
-**Signed dollar invoices you share as a link. The client pays with a fingerprint or a wallet and holds no gas token; both sides keep a receipt anyone can verify.**
+**One signed invoice, two rails: PayPal, and dollars on chain (USDC, or PayPal USD). An AI collections desk keeps both rails in agreement and proposes the next step; it never signs and never moves money.**
 
-> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia, and on Mezo testnet for the Mezo edition (MUSD), which is built on the branch `mezo`. The PayPal edition, on this branch `paypal`, uses the PayPal sandbox and Ethereum Sepolia, where PayLinkV2 is not deployed yet. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
+This branch, `paypal`, is PayLink's entry to the PayPal AI Hackathon: the PayPal edition of PayLink, served at <https://paypal.paylink-mg.pages.dev/paypal/> once its preview is online ([judges' tour](#judges-tour), [submission pack](../docs/submissions/paypal.md)).
+
+> **Sandbox and testnet only, not audited.** The PayPal edition uses the PayPal sandbox and Ethereum Sepolia (11155111), where PayLinkV2 is not deployed yet: until the owner deploys it, the edition says "not deployed" and nothing can be signed or paid there. PayLinkV2 itself runs on Monad testnet, Base Sepolia and Mezo testnet (the Mezo edition, on the branch `mezo`). It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
+
+## Contents
+
+1. [PayPal edition (PayLink Twin)](#paypal-edition-paylink-twin), with the [judges' tour](#judges-tour)
+2. [PayLink, the project](#paylink-the-project)
+3. [The problem and who it is for](#the-problem-and-who-it-is-for)
+4. [What a user does](#what-a-user-does)
+5. [The contract](#the-contract)
+6. [Architecture](#architecture)
+7. [Repository layout](#repository-layout)
+8. [Run it yourself](#run-it-yourself)
+9. [What existed before, and what was built for these events](#what-existed-before-and-what-was-built-for-these-events)
+10. [Status and limits](#status-and-limits)
+11. [AI use, attributions, licence, security](#ai-use-attributions-licence-security)
+
+## PayPal edition (PayLink Twin)
+
+**One invoice, two rails: PayPal (a twin PayPal invoice, sandbox) and dollars on chain (USDC, or PayPal USD, on Ethereum Sepolia); and an AI collections desk that never touches the money.** Built for the PayPal AI Hackathon on this branch, `paypal` ([ADR 0018](../docs/adr/0018-paypal-edition.md), [specification](../docs/paypal/SPEC.md), [submission pack](../docs/submissions/paypal.md)). The demo pays the on-chain rail in Circle's USDC; PayPal USD is supported and paid only on fork rehearsals, since no test PYUSD could be obtained.
+
+> **Sandbox and testnet only; not live yet.** It runs on the PayPal sandbox and Ethereum Sepolia. Until the owner deploys PayLinkV2 on Sepolia (the [runbook](../docs/runbooks/paypal.md#9-paylinkv2-on-ethereum-sepolia) has the steps), the edition says "not deployed" and nothing can be signed or paid there; the Pages preview and the API Worker go online with the owner's steps in the same runbook. PayPal's sandbox could not be reached from the development environment: the PayPal integration is built against PayPal's OpenAPI files and a contract-tested fake, and every sandbox behaviour not yet observed is marked UNVERIFIED ([runbook §5](../docs/runbooks/paypal.md#5-what-the-capture-decides)).
+
+### Judges' tour
+
+The full instructions, with the sandbox buyer logins, are in the hackathon's testing instructions on Devpost (logins are never in this repository).
+
+1. **Status first.** <https://paypal.paylink-mg.pages.dev/paypal/status/>: the PayLink API, the PayPal sandbox, the last verified webhook, the assistant with today's neurons left, the contract.
+2. **PayPal only, no wallet.** Open a judge link from the testing instructions, press **Pay with PayPal**, pay on PayPal's sandbox page as your sandbox buyer, open the link again: "PayPal says this invoice is paid."
+3. **The whole flow, with a browser wallet on Sepolia.** On `/paypal/`: **Assistant**, paste "Love it! Send me the invoice, $12, I'll pay by Friday", **Draft** (the wallet connects and signs a desk session: one signature, no transaction), check, **Use draft**, **Review and sign** (the invoice: one signature, no transaction); in "PayPal twin", first under the signed invoice, **Make the PayPal twin**; open the link in another profile and pay with PayPal or in USDC; back on **Desk**, **Check my invoices**: approve the proposal on its exact values; try **Undo** on an automatic record and **Was I really paid?** with a made-up payment notice.
+4. **No account at all.** The two rails end to end on your machine, against a fork of Ethereum Sepolia and the PayPal fake: `pnpm --filter @paylink/e2e test specs/paypal-rails.spec.ts` (after the setup of [Run it yourself](#run-it-yourself)). Case (c) drives a model that obeys every injected instruction through the real desk: only the fence's own proposals survive.
+
+AI in the product: Cloudflare Workers AI (`@cf/google/gemma-4-26b-a4b-it`, fallback `@cf/meta/llama-3.3-70b-instruct-fp8-fast`). Development assisted by Claude Code (Anthropic); the owner directed, reviewed and is responsible for the work.
+
+### How it works
+
+| What | How |
+|---|---|
+| **Twin** | After the payee signs a PayLink invoice, one tap creates a PayPal Invoicing v2 invoice for the same amount with the link's key in PayPal's `reference`, shares it, and reads it back from PayPal (`apps/api/src/paypal/twin.ts`) |
+| **Two rails** | The pay page offers **Pay with PayPal** (PayPal's hosted invoice page) only when PayPal's amount equals the signed amount and the page is on a host pinned in the code, next to paying in USDC or PayPal USD from the payer's wallet (`apps/web/src/editions/paypal/rails.ts`) |
+| **Truth** | A webhook is verified with PayPal (`verify-webhook-signature`) and only triggers PayPal's `GET` of the invoice; a chain payment counts only as a verified `Paid` event at the exact amount. The till lights "via PAYPAL · verified with PayPal" or for the chain |
+| **Desk** | A deterministic table of ten situations per invoice decides what may happen next, with exact values: paid on PayPal → cancel the PayLink link (the payee taps, then signs in their wallet); paid on chain → recorded on the PayPal invoice automatically, Undo for 24 hours; overdue → PayPal's reminder or a message to share; paid twice → an alert, never an automatic refund ([reconciler](../apps/api/src/reconciler/README.md)) |
+| **Assistant** | Cloudflare Workers AI drafts an invoice from a client's message (code parses every number) and words the desk's proposals; it can only propose inside the fence, never sign, never call a PayPal write, never see a memo or a PayPal note ([invariants AI-1 to AI-7](../apps/api/evals/README.md#the-invariants-and-the-test-of-each)) |
+| **API** | `apps/api`: a Cloudflare Worker (Hono, zod, Durable Objects, one cron a minute, the Workers AI binding) with a Node entry for tests and an offline demo ([README](../apps/api/README.md)) |
+
+## PayLink, the project
+
+**Signed dollar invoices you share as a link; both sides keep a receipt anyone can verify.** In the Monad and Base editions the client pays with a fingerprint or a wallet and holds no gas token (a relayer submits the payment); in the PayPal edition the client pays on PayPal, or from their own wallet with their own Sepolia gas (no passkeys, no relayer: decision D-SCOPE of the [specification](../docs/paypal/SPEC.md#d-scope-what-is-kept-and-what-is-cut)).
 
 | | |
 |---|---|
@@ -24,19 +72,6 @@
 
 Each edition's **Status** page (footer, under "System") shows the build it serves, checks the contract on chain, and says whether the relayer and the history service answer right now.
 
-## Contents
-
-1. [The problem and who it is for](#the-problem-and-who-it-is-for)
-2. [What a user does](#what-a-user-does)
-3. [PayPal edition (PayLink Twin)](#paypal-edition-paylink-twin)
-4. [The contract](#the-contract)
-5. [Architecture](#architecture)
-6. [Repository layout](#repository-layout)
-7. [Run it yourself](#run-it-yourself)
-8. [What existed before, and what was built for these events](#what-existed-before-and-what-was-built-for-these-events)
-9. [Status and limits](#status-and-limits)
-10. [AI use, attributions, licence, security](#ai-use-attributions-licence-security)
-
 ## The problem and who it is for
 
 PayLink is built in Antananarivo for people in Madagascar who are paid from abroad: freelancers, small merchants, and the clients and relatives who pay them.
@@ -45,12 +80,14 @@ Our working hypothesis is that being paid from abroad is slow, costly or uncerta
 
 The flow every edition is built around:
 
-> A Malagasy freelancer sends a dollar invoice on WhatsApp. The client abroad opens it and pays with a fingerprint, holding no gas token. The freelancer's till lights up when the payment lands. Both sides keep a receipt anyone can verify.
+> A Malagasy freelancer sends a dollar invoice on WhatsApp. The client abroad opens it and pays: with a fingerprint and no gas token in the Monad and Base editions; on PayPal, or from a wallet with its own gas, in the PayPal edition. The freelancer's till lights up when the payment lands. Both sides keep a receipt anyone can verify.
+
+In the PayPal edition, the PayPal rail serves clients who already pay with PayPal, for freelancers wherever PayPal lets them receive. In Madagascar, secondary sources say PayPal accounts may be able to send but not receive (UNVERIFIED): there, the same invoice's on-chain rail is the one that still gets the freelancer paid, which is why one invoice carries both.
 
 ## What a user does
 
 1. **Sign an invoice.** The payee types an amount and a memo. A signing display shows exactly what will be signed (amount, address grouped by four, network, expiry), then one EIP-712 signature makes the invoice: no transaction, no gas, and it works offline. A link, a QR card that prints on A6, WhatsApp and the share sheet are ready at once.
-2. **Pay.** The payer opens the link. Four lamps are read from the chain before the Pay key unlocks: the signature is valid, the network is right, the contract is the genuine release (registry address, masked code hash, EIP-712 immutables), and the invoice is still payable. The payer signs one EIP-3009 authorisation and the relayer submits it; the token nonce is derived on chain from the invoice, so the relayer can delay a payment but never redirect it. A smart-account payer on Base approves one EIP-5792 batch instead.
+2. **Pay.** The payer opens the link. Four lamps are read from the chain before the Pay key unlocks: the signature is valid, the network is right, the contract is the genuine release (registry address, masked code hash, EIP-712 immutables), and the invoice is still payable. The payer signs one EIP-3009 authorisation; in the Monad and Base editions the relayer submits it (the token nonce is derived on chain from the invoice, so the relayer can delay a payment but never redirect it), and in the PayPal edition the payer's own wallet submits it with its own gas, or the payer pays on PayPal instead. A smart-account payer on Base approves one EIP-5792 batch.
 3. **Get paid.** The receipt is verified on chain before the screen says "Approved". The payee's till lights and chimes only for a verified payment of the armed invoice at its exact amount. The ledger reads every invoice's state from the contract, lists payments received, exports CSV and cancels an invoice with one signature and no gas (through the relayer; or one `cancel` transaction).
 4. **Send and receive.** Every account has a receive card (an open-amount link with a QR code); saved contacts are paid in two taps.
 5. **Keep the books** (Monad edition). A second PRF namespace of the same passkey encrypts the payee's books into a backup file only that passkey can open ([ADR 0016](../docs/adr/0016-ledger-backup-second-prf-namespace.md)).
@@ -64,32 +101,6 @@ The app is in English, French and Malagasy (the founder reviews the Malagasy), i
 | All networks (`/`) | Browser wallets | Every route the registry allows, including paying with your own gas | — |
 | Mezo (`/mezo/`, branch `mezo`) | Browser wallets (EIP-6963); no Mezo Passport yet | MUSD: one EIP-2612 permit then `payWithPermit`, or exact approve + `pay`, or one batch for smart accounts. The payer's wallet pays the fee in BTC: MUSD has no EIP-3009, so no MUSD payment is gasless | [Mezo pack §6](../docs/submissions/mezo.md#6-judge-access-instructions) |
 | PayPal (`/paypal/`, branch `paypal`) | Browser wallets (EIP-6963); no passkeys | Two rails for one invoice: PayPal (the twin PayPal invoice's hosted page, sandbox) or USDC (or PayPal USD) on Ethereum Sepolia by the payer's own EIP-3009 authorisation, with the payer's gas | [Judges' tour](#judges-tour) |
-
-## PayPal edition (PayLink Twin)
-
-**One signed invoice, two PayPal rails, and an AI collections desk that never touches the money.** Built for the PayPal AI Hackathon on this branch, `paypal` ([ADR 0018](../docs/adr/0018-paypal-edition.md), [specification](../docs/paypal/SPEC.md), [submission pack](../docs/submissions/paypal.md)).
-
-> **Sandbox and testnet only; not live yet.** It runs on the PayPal sandbox and Ethereum Sepolia. Until the owner deploys PayLinkV2 on Sepolia (the [runbook](../docs/runbooks/paypal.md#9-paylinkv2-on-ethereum-sepolia) has the steps), the edition says "not deployed" and nothing can be signed or paid there; the Pages preview and the API Worker go online with the owner's steps in the same runbook. PayPal's sandbox could not be reached from the development environment: the PayPal integration is built against PayPal's OpenAPI files and a contract-tested fake, and every sandbox behaviour not yet observed is marked UNVERIFIED ([runbook §5](../docs/runbooks/paypal.md#5-what-the-capture-decides)).
-
-| What | How |
-|---|---|
-| **Twin** | After the payee signs a PayLink invoice, one tap creates a PayPal Invoicing v2 invoice for the same amount with the link's key in PayPal's `reference`, shares it, and reads it back from PayPal (`apps/api/src/paypal/twin.ts`) |
-| **Two rails** | The pay page offers **Pay with PayPal** (PayPal's hosted invoice page) only when PayPal's amount equals the signed amount and the page is on a host pinned in the code, next to paying in USDC or PayPal USD from the payer's wallet (`apps/web/src/editions/paypal/rails.ts`) |
-| **Truth** | A webhook is verified with PayPal (`verify-webhook-signature`) and only triggers PayPal's `GET` of the invoice; a chain payment counts only as a verified `Paid` event at the exact amount. The till lights "via PAYPAL · verified with PayPal" or for the chain |
-| **Desk** | A deterministic table of ten situations per invoice decides what may happen next, with exact values: paid on PayPal → cancel the PayLink link (the payee taps, then signs in their wallet); paid on chain → recorded on the PayPal invoice automatically, Undo for 24 hours; overdue → PayPal's reminder or a message to share; paid twice → an alert, never an automatic refund ([reconciler](../apps/api/src/reconciler/README.md)) |
-| **Assistant** | Cloudflare Workers AI drafts an invoice from a client's message (code parses every number) and words the desk's proposals; it can only propose inside the fence, never sign, never call a PayPal write, never see a memo or a PayPal note ([invariants AI-1 to AI-7](../apps/api/evals/README.md#the-invariants-and-the-test-of-each)) |
-| **API** | `apps/api`: a Cloudflare Worker (Hono, zod, Durable Objects, one cron a minute, the Workers AI binding) with a Node entry for tests and an offline demo ([README](../apps/api/README.md)) |
-
-### Judges' tour
-
-The full instructions, with the sandbox buyer logins, are in the hackathon's testing instructions on Devpost (logins are never in this repository).
-
-1. **Status first.** <https://paypal.paylink-mg.pages.dev/paypal/status/>: the PayLink API, the PayPal sandbox, the last verified webhook, the assistant with today's neurons left, the contract.
-2. **PayPal only, no wallet.** Open a judge link from the testing instructions, press **Pay with PayPal**, pay on PayPal's sandbox page as your sandbox buyer, open the link again: "PayPal says this invoice is paid."
-3. **The whole flow, with a browser wallet on Sepolia.** On `/paypal/`: **Assistant**, paste "Love it! Send me the invoice, $12, I'll pay by Friday", **Draft**, check, **Use draft**, **Review and sign**; in "PayPal twin", **Make the PayPal twin**; open the link in another profile and pay with PayPal or in USDC; back on **Desk**, **Check my invoices**: approve the proposal on its exact values; try **Undo** on an automatic record and **Was I really paid?** with a made-up payment notice.
-4. **No account at all.** The two rails end to end on your machine, against a fork of Ethereum Sepolia and the PayPal fake: `pnpm --filter @paylink/e2e test specs/paypal-rails.spec.ts` (after the setup of [Run it yourself](#run-it-yourself)). Case (c) drives a model that obeys every injected instruction through the real desk: only the fence's own proposals survive.
-
-AI in the product: Cloudflare Workers AI (`@cf/google/gemma-4-26b-a4b-it`, fallback `@cf/meta/llama-3.3-70b-instruct-fp8-fast`). Development assisted by Claude Code (Anthropic); the owner directed, reviewed and is responsible for the work.
 
 ## The contract
 
@@ -106,6 +117,19 @@ Full hashes: Monad testnet `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c1
 ## Architecture
 
 ```text
+ PayPal edition (this branch)
+
+ payee (PWA /paypal/) ── signed invoice as a link ──▶ payer (PWA)
+   │ session, twin, desk taps                           │ Pay with PayPal              │ or pay in USDC / PYUSD
+   ▼                                                    ▼                              ▼ (own wallet, own gas)
+ apps/api (Cloudflare Worker "paylink-api")       PayPal's hosted invoice page    PayLinkV2 on Ethereum Sepolia
+   ├─ PayPal REST (sandbox): Invoicing v2, OAuth ─▶ the twin invoice                 │ Paid, InvoiceCancelled
+   ├─ webhook ◀── PayPal, verified by verify-webhook-signature, then GET            │
+   ├─ reconciler: situation table S0–S9, fence, approvals, cron ◀── chain reads ────┘
+   └─ Workers AI (AI binding): drafts and proposals, inside the fence only
+
+ Monad and Base editions (branch main)
+
  payee (PWA)  ── signed invoice as a link or QR (WhatsApp) ──▶  payer (PWA)
      │  till, ledger: statesOf, Paid logs                         │ EIP-3009 authorisation (passkey or wallet)
      ▼                                                            ▼
@@ -122,7 +146,7 @@ Full hashes: Monad testnet `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c1
 | PayPal edition's API | `apps/api` (branch `paypal`) | Twins an invoice on PayPal, verifies webhooks, reconciles both rails, proposes actions the payee approves; holds no chain key and no PayPal money-moving operation | Availability and advice only |
 | SDK | `packages/sdk` | Invoice codec and signing, strict URL format, payment binding, payment router, receipt verification | Reproducing the contract's rules off chain |
 | Chain registry | `packages/chains` | Every address, token, RPC and gas bound per network, EIP-55 checked | The app's root of trust for addresses |
-| Web app | `apps/web` | Vite and strict TypeScript without a UI framework, PWA, three editions from one codebase on `main` (a fourth, Mezo, on the branch `mezo`), served by Cloudflare Pages with a strict CSP and Trusted Types | Showing exactly what is signed |
+| Web app | `apps/web` | Vite and strict TypeScript without a UI framework, PWA, three editions from one codebase on `main`, a fourth (Mezo) on the branch `mezo` and a fifth (PayPal) on this branch, served by Cloudflare Pages with a strict CSP and Trusted Types | Showing exactly what is signed |
 | Relayer | `apps/relayer` | Submits only `payWithAuthorization` and `cancelBySig`, simulates first, rate-limits, never sends value | Availability only: it can delay a payment, never redirect it |
 | Indexer | `apps/indexer` | Payment history, payee totals and statistics from `Paid` and `InvoiceCancelled` | Nothing authoritative: a cache |
 | Design, translations | `packages/design`, `packages/i18n` | v1's "Precision Terminal" design; EN, FR, MG | Presentation |
