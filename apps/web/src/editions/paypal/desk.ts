@@ -399,7 +399,8 @@ export function recordCard(app: App, record: AutoRecordView, actions: DeskAction
 }
 
 /**
- * A red alert: paid on both rails (with the guide), or hands off. Nothing on it acts. The card stays a list item (a list
+ * A red alert: paid on both rails (with the guide), a record of a chain payment gone from PayPal (its two proposals are
+ * on the desk), or hands off. Nothing on it acts. The card stays a list item (a list
  * holds list items only, WCAG 1.3.1); its content is the `alert` region, announced when the desk shows it.
  */
 export function alertCard(app: App, alert: AlertView): HTMLLIElement {
@@ -411,7 +412,7 @@ export function alertCard(app: App, alert: AlertView): HTMLLIElement {
     h(
       "div",
       { attrs: { role: "alert" } },
-      h("div", { class: "desk-card-head" }, lamp("err", alert.situation === "S4" ? t("paypal.alert.paidTwicePill") : t("paypal.alert.handsOffPill"), true), h("span", { class: "view-meta" }, alert.invoiceNumber ?? shortHex(alert.key))),
+      h("div", { class: "desk-card-head" }, lamp("err", alert.situation === "S4" ? t("paypal.alert.paidTwicePill") : alert.situation === "S3" ? t("paypal.alert.recordMissingPill") : t("paypal.alert.handsOffPill"), true), h("span", { class: "view-meta" }, alert.invoiceNumber ?? shortHex(alert.key))),
       h("h3", { class: "desk-card-title" }, alertText(app, alert.code)),
       alert.situation === "S4"
         ? h(
@@ -421,7 +422,7 @@ export function alertCard(app: App, alert: AlertView): HTMLLIElement {
             h("li", null, t("paypal.alert.guide2")),
             h("li", null, t("paypal.alert.guide3")),
           )
-        : h("p", { class: "field-hint" }, t("paypal.alert.handsOffNote")),
+        : h("p", { class: "field-hint" }, alert.situation === "S3" ? t("paypal.alert.recordMissingNote") : t("paypal.alert.handsOffNote")),
       raised === null ? null : h("p", { class: "field-hint" }, t("paypal.alert.raised", { time: formatDateTime(app.locale, raised) })),
     ),
   );

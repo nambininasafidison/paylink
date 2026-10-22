@@ -288,9 +288,14 @@ test.describe("create: the assistant sheet (F1)", () => {
     await noAiOnMoneyScreens(a.page, ["@cf/google/gemma-4-26b-a4b-it", "AI draft"]);
     await a.page.locator(".signing + .key-row .key-primary").click();
     await expect(a.page.locator(".ticket")).toBeVisible();
-    // The twin panel starts from the draft's client details.
+    // The twin panel comes first under "Invoice signed", before the card and the share keys; its key is the primary one
+    // until the twin exists, and the form's own key steps back meanwhile.
     const panel = a.page.locator("section.twin");
     await expect(panel).toHaveAttribute("data-state", "ready");
+    await expect(a.page.locator(".issued > :first-child")).toHaveClass(/\btwin\b/);
+    await expect(panel.locator("[data-action=make-twin]")).toHaveClass(/\bkey-primary\b/);
+    await expect(a.page.locator(".view-create > .key")).toHaveClass(/\bkey-line\b/);
+    await expect(a.page.locator(".ticket")).toContainText("Pay on PayPal, or in USDC from any wallet.");
     await expect(panel.locator("#twin-name")).toHaveValue("Sarah");
     await expect(panel.locator("#twin-due")).toHaveValue(inDays(14));
     await expect(panel.locator("[data-action=make-twin]")).toHaveText("Make the PayPal twin · 120.00 USD");
@@ -474,8 +479,15 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
     await expect(paypal).toContainText("Pay with PayPal");
     await expect(chooser.locator(".route-note")).toContainText("On PayPal's page · sandbox · 120.00 USD checked against the signed invoice");
     await expect(chooser.locator(".rails-or")).toHaveText("or in USDC from your wallet");
-    // The token rail is the page's own key, unchanged; the page asked the public route about this link's key only.
-    await expect(a.page.locator(".payform .key-primary")).toBeEnabled();
+    // PayPal is the primary key; the token rail is the page's own key, the second way (a payer without a wallet, the
+    // judges' path B, meets PayPal first). The page asked the public route about this link's key only.
+    await expect(paypal).toHaveClass(/\bkey-primary\b/);
+    const tokenKey = a.page.locator(".payform > .key");
+    await expect(tokenKey).toHaveClass(/\bkey-line\b/);
+    await expect(tokenKey).not.toHaveClass(/\bkey-primary\b/);
+    await expect(tokenKey).toHaveText("Or pay in USDC from a wallet");
+    await expect(tokenKey).toBeEnabled();
+    expect(await paypal.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(await tokenKey.evaluate((el) => el.getBoundingClientRect().top));
     expect(a.api.to("rails.get").map((c) => c.params["key"])).toEqual([key]);
     expect(a.api.to("rails.get")[0]?.token).toBeNull();
     await noAiOnMoneyScreens(a.page);
@@ -503,7 +515,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
       await expect(chooser, `${url} ${amount}`).toHaveAttribute("data-rails", `hidden-${reason}`);
       await expect(chooser.locator(`[data-withheld=${reason}]`)).toContainText("PayPal option withheld.");
       await expect(chooser.locator("a")).toHaveCount(0);
-      await expect(a.page.locator(".payform .key-primary")).toBeEnabled();
+      await expect(a.page.locator(".payform > .key")).toBeEnabled();
       if (reason === "host" && url.includes("evil")) {
         await snap(a, "rails-withheld");
       }
@@ -517,7 +529,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
       const chooser = a.page.locator(".rails");
       await expect(chooser).toHaveAttribute("data-rails", /^hidden-(none|closed)$/);
       await expect(chooser).toHaveText("");
-      await expect(a.page.locator(".payform .key-primary")).toBeEnabled();
+      await expect(a.page.locator(".payform > .key")).toBeEnabled();
       await a.context.close();
     }
   });
@@ -527,7 +539,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
     const chooser = a.page.locator(".rails");
     await expect(chooser).toHaveAttribute("data-rails", "paid");
     await expect(chooser.locator("[data-hold=paid]")).toContainText("PayPal says this invoice is paid.");
-    const key = a.page.locator(".payform .key-primary");
+    const key = a.page.locator(".payform > .key");
     await expect(key).toHaveText(/Payment locked/);
     await snap(a, "rails-paid");
     await chooser.locator("[data-action=not-paid-on-paypal]").check();
@@ -543,7 +555,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
     await expect(chooser).toHaveAttribute("data-rails", "pending");
     await expect(chooser.locator("[data-hold=pending]")).toContainText("A PayPal payment is in progress.");
     await expect(chooser.locator("a")).toHaveCount(0);
-    await expect(a.page.locator(".payform .key-primary")).toHaveText(/Payment locked/);
+    await expect(a.page.locator(".payform > .key")).toHaveText(/Payment locked/);
     await snap(a, "rails-pending");
     await clean(a);
   });
@@ -566,7 +578,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
       await a.page.goto(link);
       const chooser = a.page.locator(".rails");
       await expect(chooser.locator(`[data-hold=${hold}]`)).toContainText(words);
-      await expect(a.page.locator(".payform .key-primary")).toHaveText(/Payment locked/);
+      await expect(a.page.locator(".payform > .key")).toHaveText(/Payment locked/);
       await snap(a, `rails-${hold}`);
       await a.context.close();
     }
@@ -575,7 +587,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
   test("pays in PayPal USD from the payer's own wallet on Ethereum Sepolia: one authorisation, one transaction, the receipt", async ({ browser }) => {
     const a = await payPage(browser, pyusdLink, ok(rails({ status: "none" })));
     const before = await chain.balanceOf(PYUSD.address, ACCOUNTS.payee);
-    const key = a.page.locator(".payform .key-primary");
+    const key = a.page.locator(".payform > .key");
     await key.click(); // connect
     await expect(key).toContainText("Pay 12.50 PYUSD");
     await expect(a.page.locator(".route-note")).toHaveText("One signature, then one transaction with your own network fee.");
@@ -632,7 +644,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
     await payee.page.locator(".view-till > .key-primary").click();
     await expect(payee.page.locator(".till")).toHaveAttribute("data-state", "waiting");
     const payer = await payPage(browser, fresh, ok(rails({ status: "none" })));
-    const key = payer.page.locator(".payform .key-primary");
+    const key = payer.page.locator(".payform > .key");
     await key.click();
     await expect(key).toContainText("Pay 33.00 USDC");
     await key.click();
@@ -995,6 +1007,15 @@ test.describe("ledger (F7) and status (F8)", () => {
     await expect(cell.locator(".twin-no")).toHaveText(numberOf(key));
     await expect(cell).toHaveAttribute("data-paid", "PAYPAL");
     await expect(cell.locator(".rail-tag.is-on")).toHaveText("PAYPAL");
+    // Paid on PayPal (S2) while the chain is open: the row says so, never "Awaiting payment", and its amount adds up as
+    // received on PayPal, apart from the chain's totals (the review of 2026-10-22).
+    const row = a.page.locator("ul.links > li", { has: cell });
+    await expect(row).toHaveClass(/\bis-paid\b/);
+    await expect(row.locator(".row-main > .pill")).toHaveText("Paid on PayPal");
+    await expect(row.locator(".row-meta")).toHaveText(`Paid on PayPal · ${numberOf(key)}`);
+    await expect(a.page.locator(".tally [data-paypal-total]")).toContainText("120.00");
+    await expect(a.page.locator(".tally [data-paypal-total]")).toContainText("On PayPal");
+    await expect(a.page.locator(".tally-label")).toHaveText("Received on chain, all invoices");
     expect(a.api.to("twin.get").map((c) => c.params["key"])).toContain(key);
     await snap(a, "ledger-rails");
     const download = a.page.waitForEvent("download");
@@ -1065,10 +1086,18 @@ for (const locale of ["en", "fr", "mg"] as const) {
       await a.page.locator("#amount").fill("120");
       const link = await createInvoice(a, "120", "", { fill: false });
       const key = await lastKey(a.page);
+      // The twin panel ready (its key the primary one, the longest label of the page in Malagasy), then created.
+      await expect(a.page.locator("section.twin")).toHaveAttribute("data-state", "ready");
+      await audit("twin ready");
       a.api.on("twin.create", ok(twin(key), 201));
       await a.page.locator("section.twin [data-action=make-twin]").click();
       await expect(a.page.locator("section.twin")).toHaveAttribute("data-state", "created");
       await audit("twin created");
+      // The ledger with that invoice paid on PayPal (S2).
+      a.api.on("twin.get", ok(twin(key, { status: "PAID", statusClass: "paid", situation: "S2" })));
+      await a.page.goto(`${server.origin}/paypal/ledger/`);
+      await expect(a.page.locator(`[data-rail-cell="${key}"]`)).toHaveAttribute("data-paid", "PAYPAL");
+      await audit("ledger");
       // Pay: both rails.
       a.api.on("rails.get", ok(rails({ status: "open", amount: "120.00", currency: "USD", url: PAYER_PAGE, checkedAt: new Date().toISOString() })));
       await a.page.goto(link);
@@ -1081,8 +1110,13 @@ for (const locale of ["en", "fr", "mg"] as const) {
       // Desk: alerts, proposals with the assistant's note, records, and a verdict.
       const D = keyOf(0xd4);
       a.api.on("desk.get", ok(desk({
-        alerts: [alert(D), alert(keyOf(0xc3), { situation: "S0", code: "paypal-unreadable" })],
-        proposals: [proposal(keyOf(0xa1)), proposal(keyOf(0xb2), { kind: "share_reminder_text", origin: "assistant", reasonCode: "share-reminder", message: { text: "Hello Sarah, a friendly reminder about invoice PL-11155111-b2b2b2b2b2b2 for 120.00 USD.", language: "en", grounded: true } })],
+        alerts: [alert(D), alert(keyOf(0xc3), { situation: "S0", code: "paypal-unreadable" }), alert(keyOf(0x97), { situation: "S3", code: "record-missing" })],
+        proposals: [
+          proposal(keyOf(0xa1)),
+          proposal(keyOf(0xb2), { kind: "share_reminder_text", origin: "assistant", reasonCode: "share-reminder", message: { text: "Hello Sarah, a friendly reminder about invoice PL-11155111-b2b2b2b2b2b2 for 120.00 USD.", language: "en", grounded: true } }),
+          // PayPal's own reminder: its key is the desk's longest label in Malagasy ("Alefaso ny fampahatsiahivan'ny PayPal").
+          proposal(keyOf(0xf6), { kind: "send_reminder", situation: "S1", reasonCode: "reminder-due" }),
+        ],
         autoRecords: [autoRecord(keyOf(0xe5))],
       })));
       a.api.on("check", ok(check({ links: [{ host: "paypa1-secure.example", allowed: false }] })));

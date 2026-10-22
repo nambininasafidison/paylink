@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
- * L3, the two PayPal rails end to end (docs/paypal/SPEC.md §15.2, e2e/specs/paypal-rails.spec.ts). Nothing is mocked
- * between the page and the chain or PayPal's API surface:
+ * L3, the two rails (PayPal, and dollars on chain) end to end (docs/paypal/SPEC.md §15.2, e2e/specs/paypal-rails.spec.ts).
+ * Nothing is mocked between the page and the chain or PayPal's API surface:
  *
  * - **The chain:** an anvil fork of the real Ethereum Sepolia (chain 11155111, its RPC
  *   https://ethereum-sepolia-rpc.publicnode.com). PayLinkV2 is not deployed there yet (decision D-CHAIN), so the fork

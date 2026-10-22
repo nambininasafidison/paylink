@@ -16,7 +16,7 @@ import type { App } from "../../src/app/context.ts";
 import type { ChainClient } from "../../src/core/clients.ts";
 import { ApiError, getDesk, getHealth, getRails, paypalApi, postApprove, postDraft, postTwin, routePath } from "../../src/editions/paypal/api.ts";
 import { failureText } from "../../src/editions/paypal/context.ts";
-import { paidRail, railColumns } from "../../src/editions/paypal/ledger.ts";
+import { paidRail, paypalPaid, railColumns } from "../../src/editions/paypal/ledger.ts";
 import { baseFromDecimal, seconds, usdFromBase } from "../../src/editions/paypal/money.ts";
 import { PAYPAL_PAYER_HOSTS, payerUrl, railVerdict, tokenControls, twinnable } from "../../src/editions/paypal/rails.ts";
 import { forgetSession, openSession, sessionMessage, storedSession, withSession } from "../../src/editions/paypal/session.ts";
@@ -278,6 +278,13 @@ describe("the twin cache and the ledger's rail column", () => {
     expect(railColumns(row)).toEqual(["PAYPAL", "PL-11155111-abababababab"]);
     expect(paidRail({ status: "paid", link: link() }, null)).toBe("USDC");
     expect(paidRail({ status: "payable", link: link() }, null)).toBeNull();
+    // Paid on chain, PayPal showing PayLink's own record of it (MARKED_AS_PAID or PAID): the chain's rail paid it.
+    expect(paidRail({ status: "paid", link: link() }, { statusClass: "paid-outside" })).toBe("USDC");
+    expect(paidRail({ status: "paid", link: link() }, { statusClass: "paid" })).toBe("USDC");
+    expect(paypalPaid({ status: "paid" }, { statusClass: "paid" })).toBeNull();
+    expect(paypalPaid({ status: "payable" }, { statusClass: "paid" })).toBe("paid");
+    expect(paypalPaid({ status: "payable" }, { statusClass: "paid-outside" })).toBe("marked");
+    expect(paypalPaid({ status: "payable" }, { statusClass: "open" })).toBeNull();
     localStorage.setItem("paylink.paypal.twins", JSON.stringify({ [KEY]: { number: 7 }, "0xnot-a-key": { number: "x", status: "PAID", checkedAt: "t" } }));
     expect(cachedTwin(KEY)).toBeNull();
     localStorage.setItem("paylink.paypal.twins", "{not json");

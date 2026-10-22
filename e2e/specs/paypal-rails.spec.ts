@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
- * L3: one link, two PayPal rails, end to end (docs/paypal/SPEC.md §3.2 "Cross-rail close", §10, §15.2), on an anvil fork
- * of the real Ethereum Sepolia with PayLinkV2 deployed at its release CREATE2 address, Circle's USDC, apps/api's offline
- * Node entry with the PayPal fake, and the production build of the PayPal edition (e2e/fixtures/paypal-rails.ts).
+ * L3: one link, two rails (PayPal, and USDC or PayPal USD on chain), end to end (docs/paypal/SPEC.md §3.2 "Cross-rail
+ * close", §10, §15.2), on an anvil fork of the real Ethereum Sepolia with PayLinkV2 deployed at its release CREATE2
+ * address, Circle's USDC, apps/api's offline Node entry with the PayPal fake, and the production build of the PayPal
+ * edition (e2e/fixtures/paypal-rails.ts).
  *
  * (a) The payer pays on PayPal: the fake's signed webhook reaches the API, which verifies it by P10 and reads the truth
  *     with P5; the payee's till lights "via PAYPAL"; the desk proposes cancelling the PayLink invoice; the payee taps,
@@ -188,7 +189,7 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     const payeeBefore = await fork.usdcOf(ACCOUNTS.payee);
     await payPage(payer, link);
     await expect(payer.page.locator(".rails")).toHaveAttribute("data-rails", "both");
-    const pay = payer.page.locator(".payform .key-primary");
+    const pay = payer.page.locator(".payform > .key");
     await pay.click();
     await expect(pay).toContainText("Pay 75.00 USDC");
     await pay.click();

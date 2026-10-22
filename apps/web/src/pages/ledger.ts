@@ -19,7 +19,7 @@ import { intro, notes, routeHref } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
 import { pickWallet } from "../app/wallet-ui.ts";
 import { activityBlock } from "./ledger-history.ts";
-import { paintRails, RAIL_CSV_COLUMNS, railColumns, refreshRails } from "../editions/paypal/ledger.ts";
+import { matchesPaypalFilter, paintPaypalTotals, paintRails, RAIL_CSV_COLUMNS, railColumns, refreshRails } from "../editions/paypal/ledger.ts";
 import { decodeUiError } from "../core/errors.ts";
 import { displayAmount, figureWidth, shortHex } from "../core/format.ts";
 import { payUrl, receiptUrl, tillUrl } from "../core/links.ts";
@@ -116,12 +116,15 @@ async function renderLedger(app: App, ui: PageUi, section: HTMLElement): Promise
   ui.plate(t("ledger.plate"), snapshot.unreachable.length > 0 ? "wait" : "ok");
   const status = statusLine();
   const list = h("ul", { class: "links" });
+  const totals = { tally: tally(app, snapshot), footing: footing(app, snapshot) };
   const paint = (): void => {
-    const rows = snapshot.rows.filter((row) => matchesFilter(row, filter));
+    // PayPal edition: an invoice paid on PayPal is paid here too (ADR 0018), whatever the chain's open state.
+    const rows = snapshot.rows.filter((row) => (__PAYLINK_EDITION__ === "paypal" ? matchesPaypalFilter(row, filter, matchesFilter) : matchesFilter(row, filter)));
     replace(list, rows.length === 0 ? h("li", { class: "is-message" }, t("ledger.emptyFilter")) : rows.map((row) => ledgerRow(app, row, status, () => { void renderLedger(app, ui, section); })));
     if (__PAYLINK_EDITION__ === "paypal") {
-      // The rail column (ADR 0018): which rail paid each invoice, and its PayPal twin's number.
+      // The rail column (ADR 0018): which rail paid each invoice, and its PayPal twin's number; and what PayPal took.
       paintRails(app, rows, list);
+      paintPaypalTotals(app, snapshot.rows, totals);
     }
   };
   if (snapshot.rows.length === 0) {
@@ -174,18 +177,20 @@ async function renderLedger(app: App, ui: PageUi, section: HTMLElement): Promise
   paint();
   if (__PAYLINK_EDITION__ === "paypal") {
     // The PayPal twins of these invoices, read again once per view when a desk session is open (no signature here).
-    refreshRails(app, snapshot.rows, list);
+    refreshRails(app, snapshot.rows, list, () => {
+      paintPaypalTotals(app, snapshot.rows, totals);
+    });
   }
   replace(
     section,
     head,
-    tally(app, snapshot),
+    totals.tally,
     h("div", { class: "ledger-tools" }, filterSeg.element, exportKey),
     snapshot.unreachable.map((chainId) => h("p", { class: "warn-note" }, t("ledger.unreachable", { network: networkName(app.registry.getOrThrow(chainId)) }))),
     snapshot.skipped > 0 ? h("p", { class: "field-hint" }, app.i18n.plural("ledger.skipped", snapshot.skipped, {})) : null,
     h("div", { class: "ledger-head", attrs: { "aria-hidden": "true" } }, h("span", null, t("ledger.cols.invoice")), h("span", null, t("ledger.cols.amount"))),
     list,
-    footing(app, snapshot),
+    totals.footing,
     status,
     app.config.indexer === null ? null : h("p", { class: "field-hint" }, t("ledger.history")),
     activityBlock(app, account.address, snapshot),

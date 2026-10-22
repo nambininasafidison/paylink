@@ -189,7 +189,7 @@ const proposalShape = (): Shape =>
 const deskMembers = (): Readonly<Record<string, Shape>> => ({
   proposals: list(proposalShape(), 200),
   autoRecords: list(object({ id: text(128), key: key(), invoiceNumber: text(64), paymentId: text(64), rail: rail(), txHash: hex32(), recordedAt: iso(), undoUntil: iso(), undone: bool }), 200),
-  alerts: list(object({ key: key(), invoiceNumber: nullable(text(64)), situation: oneOf("S0", "S4"), code: code(), raisedAt: iso() }), 200),
+  alerts: list(object({ key: key(), invoiceNumber: nullable(text(64)), situation: oneOf("S0", "S3", "S4"), code: code(), raisedAt: iso() }), 200),
   checkedAt: nullable(iso()),
   assistant: object({ available: bool, reason: nullable(oneOf("disabled", "resting", "error")) }),
 });
@@ -199,7 +199,7 @@ const sweepShape = (): Shape => object({ ...deskMembers(), sweep: object({ check
 
 const approveShape = (): Shape =>
   either(
-    object({ state: oneOf("done"), proposalId: text(128) }),
+    object({ state: oneOf("done"), proposalId: text(128), unconfirmed: optional(oneOf(true)) }),
     object({ state: oneOf("signature-required"), proposalId: text(128), cancel: object({ key: key(), deadline: text(20, /^\d{1,20}$/) }) }),
   );
 

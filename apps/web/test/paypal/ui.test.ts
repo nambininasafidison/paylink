@@ -281,6 +281,16 @@ describe("the desk's cards", () => {
     expect(card.querySelector("[data-action=approve]")).toBeNull();
   });
 
+  it("a reminder PayPal may have sent without answering reads done, and says it counts as sent", async () => {
+    const act = actions({ approve: (p) => Promise.resolve<ApproveResponse>({ state: "done", proposalId: p.id, unconfirmed: true }) });
+    const card = proposalCard(paypalApp(), proposal({ kind: "send_reminder", reasonCode: "reminder-due" }), act);
+    card.querySelector<HTMLButtonElement>("[data-action=approve]")?.click();
+    await tick();
+    expect(card.getAttribute("data-state")).toBe("done");
+    expect(card.querySelector(".status")?.textContent).toContain("PayPal did not answer. It may have sent the reminder");
+    expect(card.querySelector("[data-action=approve]")).toBeNull();
+  });
+
   it("reads stale when the executor's fresh read disagrees (409), and offers to read the desk again", async () => {
     const act = actions({ approve: () => Promise.reject(new ApiError(409, "stale", "E_STALE")) });
     const card = proposalCard(paypalApp(), proposal(), act);
@@ -339,6 +349,12 @@ describe("the desk's cards", () => {
     const off = alertCard(paypalApp(), alert({ situation: "S0", code: "amount-mismatch" }));
     expect(off.querySelector(".desk-card-title")?.textContent).toBe("The PayPal invoice's amount differs from the signed amount.");
     expect(alertCard(paypalApp(), alert({ situation: "S0", code: "brand-new-code" as DeskAlertCode })).querySelector(".desk-card-title")?.textContent).toBe("The rails disagree for this invoice.");
+    // A record of a chain payment gone from PayPal: its own pill and note; the two proposals are elsewhere on the desk.
+    const missing = alertCard(paypalApp(), alert({ situation: "S3", code: "record-missing" }));
+    expect(missing.querySelector(".pill")?.textContent).toBe("PayPal open again");
+    expect(missing.querySelector(".desk-card-title")?.textContent).toContain("no longer on the PayPal invoice");
+    expect(missing.textContent).toContain("record the chain payment on PayPal again, or cancel the PayPal invoice");
+    expect(missing.querySelector("button")).toBeNull();
   });
 });
 
