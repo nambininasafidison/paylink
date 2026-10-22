@@ -275,6 +275,8 @@
   "paypal.status.lastWebhook": "Webhook voamarina farany {age} lasa, {time}",
   "paypal.status.assistantOff": "Maty: mandeha avokoa ny zavatra rehetra tsy misy azy",
   "paypal.status.model": "Cloudflare Workers AI · {model} · neurone {budget} isan'andro",
+  "paypal.status.modelLeft": "Cloudflare Workers AI · {model} · neurone {left} sisa amin'ny {budget} anio",
+  "paypal.status.resting": "Miala sasatra hatramin'ny 00:00 UTC: lany ny neurone {budget} anio. Mbola mandeha avokoa ny fomba tsy mampiasa azy.",
   "paypal.status.deployed": "Napetraka ny PayLinkV2",
   "paypal.status.notDeployed": "Mbola tsy napetraka amin'ny Ethereum Sepolia ny PayLinkV2",
   "paypal.status.storeOk": "Azo vakiana",

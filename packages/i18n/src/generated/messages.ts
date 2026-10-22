@@ -1138,6 +1138,8 @@ export type MessageKey =
   | "paypal.status.lastWebhook"
   | "paypal.status.assistantOff"
   | "paypal.status.model"
+  | "paypal.status.modelLeft"
+  | "paypal.status.resting"
   | "paypal.status.deployed"
   | "paypal.status.notDeployed"
   | "paypal.status.storeOk"
@@ -2323,6 +2325,8 @@ export interface MessageParams {
   readonly "paypal.status.lastWebhook": { readonly age: ParamValue; readonly time: ParamValue };
   readonly "paypal.status.assistantOff": never;
   readonly "paypal.status.model": { readonly budget: ParamValue; readonly model: ParamValue };
+  readonly "paypal.status.modelLeft": { readonly budget: ParamValue; readonly left: ParamValue; readonly model: ParamValue };
+  readonly "paypal.status.resting": { readonly budget: ParamValue };
   readonly "paypal.status.deployed": never;
   readonly "paypal.status.notDeployed": never;
   readonly "paypal.status.storeOk": never;
@@ -2840,6 +2844,8 @@ export type EditionKey =
   | "paypal.status.lastWebhook"
   | "paypal.status.assistantOff"
   | "paypal.status.model"
+  | "paypal.status.modelLeft"
+  | "paypal.status.resting"
   | "paypal.status.deployed"
   | "paypal.status.notDeployed"
   | "paypal.status.storeOk"

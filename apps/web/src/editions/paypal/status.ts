@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 /**
  * The Status page's PayPal rows (docs/paypal/SPEC.md §14.2 F8): the edition's API, PayPal's sandbox, PayPal's webhook,
- * the assistant and the API's store, each read from the public `GET /v1/health` (no secret, no token, no body) and
- * worded from its fixed codes. A code this page does not know reads by its state alone. The API not answering lights
+ * the assistant (with today's neurons left, or resting) and the API's store, each read from the public `GET /v1/health` (no
+ * secret, no token, no body) and worded from its fixed codes. A code this page does not know reads by its state alone. The API not answering lights
  * every row amber "unknown", never green.
  *
  * Owner: web edition workstream.
  */
 import type { HealthRow, HealthResponse } from "@paylink/api-contract";
-import { formatDateTime, formatSeconds } from "@paylink/i18n";
+import { formatCount, formatDateTime, formatSeconds } from "@paylink/i18n";
 import type { App } from "../../app/context.ts";
 import { h } from "../../ui/h.ts";
 import { getHealth } from "./api.ts";
@@ -29,6 +29,9 @@ function row(name: string): { readonly element: HTMLLIElement; set(state: Light,
 }
 
 const lampOf = (state: HealthRow["state"]): Light => (state === "ok" ? "ok" : state === "down" ? "err" : state === "not-configured" ? "" : "wait");
+
+/** A count of neurons in the page's locale, or a dash when the API did not say. */
+const neurons = (app: Pick<App, "locale">, value: number | undefined): string => (value === undefined ? "—" : formatCount(app.locale, value));
 
 /** The words of one health row: its fixed code, with the time or the number it carries. */
 export function healthText(app: Pick<App, "i18n" | "locale">, item: HealthRow): string {
@@ -59,10 +62,14 @@ export function healthText(app: Pick<App, "i18n" | "locale">, item: HealthRow): 
       return at === "" ? t("paypal.status.storeOk") : t("paypal.status.storeCron", { time: at });
     case "unreadable":
       return t("paypal.status.storeDown");
+    case "resting":
+      return t("paypal.status.resting", { budget: neurons(app, item.values?.["dailyNeuronBudget"]) });
     default:
       if (item.code.startsWith("model:")) {
-        const budget = item.values?.["dailyNeuronBudget"];
-        return t("paypal.status.model", { model: item.code.slice("model:".length), budget: budget === undefined ? "—" : String(budget) });
+        const model = item.code.slice("model:".length);
+        const budget = neurons(app, item.values?.["dailyNeuronBudget"]);
+        const left = item.values?.["neuronsLeft"];
+        return left === undefined ? t("paypal.status.model", { model, budget }) : t("paypal.status.modelLeft", { model, budget, left: neurons(app, left) });
       }
       return t(`paypal.status.state.${item.state === "not-configured" ? "notConfigured" : item.state}` as "paypal.status.state.ok");
   }

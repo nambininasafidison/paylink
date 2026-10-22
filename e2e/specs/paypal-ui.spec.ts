@@ -38,6 +38,7 @@ import {
   check,
   desk,
   draftAnswer,
+  health,
   inDays,
   keyOf,
   MockApi,
@@ -1020,9 +1021,14 @@ test.describe("ledger (F7) and status (F8)", () => {
     await expect(rows.nth(3)).toHaveAttribute("data-lamp", "ok");
     await expect(rows.nth(3)).toContainText("Last read from PayPal");
     await expect(rows.nth(4)).toContainText("Last verified webhook");
-    await expect(rows.nth(5)).toContainText("Cloudflare Workers AI · @cf/google/gemma-4-26b-a4b-it · 9000 neurons a day");
+    await expect(rows.nth(5)).toContainText("Cloudflare Workers AI · @cf/google/gemma-4-26b-a4b-it · 7,450 of 9,000 neurons left today");
     await expect(rows.nth(6)).toContainText("Readable");
     await snap(a, "status-rows");
+    // Today's allowance spent: the assistant row says it rests, and the manual paths keep working.
+    a.api.on("health", ok(health({ rows: health().rows.map((r) => (r.id === "assistant" ? { ...r, state: "degraded" as const, code: "resting", values: { dailyNeuronBudget: 9000, neuronsLeft: 12 } } : r)) })));
+    await a.page.reload();
+    await expect(rows.nth(5)).toHaveAttribute("data-lamp", "wait");
+    await expect(rows.nth(5)).toContainText("Resting until 00:00 UTC: today's 9,000 neurons are spent. Every manual path works.");
     a.api.on("health", { abort: true });
     await a.page.reload();
     await expect(rows.nth(2)).toHaveAttribute("data-lamp", "err");

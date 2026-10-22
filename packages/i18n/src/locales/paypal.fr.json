@@ -275,6 +275,8 @@
   "paypal.status.lastWebhook": "Dernier webhook vérifié il y a {age}, {time}",
   "paypal.status.assistantOff": "Éteint : tout fonctionne sans lui",
   "paypal.status.model": "Cloudflare Workers AI · {model} · {budget} neurones par jour",
+  "paypal.status.modelLeft": "Cloudflare Workers AI · {model} · {left} neurones sur {budget} restants aujourd'hui",
+  "paypal.status.resting": "Au repos jusqu'à 00:00 UTC : les {budget} neurones du jour sont épuisés. Tous les chemins manuels fonctionnent.",
   "paypal.status.deployed": "PayLinkV2 déployé",
   "paypal.status.notDeployed": "PayLinkV2 pas encore déployé sur Ethereum Sepolia",
   "paypal.status.storeOk": "Lisible",

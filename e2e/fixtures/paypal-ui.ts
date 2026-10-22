@@ -362,7 +362,7 @@ export function health(over: Partial<HealthResponse> = {}): HealthResponse {
     rows: [
       { id: "paypal", state: "ok", code: "last-get", checkedAt: at },
       { id: "webhook", state: "ok", code: "last-verified", checkedAt: at, values: { ageSeconds: 95 } },
-      { id: "assistant", state: "unknown", code: "model:@cf/google/gemma-4-26b-a4b-it", checkedAt: null, values: { dailyNeuronBudget: 9000 } },
+      { id: "assistant", state: "unknown", code: "model:@cf/google/gemma-4-26b-a4b-it", checkedAt: null, values: { dailyNeuronBudget: 9000, neuronsLeft: 7450 } },
       { id: "chain", state: "ok", code: "deployed", checkedAt: null, values: { chainId: SEPOLIA } },
       { id: "store", state: "ok", code: "readable", checkedAt: at },
     ],

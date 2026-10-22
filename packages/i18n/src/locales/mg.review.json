@@ -1134,6 +1134,8 @@
     "paypal.status.lastWebhook",
     "paypal.status.assistantOff",
     "paypal.status.model",
+    "paypal.status.modelLeft",
+    "paypal.status.resting",
     "paypal.status.deployed",
     "paypal.status.notDeployed",
     "paypal.status.storeOk",

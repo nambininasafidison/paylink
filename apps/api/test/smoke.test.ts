@@ -77,6 +77,17 @@ describe("GET /v1/health", () => {
     expect(doc.rows.find((r) => r.id === "store")).toMatchObject({ state: "ok", code: "readable" });
   });
 
+  it("shows the assistant's neurons left today, and resting once a call no longer fits (§9.4)", async () => {
+    const services = testServices();
+    const row = async (): Promise<HealthResponse["rows"][number] | undefined> => ((await (await testApp(services).request("/v1/health")).json()) as HealthResponse).rows.find((r) => r.id === "assistant");
+    expect(await row()).toMatchObject({ code: "model:@cf/google/gemma-4-26b-a4b-it", values: { dailyNeuronBudget: 10_000, neuronsLeft: 10_000 } });
+    await services.stores.global().spendAiBudget("2026-10-21", 9_990, 10_000);
+    // The document is cached 5 seconds per isolate: a new app over the same services after the clock moves reads again.
+    const later = testServices({ runtime: { ...services.runtime, clock: () => T0 + 6_000 }, stores: services.stores });
+    const doc = (await (await testApp(later).request("/v1/health")).json()) as HealthResponse;
+    expect(doc.rows.find((r) => r.id === "assistant")).toMatchObject({ state: "degraded", code: "resting", values: { dailyNeuronBudget: 10_000, neuronsLeft: 10 } });
+  });
+
   it("reports missing PayPal credentials and webhook id without revealing anything", async () => {
     const services = testServices({ runtime: testRuntime({ offline: false }) });
     const doc = (await (await testApp(services).request("/v1/health")).json()) as HealthResponse;
