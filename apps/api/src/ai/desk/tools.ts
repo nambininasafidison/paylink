@@ -191,7 +191,10 @@ export function findTwin(twins: readonly TwinRecord[], id: string): TwinRecord |
 }
 
 /** A page of the list (the toolkit's paging: `page` from 1, `page_size` up to 100, default 20). */
-export function paged(items: readonly unknown[], args: { readonly page?: number | undefined; readonly page_size?: number | undefined; readonly total_required?: boolean | undefined }): Readonly<Record<string, unknown>> {
+export function paged<T>(
+  items: readonly T[],
+  args: { readonly page?: number | undefined; readonly page_size?: number | undefined; readonly total_required?: boolean | undefined },
+): { readonly items: readonly T[]; readonly page: number; readonly page_size: number; readonly total_items?: number } {
   const size = args.page_size ?? 20;
   const number = args.page ?? 1;
   const slice = items.slice((number - 1) * size, number * size);

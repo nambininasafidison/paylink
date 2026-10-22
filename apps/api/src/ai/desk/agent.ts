@@ -10,8 +10,9 @@
  * - every effect goes through `toolbox.propose`, the reconciler's fence (src/reconciler/desk.ts): a kind, a twin or a
  *   value outside it is refused there and logged `fence.reject`; what it queues waits for the payee's tap on exact
  *   values (AI-3), and the executor reads PayPal and the chain again before acting;
- * - every text the model writes is checked (src/ai/desk/grounding.ts): numbers from the tool data only, no links,
- *   contacts, addresses, threats or legal claims; a failing message is dropped and the proposal shows fixed text (AI-5);
+ * - every text the model writes is checked (src/ai/desk/grounding.ts): its amounts, dates and invoice numbers are the
+ *   typed values of the proposal's own twin, and only of a twin a read tool returned in this run; no links, contacts,
+ *   addresses, threats or legal claims; a failing message is dropped and the proposal shows fixed text (AI-5);
  * - the conversation is append-only; tool results travel only in `tool` messages (AI-7);
  * - limits: 6 turns, 12 tool calls, 5 proposals, 800 output tokens a turn, 4 KiB of arguments a call (E);
  * - a refusal, a cut-off answer, a timeout or an answer out of shape ends the run: the desk keeps the reconciler's own
@@ -26,8 +27,9 @@ import type { DeskAgent, DeskToolbox } from "../../reconciler/desk.ts";
 import { chargeQuota } from "../../store/quotas.ts";
 import { antananarivoToday } from "../dates.ts";
 import { DESK_REQUEST, deskInstructions } from "../prompts.ts";
+import type { TwinRecord } from "../../store/types.ts";
 import type { AiMessage, AiToolCall } from "../types.ts";
-import { checkMessage, groundSet } from "./grounding.ts";
+import { checkMessage, factsOfTwin, NO_FACTS, unionFacts } from "./grounding.ts";
 import { chainView, DESK_TOOLS, findTwin, invoiceView, isDeskTool, paged, TOOL_ARGUMENTS } from "./tools.ts";
 import type { DeskToolName } from "./tools.ts";
 
@@ -60,8 +62,8 @@ interface RunState {
   readonly toolbox: DeskToolbox;
   readonly locale: Locale;
   readonly limits: DeskLimits;
-  /** Everything the read tools returned in this run: the data numbers must come from. */
-  ground: string;
+  /** The twins a read tool returned in this run, by key: a message may state only facts of one of these (AI-5). */
+  readonly read: Map<string, TwinRecord>;
   toolCalls: number;
   proposed: number;
   refusedByFence: number;
@@ -86,15 +88,20 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
   }
   const name: DeskToolName = call.name;
   const { toolbox } = state;
-  const read = (value: unknown): string => {
-    const text = result(value);
-    state.ground += `\n${text}`;
-    return text;
+  const read = (value: unknown, twins: readonly TwinRecord[]): string => {
+    for (const twin of twins) {
+      state.read.set(twin.key, twin);
+    }
+    return result(value);
   };
   switch (name) {
     case "list_invoices": {
       const args = TOOL_ARGUMENTS.list_invoices.safeParse(raw);
-      return args.success ? read(paged(toolbox.twins.map(invoiceView), args.data)) : result({ error: "invalid_arguments" });
+      if (!args.success) {
+        return result({ error: "invalid_arguments" });
+      }
+      const page = paged(toolbox.twins, args.data);
+      return read({ ...page, items: page.items.map(invoiceView) }, page.items);
     }
     case "get_invoice": {
       const args = TOOL_ARGUMENTS.get_invoice.safeParse(raw);
@@ -102,7 +109,7 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
         return result({ error: "invalid_arguments" });
       }
       const twin = findTwin(toolbox.twins, args.data.invoice_id);
-      return twin === null ? result({ error: "not_found" }) : read(invoiceView(twin));
+      return twin === null ? result({ error: "not_found" }) : read(invoiceView(twin), [twin]);
     }
     case "search_invoicing": {
       const args = TOOL_ARGUMENTS.search_invoicing.safeParse(raw);
@@ -113,7 +120,8 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
       const matches = toolbox.twins.filter(
         (t) => (f.status === undefined || (t.lastStatus !== null && f.status.includes(t.lastStatus))) && (f.invoice_number === undefined || t.invoiceNumber === f.invoice_number) && (f.reference === undefined || t.key === f.reference.toLowerCase()),
       );
-      return read(paged(matches.map(invoiceView), args.data));
+      const page = paged(matches, args.data);
+      return read({ ...page, items: page.items.map(invoiceView) }, page.items);
     }
     case "chain_invoice_state": {
       const args = TOOL_ARGUMENTS.chain_invoice_state.safeParse(raw);
@@ -121,7 +129,7 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
         return result({ error: "invalid_arguments" });
       }
       const twin = findTwin(toolbox.twins, args.data.invoice_key);
-      return twin === null ? result({ error: "not_found" }) : read(chainView(twin));
+      return twin === null ? result({ error: "not_found" }) : read(chainView(twin), [twin]);
     }
     case "list_chain_payments": {
       const args = TOOL_ARGUMENTS.list_chain_payments.safeParse(raw);
@@ -129,11 +137,8 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
         return result({ error: "invalid_arguments" });
       }
       const since = args.data.since;
-      const payments = toolbox.twins
-        .filter((t) => t.chainPayment !== null)
-        .map(chainView)
-        .filter((v) => since === undefined || ((v["payment"] as { paid_on: string } | null)?.paid_on ?? "") >= since);
-      return read({ items: payments });
+      const paid = toolbox.twins.filter((t) => t.chainPayment !== null && (since === undefined || new Date(t.chainPayment.timestamp * 1000).toISOString().slice(0, 10) >= since));
+      return read({ items: paid.map(chainView) }, paid);
     }
     case "allowed_actions": {
       const args = TOOL_ARGUMENTS.allowed_actions.safeParse(raw);
@@ -141,7 +146,8 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
         return result({ error: "invalid_arguments" });
       }
       const fence = await toolbox.allowedActions(args.data.invoice_key);
-      return read({ invoice_key: args.data.invoice_key.toLowerCase(), actions: fence.map((a) => ({ kind: a.kind, proposable: a.actor !== "automatic", reason_code: a.reasonCode, values: a.args })) });
+      const twin = findTwin(toolbox.twins, args.data.invoice_key);
+      return read({ invoice_key: args.data.invoice_key.toLowerCase(), actions: fence.map((a) => ({ kind: a.kind, proposable: a.actor !== "automatic", reason_code: a.reasonCode, values: a.args })) }, twin === null ? [] : [twin]);
     }
     case "propose_action": {
       const args = TOOL_ARGUMENTS.propose_action.safeParse(raw);
@@ -155,7 +161,9 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
       }
       let message: { readonly text: string; readonly language: Locale; readonly grounded: boolean } | undefined;
       if (args.data.message !== undefined) {
-        const checked = checkMessage(args.data.message, groundSet(state.ground));
+        // Grounded in the target twin's own facts, and only if a read tool returned that twin in this run.
+        const target = state.read.get(args.data.invoice_key.toLowerCase());
+        const checked = checkMessage(args.data.message, target === undefined ? NO_FACTS : factsOfTwin(target));
         if (!checked.grounded) {
           state.messagesDropped += 1;
           log.log("warn", "a2.message-dropped", { problems: [...checked.problems], ungrounded: [...checked.ungrounded].slice(0, 5) });
@@ -200,7 +208,7 @@ export function createDeskAgent(options: { readonly limits?: DeskLimits; readonl
       throw error;
     }
     const locale = localeOf(toolbox);
-    const state: RunState = { toolbox, locale, limits, ground: "", toolCalls: 0, proposed: 0, refusedByFence: 0, messagesDropped: 0 };
+    const state: RunState = { toolbox, locale, limits, read: new Map(), toolCalls: 0, proposed: 0, refusedByFence: 0, messagesDropped: 0 };
     const messages: AiMessage[] = [
       { role: "system", content: deskInstructions(antananarivoToday(now), locale, limits) },
       { role: "user", content: DESK_REQUEST },
@@ -216,7 +224,7 @@ export function createDeskAgent(options: { readonly limits?: DeskLimits; readonl
       }
       if (answer.text !== null) {
         // Shown nowhere, checked anyway: a model that writes ungrounded numbers is logged (AI-5 on every message).
-        const checked = checkMessage(answer.text, groundSet(state.ground));
+        const checked = checkMessage(answer.text, unionFacts([...state.read.values()].map(factsOfTwin)));
         if (!checked.grounded) {
           logger.log("info", "a2.summary-ungrounded", { problems: [...checked.problems] });
         }

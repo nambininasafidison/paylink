@@ -7,8 +7,8 @@
  * - `allowedActions(K)`: the fence of the twin's last reconciliation, read-only;
  * - `propose(...)`: queues a proposal **only** if its kind and values are exactly a tap action of that fence; anything
  *   else is dropped and logged `fence.reject` (§9.2 A2). The stored values are the fence's, never the model's; the
- *   reason code is the fence's; the model's text is kept only if it was grounded (AI-5) and is shown in a `data-ai` box
- *   (AI-4).
+ *   reason code is the fence's; the model's text is kept only if it is grounded in that twin's own facts (AI-5, checked
+ *   again here) and is shown in a `data-ai` box (AI-4).
  *
  * The assistant itself (`DeskAgent`) is the AI workstream's; the sweep runs without one and says so.
  *
@@ -16,6 +16,7 @@
  */
 import type { Address, AlertView, AutoRecordView, DeskResponse, ExactValue, InvoiceKey, Locale, ProposalView, Rail } from "@paylink/api-contract";
 import { PROPOSAL_KINDS } from "@paylink/api-contract";
+import { checkMessage, factsOfTwin } from "../ai/desk/grounding.ts";
 import { APPROVAL_TTL_MS } from "../approvals/types.ts";
 import type { ApiServices } from "../core/services.ts";
 import { chargeQuota } from "../store/quotas.ts";
@@ -96,7 +97,12 @@ export async function proposeFromAssistant(services: ApiServices, payee: Address
     return reject("values-differ");
   }
   const id = await proposalId(action.kind, twin.key, action.args);
-  const message = input.message !== undefined && input.message.grounded && input.message.text.length > 0 ? { text: input.message.text.slice(0, MESSAGE_MAX), language: input.message.language, grounded: true } : null;
+  // The model's text is kept only if the agent found it grounded and it holds against this twin's own facts here too
+  // (AI-5: its amounts, dates and invoice number are this twin's; checked again so no caller can skip it).
+  const message =
+    input.message !== undefined && input.message.grounded && input.message.text.length > 0 && input.message.text.length <= MESSAGE_MAX && checkMessage(input.message.text, factsOfTwin(twin)).grounded
+      ? { text: input.message.text, language: input.message.language, grounded: true }
+      : null;
   const existing = await store.getProposal(id);
   if (existing !== null) {
     if (existing.state === "open") {

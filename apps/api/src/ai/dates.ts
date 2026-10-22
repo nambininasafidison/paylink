@@ -92,7 +92,8 @@ const MONTHS: readonly (readonly string[])[] = [
   ["november", "nov", "novembre", "novambra"],
   ["december", "dec", "decembre", "desambra"],
 ];
-const MONTH_OF = new Map<string, number>(MONTHS.flatMap((names, i) => names.map((n) => [n, i + 1] as const)));
+/** Month names and abbreviations (EN, FR, MG; lower case, no accents) to month numbers 1–12. */
+export const MONTH_OF: ReadonlyMap<string, number> = new Map<string, number>(MONTHS.flatMap((names, i) => names.map((n) => [n, i + 1] as const)));
 const MONTH_RE = [...MONTH_OF.keys()].sort((a, b) => b.length - a.length).join("|");
 
 /** Sunday = 0 (as `getUTCDay`). */

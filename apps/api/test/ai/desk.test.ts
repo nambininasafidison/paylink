@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 /**
  * A2, the desk agent, in the reconciler's world (L2): it reads with its tools, proposes inside the fence only, keeps a
- * message only when every number in it comes from the tool data, stops at its limits, and leaves the reconciler's own
+ * message only when its amounts, dates and invoice numbers are the typed facts of its own twin, stops at its limits, and leaves the reconciler's own
  * proposals standing whenever the model fails (the manual path).
  */
 import { describe, expect, it } from "vitest";
 import { DESK_LIMITS } from "../../src/ai/desk/agent.ts";
-import { checkMessage, groundSet, readingsOf } from "../../src/ai/desk/grounding.ts";
+import { checkMessage, factsOfTwin, NO_FACTS } from "../../src/ai/desk/grounding.ts";
+import type { GroundFacts } from "../../src/ai/desk/grounding.ts";
 import { DESK_TOOL_NAMES, usdOf } from "../../src/ai/desk/tools.ts";
 import type { ToolTurnRequest } from "../../src/ai/types.ts";
-import { B_KEY, calls, deskWorld, KEY, lastResults, nth, OTHER_KEY, proposals, says } from "./support.ts";
+import { B_KEY, calls, deskWorld, KEY, lastResults, nth, OTHER_KEY, PAYEE, proposals, says } from "./support.ts";
 
 const REMINDER = "Hello, a friendly reminder: invoice PL-11155111-abababababab for 120.00 USD is due on 2026-11-06. Thank you!";
 
@@ -130,16 +131,76 @@ describe("desk agent: messages", () => {
     expect(d.reports[0]).toMatchObject({ messagesDropped: 1 });
   });
 
-  it("numeric grounding compares values, not spellings", () => {
-    const ground = groundSet(JSON.stringify({ amount: { value: "1200.00" }, due_date: "2026-11-06", invoice_number: "PL-11155111-3fa9c0e17b2d" }));
-    expect(checkMessage("1,200.00 USD due 06/11/2026 (PL-11155111-3fa9c0e17b2d)", ground).grounded).toBe(true);
-    expect(checkMessage("1 200 USD, le 6 novembre 2026", ground).grounded).toBe(true);
-    expect(checkMessage("1,250 USD", ground)).toMatchObject({ grounded: false, problems: ["ungrounded-number"], ungrounded: ["1.25"] });
-    expect(readingsOf("1,200")).toEqual(["1.2", "1200"]);
-    expect(readingsOf("120.00")).toEqual(["120"]);
-    expect(checkMessage("x".repeat(401), ground).problems).toEqual(["too-long"]);
+  it("grounding compares values, not spellings, and only the twin's own typed values", () => {
+    const facts: GroundFacts = { amounts: new Set(["1200000000"]), dates: new Set(["2026-11-06", "2026-10-21"]), invoiceNumbers: new Set(["pl-11155111-3fa9c0e17b2d"]) };
+    for (const ok of [
+      "1,200.00 USD due 06/11/2026 (PL-11155111-3fa9c0e17b2d)",
+      "1 200 USD, le 6 novembre 2026",
+      "Rappel : la facture PL-11155111-3fa9c0e17b2d de 1 200,00 USD est due le 6 novembre.",
+      "$1,200 due November 6th, 2026, shared on 2026-10-21.",
+      "Faktiora PL-11155111-3fa9c0e17b2d: 1200 USD, 6 novambra 2026.",
+    ]) {
+      expect(checkMessage(ok, facts), ok).toMatchObject({ grounded: true });
+    }
+    expect(checkMessage("1,250 USD", facts)).toMatchObject({ grounded: false, problems: ["ungrounded-number"], ungrounded: ["1250"] });
+    expect(checkMessage("1.200 USD", facts).problems).toEqual(["ungrounded-number"]);
+    expect(checkMessage("1,200.00 EUR", facts).problems).toEqual(["ungrounded-number"]);
+    expect(checkMessage("1,200.00 USD due 2026-11-07", facts)).toMatchObject({ problems: ["ungrounded-date"] });
+    expect(checkMessage("Invoice PL-11155111-0000000000aa: 1,200.00 USD", facts)).toMatchObject({ problems: ["ungrounded-invoice-number"] });
+    expect(checkMessage("1,200.00 USD, 11155111 or USD47 or ١٢٠", facts).problems).toEqual(["ungrounded-number"]);
+    expect(checkMessage("Invoice of 1,200.00 USD, now 3 days late (12:00).", facts).ungrounded).toEqual(["3", "12", "0"]);
+    expect(checkMessage("1,200.00 USD", NO_FACTS).problems).toEqual(["ungrounded-number"]);
+    expect(checkMessage("x".repeat(401), facts).problems).toEqual(["too-long"]);
     expect(usdOf("120000000")).toBe("120.00");
     expect(usdOf("5")).toBe("0.00");
+  });
+
+  it("AI-5 probes: a wrong amount built from digits of keys, hashes, the chain id or checked_at is dropped", async () => {
+    // The review's probes (2026-10-22): each was kept with grounded: true when the ground was every digit of every tool
+    // result. 12 is checked_at's hour, 2026 the year, 21 the day, 47 a minute, 60/817/8175 digits of a hex key.
+    const probes = [
+      "Hello, a reminder: invoice PL-11155111-abababababab for 12.00 USD is due on 2026-11-06.",
+      "Hello, a reminder: invoice PL-11155111-abababababab for 2,026.00 USD is due on 2026-11-06.",
+      "Hello, a reminder: invoice PL-11155111-abababababab for 21 USD is due on 2026-11-06.",
+      "Hello, the invoice for 47 USD is now due.",
+      "Hello, the invoice PL-11155111-abababababab of 120.00 USD (ref 8175, 60) is due.",
+    ];
+    for (const message of probes) {
+      const d = await deskWorld();
+      const ai = d.model([calls(["list_invoices", {}], ["chain_invoice_state", { invoice_key: KEY }], ["allowed_actions", { invoice_key: KEY }]), calls(["propose_action", { kind: "share_reminder_text", invoice_key: KEY, message }]), says("done")]);
+      const desk = await d.run(ai);
+      expect(proposals(desk).find(([kind, key]) => kind === "share_reminder_text" && key === KEY)?.[3], message).toBeNull();
+      expect(d.reports[0], message).toMatchObject({ proposed: 1, messagesDropped: 1 });
+      const twin = await d.w.services.stores.payee(PAYEE).getTwin(KEY);
+      expect(twin === null ? null : checkMessage(message, factsOfTwin(twin)).grounded, message).toBe(false);
+    }
+  });
+
+  it("a reminder for invoice A that states invoice B's amount, date or number is dropped; A's own values are kept", async () => {
+    const d = await deskWorld();
+    const store = d.w.services.stores.payee(PAYEE);
+    const before = await store.getTwin(B_KEY);
+    const a = await store.getTwin(KEY);
+    if (a === null || before === null) {
+      throw new Error("the desk world has twins A and B");
+    }
+    const b = { ...before, amountBase: "99000000", dueDate: "2026-12-01" };
+    await store.putTwin(b);
+    const facts = factsOfTwin(a);
+    expect(checkMessage(`Invoice ${a.invoiceNumber} for 99.00 USD is due on 2026-11-06.`, facts).problems).toEqual(["ungrounded-number"]);
+    expect(checkMessage(`Invoice ${a.invoiceNumber} for 120.00 USD is due on 2026-12-01.`, facts).problems).toEqual(["ungrounded-date"]);
+    expect(checkMessage(`Invoice ${b.invoiceNumber} for 120.00 USD is due on 2026-11-06.`, facts).problems).toEqual(["ungrounded-invoice-number"]);
+    expect(checkMessage(`Invoice ${a.invoiceNumber} for 120.00 USD is due on 2026-11-06.`, facts).grounded).toBe(true);
+  });
+
+  it("the fence checks the text again against the twin: a caller that claims 'grounded' cannot store a wrong amount", async () => {
+    const d = await deskWorld();
+    const { proposeFromAssistant } = await import("../../src/reconciler/desk.ts");
+    await d.run(d.model([says("done")]));
+    const outcome = await proposeFromAssistant(d.w.services, PAYEE, { kind: "share_reminder_text", key: KEY, message: { text: "Invoice PL-11155111-abababababab for 12.00 USD.", language: "en", grounded: true } }, d.w.clock.now);
+    expect(outcome.outcome).toBe("queued");
+    const stored = (await d.w.services.stores.payee(PAYEE).listProposals({ states: ["open"] })).find((p) => p.kind === "share_reminder_text" && p.key === KEY);
+    expect(stored?.message).toBeNull();
   });
 });
 
