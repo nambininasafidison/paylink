@@ -91,6 +91,13 @@
   .till-paypal { margin-top: 10px; }
   .till-paypal .field-hint { margin: 0; }
   .till-paypal .key { margin-top: 10px; }
+  /* Full screen keeps only the window and its keys: the PayPal line steps aside. On a phone on its side, the source line
+     takes a row of its own in the window, under the settle time (app.css lays the window out as a grid there). */
+  .device:fullscreen .till-paypal { display: none; }
+  @media (orientation: landscape) and (max-height: 520px) {
+    .device:fullscreen .view-till > .till { grid-template-rows: auto minmax(0, 1fr) auto auto auto; grid-template-areas: "top top" "verdict figure" "settled figure" "source figure" "fx figure"; }
+    .device:fullscreen .till-source { grid-area: source; align-self: start; }
+  }
 
   /* The ledger's rail column. */
   .row-rail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 6px; vertical-align: middle; }
