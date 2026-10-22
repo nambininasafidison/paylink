@@ -43,8 +43,9 @@ beforeAll(async () => {
 });
 
 /** The toolkit schema of each toolkit-named desk tool (the factory names of `tools.ts`). */
-const FACTORY: Readonly<Record<string, string>> = { list_invoices: "listInvoicesParameters", get_invoice: "getInvoicParameters", search_invoicing: "searchInvoicingParameters" };
-const ACTION: Readonly<Record<string, string>> = { list_invoices: "list", get_invoice: "get", search_invoicing: "search" };
+type Mirrored = "list_invoices" | "get_invoice" | "search_invoicing";
+const FACTORY: Readonly<Record<Mirrored, string>> = { list_invoices: "listInvoicesParameters", get_invoice: "getInvoicParameters", search_invoicing: "searchInvoicingParameters" };
+const ACTION: Readonly<Record<Mirrored, string>> = { list_invoices: "list", get_invoice: "get", search_invoicing: "search" };
 
 const unwrap = (schema: ZodV3): ZodV3 => (schema._def.innerType === undefined ? schema : unwrap(schema._def.innerType));
 
@@ -62,7 +63,7 @@ describe("PayPal Agent Toolkit 1.11.0 parity", () => {
     for (const [name, factory] of Object.entries(FACTORY)) {
       const block = new RegExp(`method: '${name}',[\\s\\S]*?parameters: (\\w+)\\(context\\),[\\s\\S]*?actions: \\{\\s*invoices: \\{\\s*(\\w+): true`, "u").exec(tools);
       expect(block?.[1], name).toBe(factory);
-      expect(block?.[2], name).toBe(ACTION[name]);
+      expect(block?.[2], name).toBe(ACTION[name as Mirrored]);
       expect(DESK_TOOLS.some((t) => t.name === name)).toBe(true);
     }
   });
@@ -86,7 +87,7 @@ describe("PayPal Agent Toolkit 1.11.0 parity", () => {
   });
 
   it("whatever PayLink's tools accept, the toolkit's schemas accept; and they refuse what it refuses", () => {
-    const accepted: readonly (readonly [keyof typeof FACTORY & keyof typeof TOOL_ARGUMENTS, unknown])[] = [
+    const accepted: readonly (readonly [Mirrored, unknown])[] = [
       ["list_invoices", {}],
       ["list_invoices", { page: 1, page_size: 100, total_required: true }],
       ["list_invoices", { page: 1000, page_size: 1 }],
@@ -96,9 +97,9 @@ describe("PayPal Agent Toolkit 1.11.0 parity", () => {
     ];
     for (const [name, payload] of accepted) {
       expect(TOOL_ARGUMENTS[name].safeParse(payload).success, `ours: ${name} ${JSON.stringify(payload)}`).toBe(true);
-      expect(toolkit[FACTORY[name] ?? ""]?.({}).safeParse(payload).success, `toolkit: ${name} ${JSON.stringify(payload)}`).toBe(true);
+      expect(toolkit[FACTORY[name]]?.({}).safeParse(payload).success, `toolkit: ${name} ${JSON.stringify(payload)}`).toBe(true);
     }
-    const refused: readonly (readonly [keyof typeof FACTORY & keyof typeof TOOL_ARGUMENTS, unknown])[] = [
+    const refused: readonly (readonly [Mirrored, unknown])[] = [
       ["list_invoices", { page: 0 }],
       ["list_invoices", { page_size: 101 }],
       ["get_invoice", { invoice_id: "../../v1/oauth2/token" }],
@@ -108,7 +109,7 @@ describe("PayPal Agent Toolkit 1.11.0 parity", () => {
     ];
     for (const [name, payload] of refused) {
       expect(TOOL_ARGUMENTS[name].safeParse(payload).success, `ours: ${name} ${JSON.stringify(payload)}`).toBe(false);
-      expect(toolkit[FACTORY[name] ?? ""]?.({}).safeParse(payload).success, `toolkit: ${name} ${JSON.stringify(payload)}`).toBe(false);
+      expect(toolkit[FACTORY[name]]?.({}).safeParse(payload).success, `toolkit: ${name} ${JSON.stringify(payload)}`).toBe(false);
     }
     // Stricter than the toolkit on purpose: recurring series and recipient filters are not offered (no data the desk needs).
     expect(TOOL_ARGUMENTS.search_invoicing.safeParse({ resource_type: "recurring_series" }).success).toBe(false);

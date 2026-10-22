@@ -72,7 +72,9 @@ async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | typeof 
   try {
     return await Promise.race([work, timeout]);
   } finally {
-    clearTimeout(timer);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
   }
 }
 
