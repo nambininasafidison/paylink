@@ -2,12 +2,14 @@
 /**
  * The pay page's rail chooser (docs/paypal/SPEC.md §12.3, §14.2 F2 and F3, §14.3 "Rail chooser"): one link, two rails.
  *
- * - **Pay with PayPal**: a top-level link to the twin's payer page (`recipient_view_url`, from the public
- *   `GET /v1/rails/:key`). It is offered only when all of these hold, checked in the browser: the four lamps are green
- *   (the chain says the invoice is genuine and payable); the API says the twin is open; the URL is `https:`, without
- *   credentials or port, on a host pinned in this code (`PAYPAL_PAYER_HOSTS`, never taken from the API or the link);
- *   and the twin's amount, in USD, equals the signed amount exactly. Otherwise the PayPal key is not shown: the API is
- *   trusted for availability and advice, never for where a payer goes or how much they pay (threats T-56, T-58).
+ * - **Pay with PayPal**: the page's primary key whenever it is offered (a payer without a wallet, the judges' path B,
+ *   meets it first; the token key then steps back to a secondary "Or pay in USDC from a wallet"). A top-level link to
+ *   the twin's payer page (`recipient_view_url`, from the public `GET /v1/rails/:key`). It is offered only when all
+ *   of these hold, checked in the browser: the four lamps are green (the chain says the invoice is genuine and
+ *   payable); the API says the twin is open; the URL is `https:`, without credentials or port, on a host pinned in this
+ *   code (`PAYPAL_PAYER_HOSTS`, never taken from the API or the link); and the twin's amount, in USD, equals the signed
+ *   amount exactly. Otherwise the PayPal key is not shown: the API is trusted for availability and advice, never for
+ *   where a payer goes or how much they pay (threats T-56, T-58).
  * - **Pay in USDC or PayPal USD**: the page's own key, on Ethereum Sepolia from the payer's wallet, unchanged.
  *
  * States: both rails · PayPal hidden (no twin, the API unreachable, or a check failed, which says so) · "PayPal says
@@ -132,6 +134,14 @@ export interface RailChooser {
   checked(allowed: boolean): void;
   /** True while the token key must wait: a PayPal payment in flight, the token paused or frozen, or "paid" unconfirmed. */
   holds(): boolean;
+  /** True while "Pay with PayPal" is offered (both rails): it is then the page's primary key, the token key secondary. */
+  offers(): boolean;
+}
+
+/** `text` with the word PayPal set as a wordmark (bold, the edition's ink: no brand colour, ADR 0018's grammar). */
+function withWordmark(text: string): (string | HTMLElement)[] {
+  const at = text.indexOf("PayPal");
+  return at < 0 ? [text] : [text.slice(0, at), h("b", { class: "paypal-word" }, "PayPal"), text.slice(at + "PayPal".length)];
 }
 
 /** The pay page's own formatters: the invoice's amount and a time of day, in the payer's language. */
@@ -190,7 +200,7 @@ export function railChooser(app: Pick<App, "i18n" | "config" | "client">, link: 
         h(
           "div",
           { class: "rail-row", attrs: { "data-rail": "PAYPAL" } },
-          h("a", { class: "key key-line", attrs: { href: verdict.url, rel: "noopener noreferrer", "data-action": "pay-paypal" } }, h("span", null, t("paypal.rails.payPaypal")), h("span", { class: "rail-tag" }, "PAYPAL")),
+          h("a", { class: "key key-primary key-paypal", attrs: { href: verdict.url, rel: "noopener noreferrer", "data-action": "pay-paypal" } }, h("span", null, withWordmark(t("paypal.rails.payPaypal"))), h("span", { class: "rail-tag" }, "PAYPAL")),
           h("p", { class: "route-note" }, t("paypal.rails.paypalNote", { amount, time: read })),
         ),
         h("p", { class: "rails-or", attrs: { "data-rail": link.token.symbol } }, t("paypal.rails.or", { symbol: link.token.symbol })),
@@ -240,6 +250,9 @@ export function railChooser(app: Pick<App, "i18n" | "config" | "client">, link: 
     },
     holds() {
       return controls.paused === true || controls.frozen === true || verdict?.kind === "pending" || (verdict?.kind === "paid" && !paidConfirmed);
+    },
+    offers() {
+      return verdict?.kind === "offer" && allowed;
     },
   };
 }

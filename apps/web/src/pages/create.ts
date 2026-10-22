@@ -329,9 +329,16 @@ function renderTerminal(app: App, ui: PageUi): void {
     setStatus(status, "ok", t("create.status.done"));
     renderIssued(app, out, result, draft);
     if (__PAYLINK_EDITION__ === "paypal") {
-      // The PayPal twin of the invoice just signed (ADR 0018): one key, after the link already works on its own. A
-      // draft's client details serve the invoice made from it, not the next one.
-      out.querySelector(".issued")?.append(twinPanel(app, result, payUrl(app.site, result.fragment), twinHints));
+      // The PayPal twin of the invoice just signed (ADR 0018), first under "Invoice signed", before the card and the
+      // share keys: its key is the page's primary one until the twin exists, and the form's key steps back meanwhile.
+      // A draft's client details serve the invoice made from it, not the next one.
+      const pending = new Set(["ready", "creating", "paypal-unavailable", "error"]);
+      const panel = twinPanel(app, result, payUrl(app.site, result.fragment), twinHints, (state) => {
+        const twinFirst = pending.has(state);
+        key.classList.toggle("key-primary", !twinFirst);
+        key.classList.toggle("key-line", twinFirst);
+      });
+      out.querySelector(".issued")?.prepend(panel);
       twinHints = null;
     }
   };

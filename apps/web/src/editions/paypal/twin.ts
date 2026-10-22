@@ -105,13 +105,18 @@ export function twinReadout(app: App, twin: TwinView): HTMLElement {
   );
 }
 
-/** The twin panel for `issued`, shared at `url`. `hints` prefill the client fields (from an AI draft, if any). */
-export function twinPanel(app: App, issued: IssuedInvoice, url: string, hints: TwinHints | null): HTMLElement {
+/**
+ * The twin panel for `issued`, shared at `url`. `hints` prefill the client fields (from an AI draft, if any).
+ * `onState` hears each state the panel enters (`ready`, `creating`, `created`, `hands-off`, `paypal-unavailable`,
+ * `error`, `ineligible`, `no-api`): the create page keeps the twin's key the primary one until a twin exists.
+ */
+export function twinPanel(app: App, issued: IssuedInvoice, url: string, hints: TwinHints | null, onState: (state: string) => void = () => undefined): HTMLElement {
   const { t } = app.i18n;
   const section = h("section", { class: "twin", attrs: { "aria-labelledby": "twin-head", "data-state": "ready" } });
   const head = h("div", { class: "sub-head" }, h("h3", { attrs: { id: "twin-head" } }, t("paypal.twin.head")), h("span", { class: "rail-tags" }, h("span", { class: "rail-tag" }, "PAYPAL"), h("span", { class: "rail-tag" }, issued.token.symbol)));
   const state = (value: string): void => {
     section.setAttribute("data-state", value);
+    onState(value);
   };
   const ineligible = twinEligibility(issued);
   if (ineligible !== null) {
@@ -142,7 +147,8 @@ export function twinPanel(app: App, issued: IssuedInvoice, url: string, hints: T
       h("p", { class: "field-hint", attrs: { id: "twin-email-hint" } }, t("paypal.twin.emailHint")),
     ),
   );
-  const key = h("button", { class: "key key-line", attrs: { type: "button", "data-action": "make-twin" } }, t("paypal.twin.make", { amount: amountUsd }));
+  // The edition's central action: the primary key until the twin exists (the share keys below are secondary).
+  const key = h("button", { class: "key key-primary", attrs: { type: "button", "data-action": "make-twin" } }, t("paypal.twin.make", { amount: amountUsd }));
   const status = statusLine();
   const out = h("div", { class: "twin-out" });
 
@@ -212,5 +218,6 @@ export function twinPanel(app: App, issued: IssuedInvoice, url: string, hints: T
     void make();
   });
   replace(section, head, h("p", { class: "field-hint" }, t("paypal.twin.lede")), fields, key, status, out);
+  onState("ready");
   return section;
 }

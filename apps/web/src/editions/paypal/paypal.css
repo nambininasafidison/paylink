@@ -57,6 +57,16 @@
   .rails .warn-note { margin-top: 10px; }
   .rails-or { display: flex; align-items: center; gap: 10px; margin-top: 14px; font: 400 10.5px/1 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); word-spacing: 0; }
   .rails-or::before, .rails-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  /* "Pay with PayPal" is the primary key when offered: the word PayPal set as a wordmark, in the key's own ink. */
+  .key-paypal .paypal-word { font-weight: 780; font-style: italic; letter-spacing: -.02em; }
+  .key-primary .rail-tag { color: inherit; border-color: currentColor; }
+  /* The token key steps back to the second way, under the chooser's "or" rule. */
+  .payform > .key.key-line { width: 100%; min-height: 52px; white-space: normal; text-align: center; line-height: 1.2; padding-top: 10px; padding-bottom: 10px; }
+  /* With PayPal offered and no wallet connected, the header's wallet key keeps quiet. */
+  body:has(.rails[data-rails="both"]) .top .connect:not(.is-on) { border-color: transparent; background: transparent; color: var(--muted); font-weight: 500; }
+
+  /* Long labels wrap rather than push the page sideways (Malagasy at 320 px: "Alefaso ny fampahatsiahivan'ny PayPal"). */
+  :is(.twin, .desk-card, .desk-tools, .ai-box, .assist-row, .till-paypal) .key:not(.key-primary) { white-space: normal; text-align: center; line-height: 1.2; padding-top: 10px; padding-bottom: 10px; overflow-wrap: anywhere; }
 
   /* The desk. */
   .desk-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 16px; }

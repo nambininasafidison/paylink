@@ -439,6 +439,12 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (busy || paid) {
       return;
     }
+    if (__PAYLINK_EDITION__ === "paypal") {
+      // "Pay with PayPal", when offered, is the primary key; the token key is then the second way (ADR 0018).
+      const second = paypalRails?.offers() === true;
+      key.classList.toggle("key-primary", !second);
+      key.classList.toggle("key-line", second);
+    }
     if (__PAYLINK_EDITION__ === "mezo" && unconfirmed !== null) {
       key.textContent = t("mezo.pay.checkPayment");
       key.disabled = false;
@@ -494,7 +500,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (account === null) {
       feeCopy(null);
       net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
-      key.textContent = passkeys ? t("pay.useKey") : t("pay.connect");
+      // PayPal edition: with "Pay with PayPal" offered, the token rail is the second way, and says so.
+      key.textContent = __PAYLINK_EDITION__ === "paypal" && paypalRails?.offers() === true ? t("paypal.rails.tokenKey", { symbol: token.symbol }) : passkeys ? t("pay.useKey") : t("pay.connect");
       key.disabled = false;
       key.dataset["action"] = "connect";
       return;
