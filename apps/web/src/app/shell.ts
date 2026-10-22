@@ -260,6 +260,11 @@ export function renderShell(app: App, route: Route, payer: boolean): PageUi {
 
 function globalBanners(app: App, ui: PageUi): void {
   const { t } = app.i18n;
+  if (__PAYLINK_EDITION__ === "paypal") {
+    // docs/paypal/SPEC.md §14.1: every page of this edition says it moves no real money. A fixed sentence of the edition's
+    // own rather than /config.json's banner, which every edition on this origin shares.
+    ui.banner("info", h("p", null, t("paypal.banner.sandbox")));
+  }
   const banner = app.config.banner;
   if (banner !== null) {
     const text = banner.text[app.locale] ?? banner.text.en;

@@ -155,6 +155,20 @@ describe.each(LOCALES)("PayPal routes in %s", (locale) => {
   });
 });
 
+describe("the sandbox banner (docs/paypal/SPEC.md §14.1)", () => {
+  it.each([
+    ["en", "PayPal sandbox and testnets only. No real money."],
+    ["fr", "Sandbox PayPal et réseaux de test uniquement. Aucun argent réel."],
+    ["mg", "Sandbox PayPal sy tambajotra fitsapana ihany. Tsy misy vola tena izy."],
+  ] as const)("says on every page, in %s, that no real money moves", async (locale, text) => {
+    for (const [, page, path] of ROUTES) {
+      document.body.replaceChildren();
+      await render(page, path, locale);
+      expect([...document.querySelectorAll(".banners .banner.is-info")].map((b) => b.textContent)).toContain(text);
+    }
+  });
+});
+
 describe("tabs", () => {
   it("lead to create, ledger, desk and till under /paypal/", async () => {
     await render(deskPage, "/paypal/desk/", "en");

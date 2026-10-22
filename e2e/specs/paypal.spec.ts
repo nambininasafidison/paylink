@@ -6,6 +6,7 @@
  *
  * - Headers: `/paypal/` under a policy of its own whose `connect-src` is exactly Ethereum Sepolia's RPC and the API; the
  *   root's policy has neither; the manifest and the service worker are scoped to `/paypal/`.
+ * - The sandbox banner on every page of the edition, and not on the root's.
  * - The four tabs (create, ledger, desk, till); the desk, without a wallet, asks for the payee's wallet and calls nothing
  *   but the API's public health, read through the CSP and the API's own CORS allowlist; no CSP violation under Trusted
  *   Types. Its screens with a session, on a mocked API, are e2e/specs/paypal-ui.spec.ts.
@@ -93,6 +94,8 @@ test("shows the four tabs and the desk, which asks for the payee's wallet first,
   await expect(page.locator("header.top .edition-tag")).toHaveText("PayPal");
   await expect(page.locator("nav.tabs a")).toHaveText(["Create", "Ledger", "Desk", "Till"]);
   await expect(page.locator("nav.tabs a[aria-current=page]")).toHaveText("Desk");
+  // Every page of the edition says it moves no real money (docs/paypal/SPEC.md §14.1); the root's pages do not.
+  await expect(page.locator(".banners .banner.is-info")).toHaveText("PayPal sandbox and testnets only. No real money.");
   const view = page.locator(".view-desk");
   await expect(view).toHaveAttribute("data-desk", "no-wallet");
   // Without a wallet the desk offers one key, the wallet's, and asks the API for nothing but its public health.
@@ -110,6 +113,9 @@ test("shows the four tabs and the desk, which asks for the payee's wallet first,
   expect(await violations(page)).toEqual([]);
   expect(problems).toEqual([]);
   await expect(page.locator("footer .foot-links a.ext")).toHaveAttribute("href", "https://github.com/nambininasafidison/paylink/tree/paypal");
+  await page.goto(`${server.origin}/`);
+  await expect(page.locator("main#terminal")).toBeVisible();
+  await expect(page.locator(".banners")).not.toContainText("PayPal sandbox");
 });
 
 test("offers Ethereum Sepolia alone and says PayLinkV2 is not deployed there yet", async ({ browser }) => {
