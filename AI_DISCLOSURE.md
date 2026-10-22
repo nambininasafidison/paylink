@@ -10,11 +10,13 @@ PayLink is a solo project by **nambininasafidison** (the owner). Much of its eng
 | **Period** | PayLink v2: from Oct 5, 2026. For PayLink v1 (built Oct 4–5, 2026), each submission states the extent of AI assistance, as confirmed by the owner |
 | **Human ownership** | The owner decides scope and design, reviews and accepts every change, owns all keys, accounts and submissions, and is accountable for the result |
 | **Licence of the output** | MIT, like the rest of the repository ([LICENSE](LICENSE)) |
+| **AI in the product** | Only in the PayPal edition (branch `paypal`): an assistant on Cloudflare Workers AI (`@cf/google/gemma-4-26b-a4b-it`, fallback `@cf/meta/llama-3.3-70b-instruct-fp8-fast`) drafts invoices and words the desk's proposals; it can only propose, and a person approves every effect on exact values ([PayPal pack §5](docs/submissions/paypal.md#5-the-ai-explained)) |
+| **Line used in submissions** | "AI in the product: Cloudflare Workers AI (<model>). Development assisted by Claude Code (Anthropic); the owner directed, reviewed and is responsible for the work." (the PayPal AI Hackathon's texts and the landing page on the branch `paypal`) |
 
 ## What Claude Code did
 
 - **Planning.** Drafted the v2 engineering plan (PAYLINK-V2-SPEC) by combining three independent design proposals and three reviews, then revised it with facts the owner checked on official pages. Facts carry confidence tags (UV, C, L, U), so readers can tell which were verified and how.
-- **Code.** Wrote the v2 contract `PayLinkV2` and its tests (unit, fuzz, invariants), the TypeScript packages, the web app, the relayer, the indexer and the CI configuration. The commit history shows which commits were made with Claude Code ([below](#attribution-in-git)).
+- **Code.** Wrote the v2 contract `PayLinkV2` and its tests (unit, fuzz, invariants), the TypeScript packages, the web app, the relayer, the indexer and the CI configuration. How commits are attributed is [below](#attribution-in-git).
 - **Documentation.** Wrote the architecture document, the ADRs, the open invoice specification, the threat model, the self-review checklist, the incident response plan, the runbooks and the submission drafts.
 - **Verification.** Ran compilers, tests, static analysers (Slither, Aderyn), fuzzers and browser tests inside its sandbox. It cross-checked specification test vectors with two independent implementations. It read primary sources (library source code, the Solidity known-bugs list, package licences) instead of relying on memory, and recorded where it did.
 - **Translations.** Drafted French and Malagasy strings. **Every Malagasy string is written or reviewed by the owner**, and AI drafts are flagged for that review.
@@ -39,7 +41,7 @@ PayLink is a solo project by **nambininasafidison** (the owner). Much of its eng
 
 ## Attribution in git
 
-Commits produced with Claude Code carry a `Co-Authored-By: Claude …` trailer. The owner is the author of record and reviews every commit before it lands on `main`.
+Up to 2026-10-21, commits produced with Claude Code carry a `Co-Authored-By: Claude …` trailer (on the branch `paypal`, the 29 commits from `828b9ff` before `6a5d72e` also have Claude as their author). Since 2026-10-22, at the owner's request, commits on the branch `paypal` (from `6a5d72e`) are made under the owner's name without that trailer, although Claude Code still assists with them: this page and each submission's disclosure line say so instead of the trailer. The owner reviews every commit before it lands on `main`.
 
 ## Pre-existing work
 

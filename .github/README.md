@@ -9,7 +9,7 @@
 
 **Signed dollar invoices you share as a link. The client pays with a fingerprint or a wallet and holds no gas token; both sides keep a receipt anyone can verify.**
 
-> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia, and on Mezo testnet for the Mezo edition (MUSD), which is built on the branch `mezo`. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
+> **Testnets only, not audited.** PayLinkV2 runs on Monad testnet and Base Sepolia, and on Mezo testnet for the Mezo edition (MUSD), which is built on the branch `mezo`. The PayPal edition, on this branch `paypal`, uses the PayPal sandbox and Ethereum Sepolia, where PayLinkV2 is not deployed yet. It has had our own review (tests, coverage, mutation testing, static analysis), not a third-party audit ([evidence](../protocol/audit/README.md)). Do not use it with real funds.
 
 | | |
 |---|---|
@@ -17,7 +17,8 @@
 | **Base edition** | <https://paylink-mg.pages.dev/base/>: browser wallets, gasless USDC, "Pay with Base" batches, Base Sepolia (84532) |
 | **All networks** | <https://paylink-mg.pages.dev/>: every enabled network in the registry, browser wallets |
 | **Mezo edition** | On the branch [`mezo`](https://github.com/nambininasafidison/paylink/tree/mezo), served at <https://mezo.paylink-mg.pages.dev/mezo/>: browser wallets, MUSD (the Bitcoin-backed dollar) on Mezo testnet (31611). PayLinkV2 is deployed there at the same address since 2026-10-16 ([transaction](https://explorer.test.mezo.org/tx/0x1662fb5126d7582947cc77ba2f96266c4f1a561c0e1761f7e4c6249e19e1165e)) |
-| **Contract** | `0x448eCce9711860502806A3d5B021a4f9Ba715082`, the same address on both testnets where it is deployed ([below](#the-contract)) |
+| **PayPal edition (PayLink Twin)** | On this branch [`paypal`](https://github.com/nambininasafidison/paylink/tree/paypal), to be served at <https://paypal.paylink-mg.pages.dev/paypal/>: one signed invoice payable on PayPal (a twin PayPal invoice, sandbox) or in USDC on Ethereum Sepolia (11155111), and an AI collections desk that proposes and never moves money ([below](#paypal-edition-paylink-twin)) |
+| **Contract** | `0x448eCce9711860502806A3d5B021a4f9Ba715082`, the same address on every testnet where it is deployed ([below](#the-contract)) |
 | **Open standard** | [PayLink invoice format v2](../docs/spec/paylink-invoice-v2.md), with a [JSON Schema](../docs/spec/paylink-invoice-v2.schema.json) and test vectors |
 | **Licence** | MIT ([LICENSE](../LICENSE)) |
 
@@ -27,13 +28,14 @@ Each edition's **Status** page (footer, under "System") shows the build it serve
 
 1. [The problem and who it is for](#the-problem-and-who-it-is-for)
 2. [What a user does](#what-a-user-does)
-3. [The contract](#the-contract)
-4. [Architecture](#architecture)
-5. [Repository layout](#repository-layout)
-6. [Run it yourself](#run-it-yourself)
-7. [What existed before, and what was built for these events](#what-existed-before-and-what-was-built-for-these-events)
-8. [Status and limits](#status-and-limits)
-9. [AI use, attributions, licence, security](#ai-use-attributions-licence-security)
+3. [PayPal edition (PayLink Twin)](#paypal-edition-paylink-twin)
+4. [The contract](#the-contract)
+5. [Architecture](#architecture)
+6. [Repository layout](#repository-layout)
+7. [Run it yourself](#run-it-yourself)
+8. [What existed before, and what was built for these events](#what-existed-before-and-what-was-built-for-these-events)
+9. [Status and limits](#status-and-limits)
+10. [AI use, attributions, licence, security](#ai-use-attributions-licence-security)
 
 ## The problem and who it is for
 
@@ -61,6 +63,33 @@ The app is in English, French and Malagasy (the founder reviews the Malagasy), i
 | Base (`/base/`) | Browser wallets (EIP-6963) | USDC: gasless for EOA payers, one batch for smart accounts ("Pay with Base" in the Base app or Coinbase Wallet) | [Colosseum pack §8](../docs/submissions/colosseum.md#8-how-a-judge-can-try-it) |
 | All networks (`/`) | Browser wallets | Every route the registry allows, including paying with your own gas | — |
 | Mezo (`/mezo/`, branch `mezo`) | Browser wallets (EIP-6963); no Mezo Passport yet | MUSD: one EIP-2612 permit then `payWithPermit`, or exact approve + `pay`, or one batch for smart accounts. The payer's wallet pays the fee in BTC: MUSD has no EIP-3009, so no MUSD payment is gasless | [Mezo pack §6](../docs/submissions/mezo.md#6-judge-access-instructions) |
+| PayPal (`/paypal/`, branch `paypal`) | Browser wallets (EIP-6963); no passkeys | Two rails for one invoice: PayPal (the twin PayPal invoice's hosted page, sandbox) or USDC (or PayPal USD) on Ethereum Sepolia by the payer's own EIP-3009 authorisation, with the payer's gas | [Judges' tour](#judges-tour) |
+
+## PayPal edition (PayLink Twin)
+
+**One signed invoice, two PayPal rails, and an AI collections desk that never touches the money.** Built for the PayPal AI Hackathon on this branch, `paypal` ([ADR 0018](../docs/adr/0018-paypal-edition.md), [specification](../docs/paypal/SPEC.md), [submission pack](../docs/submissions/paypal.md)).
+
+> **Sandbox and testnet only; not live yet.** It runs on the PayPal sandbox and Ethereum Sepolia. Until the owner deploys PayLinkV2 on Sepolia (the [runbook](../docs/runbooks/paypal.md#9-paylinkv2-on-ethereum-sepolia) has the steps), the edition says "not deployed" and nothing can be signed or paid there; the Pages preview and the API Worker go online with the owner's steps in the same runbook. PayPal's sandbox could not be reached from the development environment: the PayPal integration is built against PayPal's OpenAPI files and a contract-tested fake, and every sandbox behaviour not yet observed is marked UNVERIFIED ([runbook §5](../docs/runbooks/paypal.md#5-what-the-capture-decides)).
+
+| What | How |
+|---|---|
+| **Twin** | After the payee signs a PayLink invoice, one tap creates a PayPal Invoicing v2 invoice for the same amount with the link's key in PayPal's `reference`, shares it, and reads it back from PayPal (`apps/api/src/paypal/twin.ts`) |
+| **Two rails** | The pay page offers **Pay with PayPal** (PayPal's hosted invoice page) only when PayPal's amount equals the signed amount and the page is on a host pinned in the code, next to paying in USDC or PayPal USD from the payer's wallet (`apps/web/src/editions/paypal/rails.ts`) |
+| **Truth** | A webhook is verified with PayPal (`verify-webhook-signature`) and only triggers PayPal's `GET` of the invoice; a chain payment counts only as a verified `Paid` event at the exact amount. The till lights "via PAYPAL · verified with PayPal" or for the chain |
+| **Desk** | A deterministic table of ten situations per invoice decides what may happen next, with exact values: paid on PayPal → cancel the PayLink link (the payee taps, then signs in their wallet); paid on chain → recorded on the PayPal invoice automatically, Undo for 24 hours; overdue → PayPal's reminder or a message to share; paid twice → an alert, never an automatic refund ([reconciler](../apps/api/src/reconciler/README.md)) |
+| **Assistant** | Cloudflare Workers AI drafts an invoice from a client's message (code parses every number) and words the desk's proposals; it can only propose inside the fence, never sign, never call a PayPal write, never see a memo or a PayPal note ([invariants AI-1 to AI-7](../apps/api/evals/README.md#the-invariants-and-the-test-of-each)) |
+| **API** | `apps/api`: a Cloudflare Worker (Hono, zod, Durable Objects, one cron a minute, the Workers AI binding) with a Node entry for tests and an offline demo ([README](../apps/api/README.md)) |
+
+### Judges' tour
+
+The full instructions, with the sandbox buyer logins, are in the hackathon's testing instructions on Devpost (logins are never in this repository).
+
+1. **Status first.** <https://paypal.paylink-mg.pages.dev/paypal/status/>: the PayLink API, the PayPal sandbox, the last verified webhook, the assistant with today's neurons left, the contract.
+2. **PayPal only, no wallet.** Open a judge link from the testing instructions, press **Pay with PayPal**, pay on PayPal's sandbox page as your sandbox buyer, open the link again: "PayPal says this invoice is paid."
+3. **The whole flow, with a browser wallet on Sepolia.** On `/paypal/`: **Assistant**, paste "Love it! Send me the invoice, $12, I'll pay by Friday", **Draft**, check, **Use draft**, **Review and sign**; in "PayPal twin", **Make the PayPal twin**; open the link in another profile and pay with PayPal or in USDC; back on **Desk**, **Check my invoices**: approve the proposal on its exact values; try **Undo** on an automatic record and **Was I really paid?** with a made-up payment notice.
+4. **No account at all.** The two rails end to end on your machine, against a fork of Ethereum Sepolia and the PayPal fake: `pnpm --filter @paylink/e2e test specs/paypal-rails.spec.ts` (after the setup of [Run it yourself](#run-it-yourself)). Case (c) drives a model that obeys every injected instruction through the real desk: only the fence's own proposals survive.
+
+AI in the product: Cloudflare Workers AI (`@cf/google/gemma-4-26b-a4b-it`, fallback `@cf/meta/llama-3.3-70b-instruct-fp8-fast`). Development assisted by Claude Code (Anthropic); the owner directed, reviewed and is responsible for the work.
 
 ## The contract
 
@@ -90,6 +119,7 @@ Full hashes: Monad testnet `0xb86e75367a73e933f3c99a6092357f4b785bf7fdd2c4b299c1
 | Component | Where | What it does | Trusted for |
 |---|---|---|---|
 | Contract | `protocol/` | Verifies payee signatures, enforces invoice rules, settles without custody | Correctness and settlement |
+| PayPal edition's API | `apps/api` (branch `paypal`) | Twins an invoice on PayPal, verifies webhooks, reconciles both rails, proposes actions the payee approves; holds no chain key and no PayPal money-moving operation | Availability and advice only |
 | SDK | `packages/sdk` | Invoice codec and signing, strict URL format, payment binding, payment router, receipt verification | Reproducing the contract's rules off chain |
 | Chain registry | `packages/chains` | Every address, token, RPC and gas bound per network, EIP-55 checked | The app's root of trust for addresses |
 | Web app | `apps/web` | Vite and strict TypeScript without a UI framework, PWA, three editions from one codebase on `main` (a fourth, Mezo, on the branch `mezo`), served by Cloudflare Pages with a strict CSP and Trusted Types | Showing exactly what is signed |
@@ -105,8 +135,8 @@ More: [architecture](../docs/ARCHITECTURE.md) (data flows, trust boundaries, fai
 | Path | What it holds |
 |---|---|
 | `protocol/` | PayLinkV2, its Foundry tests (unit, fuzz, invariants, regressions from our own reviews), deployment scripts and records, and the review evidence (`protocol/audit/`) |
-| `packages/` | `sdk`, `chains`, `design`, `i18n`, `eslint-config` |
-| `apps/` | `web` (the site), `relayer` (gasless submission), `indexer` (history) |
+| `packages/` | `sdk`, `chains`, `design`, `i18n`, `eslint-config`, and on this branch `api-contract` (the PayPal edition's API types) |
+| `apps/` | `web` (the site), `relayer` (gasless submission), `indexer` (history), and on this branch `api` (the PayPal edition's API) |
 | `e2e/` | Playwright suites and fixtures |
 | `tools/` | `deploy-page` (the browser deploy kit served at `/deploy/`), `verify-deployment` |
 | `docs/` | Architecture, ADRs, the invoice specification, security, runbooks, research protocol, submission packs |
@@ -136,6 +166,10 @@ pnpm --filter @paylink/web build      # the whole site into apps/web/dist, as Cl
 pnpm --filter @paylink/e2e exec playwright install chromium
 pnpm --filter @paylink/e2e test
 
+# The PayPal edition: its API offline (PayPal fake, no account), and both rails end to end on a fork of Ethereum Sepolia
+pnpm --filter @paylink/api run dev:offline
+pnpm --filter @paylink/e2e test specs/paypal-rails.spec.ts
+
 # Documentation checks, and v1's own tests
 python3 docs/tools/check-docs.py
 npm test
@@ -149,13 +183,15 @@ Putting the services online: [Cloudflare Pages](../docs/runbooks/cloudflare-page
 |---|---|---|
 | **Pre-existing: PayLink v1** | `31a4fdd` (2026-10-04) and `93ed4e3` (2026-10-05) | A simpler payment-link contract and web app for Arc (`contracts/PayLink.sol`, `web/`). Frozen and not part of the v2 editions ([ADR 0010](../docs/adr/0010-arc-stays-on-v1.md)). Its own README, at the repository root, describes the Arc Microgrants plan: as of 2026-10-09 v1 is **not** deployed on Arc mainnet (`web/config.js` has no address) |
 | **Built for Monad Metropolis and Colosseum: PayLink v2** | from `88ac2d9` (2026-10-07, the first v2 commit; the design work started on Oct 5) | The PayLinkV2 contract and its tests, the SDK and chain registry, the web app and its Monad and Base editions (Mera passkeys, gasless rails, till, receive card and Send, ledger backup), the relayer, the indexer, the deploy kit, the end-to-end suites, the open invoice specification and the documentation |
+| **Built for the PayPal AI Hackathon: the PayPal edition (PayLink Twin)** | from `828b9ff` (2026-10-21), on the branch `paypal` only, on top of the Mezo work at `ffd952f` | Ethereum Sepolia with USDC and PayPal USD in the chain registry, the deploy kit and `tools/verify-deployment`; the API (`apps/api`: PayPal Invoicing v2 and Webhooks, the reconciler, approvals, sessions, the Workers AI assistant, Durable Objects, cron) and its contract (`packages/api-contract`); the PayPal edition of the app; its end-to-end tests ([PayPal pack §9](../docs/submissions/paypal.md#9-disclosures-and-commit-range)). The contract is unchanged |
 | **Built for the Mezo Buildathon (AKINDO): the Mezo edition** | from `f0fb1ce` (2026-10-13), on the branch `mezo` only | Mezo testnet in the chain registry, the deploy kit and `tools/verify-deployment`; the Mezo edition of the app (MUSD invoices, permit or approval payments, the BTC fee, Mezo's testnet faucet and borrow page); its end-to-end tests on a fork of Mezo testnet; the [research notes](../docs/research/mezo.md) and [ADR 0017](../docs/adr/0017-mezo-edition-chain-layer.md). The contract is unchanged ([Mezo pack §9](../docs/submissions/mezo.md#9-disclosures-and-commit-range)) |
 
 The submission texts, with their disclosures, are in [docs/submissions/](../docs/submissions/README.md).
 
 ## Status and limits
 
-- **Testnets only.** Monad mainnet (143) is in the registry but disabled; there is no mainnet deployment. Mezo testnet (31611) is in the registry for the Mezo edition only, where PayLinkV2 is deployed (2026-10-16).
+- **Testnets only.** Monad mainnet (143) is in the registry but disabled; there is no mainnet deployment. Mezo testnet (31611) is in the registry for the Mezo edition only, where PayLinkV2 is deployed (2026-10-16). Ethereum Sepolia (11155111) is in the registry for the PayPal edition only, and PayLinkV2 is not deployed there yet.
+- **PayPal sandbox only.** The PayPal edition uses the PayPal sandbox with one demo merchant; sandbox behaviours not yet observed are UNVERIFIED; its assistant runs on Workers AI's free daily allocation and rests when it is spent ([limitations](../docs/submissions/paypal.md#7-honest-limitations)).
 - **Not audited.** Our own review only: 100 % line and branch coverage of the contract, 63 of 63 hand-written mutants killed, Slither with no untriaged result, invariants I1 to I11 ([evidence](../protocol/audit/README.md), [self-review](../docs/security/self-review.md)).
 - **Services.** Gasless payments, test AUSD and gasless cancel need the relayer online; the ledger's full history needs the indexer. Without the indexer, the ledger reads the chain's latest blocks and says so. Each edition's Status page shows whether they answer.
 - **No users yet.** PayLink has no users, revenue or partners; demand is a hypothesis under test.
@@ -163,7 +199,7 @@ The submission texts, with their disclosures, are in [docs/submissions/](../docs
 
 ## AI use, attributions, licence, security
 
-- **AI use.** Claude Code (Anthropic) did much of the engineering and documentation under the founder's direction; the founder decides, reviews, holds every key and makes every submission. Commits made with it carry a `Co-Authored-By: Claude` trailer. Details and limits: [AI_DISCLOSURE.md](../AI_DISCLOSURE.md).
+- **AI use.** AI in the product: Cloudflare Workers AI (`@cf/google/gemma-4-26b-a4b-it`, fallback `@cf/meta/llama-3.3-70b-instruct-fp8-fast`). Development assisted by Claude Code (Anthropic); the owner directed, reviewed and is responsible for the work. The full disclosure, including how commits are attributed: [AI_DISCLOSURE.md](../AI_DISCLOSURE.md).
 - **Third-party components.** OpenZeppelin Contracts, viem, `@category-labs/mera`, Hono, zod, idb, qrcode-generator, Envio HyperIndex (not open source; used for the indexer only), the Archivo and Martian Mono fonts (OFL), each under its own licence: [NOTICE.md](../NOTICE.md).
 - **Licence.** MIT, © 2026 nambininasafidison ([LICENSE](../LICENSE)).
 - **Security.** Report vulnerabilities privately as [SECURITY.md](../SECURITY.md) explains, never in a public issue.
