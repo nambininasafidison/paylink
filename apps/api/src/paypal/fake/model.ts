@@ -255,8 +255,11 @@ export class FakeState {
     return 200;
   }
 
-  /** The payer pays on PayPal's page (the whole amount due unless `cents` says less). */
-  payerPays(id: string, cents?: bigint): FakePayment {
+  /**
+   * The payer pays on PayPal's page (the whole amount due unless `cents` says less), with the payer's own `note` if any:
+   * text the payer controls, which PayLink must treat as data (the injection suite and the L3 two-rail test send some).
+   */
+  payerPays(id: string, cents?: bigint, note: string | null = null): FakePayment {
     const invoice = this.get(id);
     if (!OPEN_STATUSES.includes(invoice.status) && invoice.status !== "PARTIALLY_PAID") {
       throw new FakeRefusal(422, "CANNOT_PROCESS_PAYMENTS");
@@ -266,7 +269,7 @@ export class FakeState {
     if (amount <= 0n || amount > due) {
       throw new FakeRefusal(422, "PAYMENT_AMOUNT_GREATER_THAN_AMOUNT_DUE");
     }
-    const payment: FakePayment = { type: "PAYPAL", paymentId: this.ids.paypalPaymentId(), date: this.today(), method: "PAYPAL", note: null, cents: amount };
+    const payment: FakePayment = { type: "PAYPAL", paymentId: this.ids.paypalPaymentId(), date: this.today(), method: "PAYPAL", note, cents: amount };
     invoice.payments.push(payment);
     invoice.status = this.dueCents(invoice) === 0n ? this.behaviour.payerPaymentStatus : "PARTIALLY_PAID";
     invoice.updatedAt = this.clock();

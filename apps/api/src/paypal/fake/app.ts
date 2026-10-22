@@ -637,7 +637,9 @@ export function createFakeApp(host: FakeHost): Hono {
     const id = c.req.param("id");
     const body = (await c.req.json().catch(() => ({}))) as Json;
     const cents = typeof body["amount"] === "string" ? centsOf(body["amount"]) : null;
-    const payment = state.payerPays(id, cents ?? undefined);
+    // PayPal's payment note is at most 2,000 characters (invoicing_v2.json `payment_detail.note`, V).
+    const note = typeof body["note"] === "string" ? body["note"].slice(0, 2000) : null;
+    const payment = state.payerPays(id, cents ?? undefined, note);
     host.announce(state.get(id).status === "PAYMENT_PENDING" ? "INVOICING.INVOICE.UPDATED" : "INVOICING.INVOICE.PAID", state.get(id));
     return c.json({ payment_id: payment.paymentId, status: state.get(id).status }, 200);
   });

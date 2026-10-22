@@ -5,6 +5,7 @@
  *
  * Owner: foundation.
  */
+import { registry } from "@paylink/chains";
 import { DEFAULT_CONFIG } from "../core/config.ts";
 import { createLogger } from "../core/log.ts";
 import type { ApiRuntime } from "../core/runtime.ts";
@@ -34,5 +35,7 @@ export function workerRuntime(env: Env): ApiRuntime {
     random: (bytes) => crypto.getRandomValues(new Uint8Array(bytes)),
     logger: createLogger({ sink, secrets: Object.values(secrets), base: { service: DEFAULT_CONFIG.service, version: DEFAULT_CONFIG.version } }),
     ai: env.AI,
+    // Always the shipped registry: a deployment is trusted only once protocol/deployments/11155111.json records it.
+    registry,
   };
 }

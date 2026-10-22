@@ -95,8 +95,8 @@ export interface PayPalFake {
   readonly requests: readonly RecordedRequest[];
   /** The fake's public base (payer pages, links) and where its first subscription delivers webhooks. */
   connect(options: { readonly publicUrl?: string; readonly webhookUrl?: string | null }): void;
-  /** The payer pays on PayPal's page: the whole amount due, or `amount` (`"60.00"`). Returns the payment id. */
-  pay(invoiceId: string, amount?: string): string;
+  /** The payer pays on PayPal's page: the whole amount due, or `amount` (`"60.00"`), with a payer's `note`. Returns the payment id. */
+  pay(invoiceId: string, amount?: string, note?: string): string;
   /** A held payment (`PAYMENT_PENDING`) clears. */
   clearPending(invoiceId: string): void;
   /** Sets any status, as PayPal or the merchant's dashboard could (refunds, auto-cancel). Not a PayPal operation. */
@@ -308,12 +308,12 @@ export function createPayPalFake(options: PayPalFakeOptions = {}): PayPalFake {
         subscription.url = webhookUrl;
       }
     },
-    pay: (invoiceId, amount) => {
+    pay: (invoiceId, amount, note) => {
       const cents = amount === undefined ? undefined : centsOf(amount);
       if (cents === null) {
         throw new RangeError("amount must be a PayPal value such as 60.00");
       }
-      const payment = state.payerPays(invoiceId, cents);
+      const payment = state.payerPays(invoiceId, cents, note ?? null);
       const invoice = state.get(invoiceId);
       host.announce(invoice.status === "PAYMENT_PENDING" ? "INVOICING.INVOICE.UPDATED" : "INVOICING.INVOICE.PAID", invoice);
       return payment.paymentId;

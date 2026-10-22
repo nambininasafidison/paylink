@@ -28,7 +28,6 @@
  */
 import { INVOICE_KEY_PATTERN, statusClassOf } from "@paylink/api-contract";
 import type { Address, InvoiceKey, RailsResponse, TwinView } from "@paylink/api-contract";
-import { registry as shippedRegistry } from "@paylink/chains";
 import type { Registry } from "@paylink/chains";
 import { decodeInvoiceFragment, isPayLinkError, verifySignatureWithCode } from "@paylink/sdk";
 import type { DecodedInvoiceLink } from "@paylink/sdk";
@@ -166,13 +165,14 @@ async function signedByPayee(services: ApiServices, registry: Registry, decoded:
   }
 }
 
+/** The handlers; `registry` replaces the runtime's (route tests only). */
 export function createTwinHandlers(options: { readonly registry?: Registry } = {}): RouteHandlers {
-  const registry = options.registry ?? shippedRegistry;
   return {
     "twin.create": async ({ c, services, payee, now }) => {
       if (payee === null) {
         throw new ProblemError("unauthorized", "send Authorization: Bearer <session token>");
       }
+      const registry = options.registry ?? services.runtime.registry;
       const body = parseBody(TwinCreateSchema, await readJson(c, DEFAULT_BODY_LIMIT));
       const decoded = await signedLink(services, registry, body.link, payee);
       const { invoice, token } = decoded;

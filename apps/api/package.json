@@ -18,6 +18,7 @@
     "build:check": "node --conditions=@paylink/source scripts/build.ts --check",
     "start:local": "node --conditions=@paylink/source src/node/main.ts",
     "dev:offline": "node --conditions=@paylink/source src/node/main.ts --offline",
+    "capture": "node --conditions=@paylink/source scripts/capture/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p src/worker/tsconfig.json --noEmit",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",

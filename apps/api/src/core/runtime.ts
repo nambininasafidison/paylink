@@ -6,6 +6,7 @@
  *
  * Owner: foundation.
  */
+import type { Registry } from "@paylink/chains";
 import type { StoreFactory } from "../store/types.ts";
 import type { Logger } from "./log.ts";
 
@@ -80,8 +81,17 @@ export interface ApiRuntime {
   /** Cryptographically random bytes; tests seed it. */
   readonly random: (bytes: number) => Uint8Array;
   readonly logger: Logger;
-  /** The Workers AI binding: Worker only, and only when `config.ai.mode` is `workers-ai`. */
+  /**
+   * The Workers AI binding: the Worker's `env.AI` when `config.ai.mode` is `workers-ai`; in the Node entry only a test's
+   * scripted stand-in (src/node/server.ts `aiBinding`), never a real model.
+   */
   readonly ai: AiBinding | null;
+  /**
+   * The chain registry the API trusts: links are decoded, signatures checked and PayLinkV2 read through it. The Worker
+   * always has the shipped `@paylink/chains` registry; only the Node entry's end-to-end option records a deployment made
+   * on a local fork (src/node/server.ts `localChain`).
+   */
+  readonly registry: Registry;
 }
 
 /** What every area factory receives: the runtime and the stores (src/core/services.ts). */

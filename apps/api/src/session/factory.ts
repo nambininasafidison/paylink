@@ -13,7 +13,6 @@
  */
 import { SESSION_DOMAIN, SESSION_MAX_SECONDS, SESSION_TYPES } from "@paylink/api-contract";
 import type { SessionRequest, SessionResponse } from "@paylink/api-contract";
-import { registry } from "@paylink/chains";
 import { normalizeEcdsaV, verifySignatureWithCode } from "@paylink/sdk";
 import { getAddress, hashTypedData, isAddress } from "viem";
 import { base64Url, fromBase64Url, hmac, hmacVerify, macKey } from "../approvals/crypto.ts";
@@ -59,7 +58,7 @@ export function createSessions(deps: FactoryDeps): Sessions {
     if (offline.valid) {
       return true;
     }
-    const chain = registry.get(config.chainId);
+    const chain = runtime.registry.get(config.chainId);
     if (chain === undefined) {
       return false;
     }
