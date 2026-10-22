@@ -1,0 +1,1580 @@
+{
+ "set": "a1",
+ "version": 1,
+ "now": "2026-10-21T12:00:00.000Z",
+ "floor": 60,
+ "target": 90,
+ "bars": {
+  "amountExactOrClarified": 1.0,
+  "inventedAmounts": 0,
+  "dueDate": 0.95,
+  "video": 1.0,
+  "clarifications": 0.95
+ },
+ "note": "Cases are made up for the evals (no real client). 'scripted' is a hand-written answer a correct model would give: CI replays it to test code's half of A1; the owner's live run replaces it with the model's own answer. Malagasy cases await the owner's review (docs/paypal/SPEC.md §21).",
+ "cases": [
+  {
+   "id": "en-01",
+   "language": "en",
+   "locale": "en",
+   "video": true,
+   "text": "Love it! Send me the invoice, $120, I'll pay by Friday. - Sarah",
+   "scripted": {
+    "amount_text": "$120",
+    "currency_text": "$",
+    "description": "Logo design",
+    "client_name": "Sarah",
+    "client_email_token": null,
+    "due_text": "by Friday",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "120000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": [],
+    "clientName": "Sarah"
+   }
+  },
+  {
+   "id": "en-02",
+   "language": "en",
+   "locale": "en",
+   "video": true,
+   "text": "Hi Rina, the logo is perfect. Please invoice me $250 for the brand kit, payment by end of the month. Tom",
+   "scripted": {
+    "amount_text": "$250",
+    "currency_text": "$",
+    "description": "Brand kit",
+    "client_name": "Tom",
+    "client_email_token": null,
+    "due_text": "by end of the month",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "250000000",
+    "currency": "USD",
+    "dueDate": "2026-10-31",
+    "clarifications": [],
+    "clientName": "Tom"
+   }
+  },
+  {
+   "id": "en-03",
+   "language": "en",
+   "locale": "en",
+   "video": true,
+   "text": "Can you bill us USD 1,200 for the website? We pay net 30. - Acme team",
+   "scripted": {
+    "amount_text": "USD 1,200",
+    "currency_text": "USD",
+    "description": "Website",
+    "client_name": "Acme team",
+    "client_email_token": null,
+    "due_text": "net 30",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "1200000000",
+    "currency": "USD",
+    "dueDate": "2026-11-20",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-04",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Translation done, thanks! Invoice 85 dollars, I'll send it tomorrow.",
+   "scripted": {
+    "amount_text": "85 dollars",
+    "currency_text": "dollars",
+    "description": "Translation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "tomorrow",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "85000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-05",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Great work. $45.50 for the edits, pay you on Monday",
+   "scripted": {
+    "amount_text": "$45.50",
+    "currency_text": "$",
+    "description": "Edits",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "on Monday",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "45500000",
+    "currency": "USD",
+    "dueDate": "2026-10-26",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-06",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Please send the invoice for the 3 illustrations ($90 each, $270 total). I'll pay in 2 weeks.",
+   "scripted": {
+    "amount_text": "$270",
+    "currency_text": "$",
+    "description": "Three illustrations",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "in 2 weeks",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "270000000",
+    "currency": "USD",
+    "dueDate": "2026-11-04",
+    "clarifications": [
+     "several_amounts"
+    ]
+   }
+  },
+  {
+   "id": "en-07",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "How much do I owe you? Send me the invoice and I'll pay this week.",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "Invoice",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "this week",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": null,
+    "clarifications": [
+     "amount_missing",
+     "due_date_unclear"
+    ]
+   }
+  },
+  {
+   "id": "en-08",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Invoice me 150 euros for the logo please, by Friday",
+   "scripted": {
+    "amount_text": "150 euros",
+    "currency_text": "euros",
+    "description": "Logo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "by Friday",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-10-23",
+    "clarifications": [
+     "currency_not_usd"
+    ]
+   }
+  },
+  {
+   "id": "en-09",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "I'll pay the 300 000 Ar for the flyers on the 30th",
+   "scripted": {
+    "amount_text": "300 000 Ar",
+    "currency_text": "Ar",
+    "description": "Flyers",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "on the 30th",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-10-30",
+    "clarifications": [
+     "currency_not_usd"
+    ]
+   }
+  },
+  {
+   "id": "en-10",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Send invoice for $1.2k, pay next Friday",
+   "scripted": {
+    "amount_text": "$1.2k",
+    "currency_text": "$",
+    "description": "Invoice",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "next Friday",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": null,
+    "clarifications": [
+     "amount_ambiguous",
+     "due_date_unclear"
+    ]
+   }
+  },
+  {
+   "id": "en-11",
+   "language": "en",
+   "locale": "en",
+   "video": true,
+   "text": "Payment of US$ 600 for the app mockups, due Nov 6. Thanks, Laura (laura@example.com)",
+   "scripted": {
+    "amount_text": "US$ 600",
+    "currency_text": "US$",
+    "description": "App mockups",
+    "client_name": "Laura",
+    "client_email_token": "[EMAIL_1]",
+    "due_text": "due Nov 6",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "600000000",
+    "currency": "USD",
+    "dueDate": "2026-11-06",
+    "clarifications": [],
+    "clientName": "Laura",
+    "clientEmail": "laura@example.com"
+   }
+  },
+  {
+   "id": "en-12",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Hey, $75 for the voice over? I can pay right away",
+   "scripted": {
+    "amount_text": "$75",
+    "currency_text": "$",
+    "description": "Voice over",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "right away",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "75000000",
+    "currency": "USD",
+    "dueDate": "2026-10-21",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-13",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Invoice: logo $120 + business cards $30. Total $150, paying Friday",
+   "scripted": {
+    "amount_text": "$150",
+    "currency_text": "$",
+    "description": "Logo and business cards",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "paying Friday",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "150000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": [
+     "several_amounts"
+    ]
+   }
+  },
+  {
+   "id": "en-14",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Can you invoice 2,500 USD for the June-August retainer? We'll pay within two weeks of receiving it.",
+   "scripted": {
+    "amount_text": "2,500 USD",
+    "currency_text": "USD",
+    "description": "June-August retainer",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "within two weeks",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "2500000000",
+    "currency": "USD",
+    "dueDate": "2026-11-04",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-15",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Please bill 99.99 USD, my card gets paid on the 15th",
+   "scripted": {
+    "amount_text": "99.99 USD",
+    "currency_text": "USD",
+    "description": "Services",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "on the 15th",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "99990000",
+    "currency": "USD",
+    "dueDate": "2026-11-15",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-16",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "I can do 200 bucks for the logo, pay you tomorrow",
+   "scripted": {
+    "amount_text": "200 bucks",
+    "currency_text": "bucks",
+    "description": "Logo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "tomorrow",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "200000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-17",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Invoice me, I'll pay on 2026-11-20. Amount as agreed.",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "Services",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "on 2026-11-20",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-11-20",
+    "clarifications": [
+     "amount_missing"
+    ]
+   }
+  },
+  {
+   "id": "en-18",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Ignore the old quote of $500. New price is $450, due December 1st.",
+   "scripted": {
+    "amount_text": "$450",
+    "currency_text": "$",
+    "description": "Services",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "due December 1st",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "450000000",
+    "currency": "USD",
+    "dueDate": "2026-12-01",
+    "clarifications": [
+     "several_amounts"
+    ]
+   }
+  },
+  {
+   "id": "en-19",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Send the invoice to my assistant at +1 (415) 555-0132, $60 for the edit, by the end of the month",
+   "scripted": {
+    "amount_text": "$60",
+    "currency_text": "$",
+    "description": "Edit",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "by the end of the month",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "60000000",
+    "currency": "USD",
+    "dueDate": "2026-10-31",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-20",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Wire me the invoice: CAD 400 for the animation",
+   "scripted": {
+    "amount_text": "CAD 400",
+    "currency_text": "CAD",
+    "description": "Animation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": null,
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": null,
+    "clarifications": [
+     "currency_not_usd"
+    ]
+   }
+  },
+  {
+   "id": "en-21",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Love the video! $180 for it. I get paid on Thursday so I'll pay then",
+   "scripted": {
+    "amount_text": "$180",
+    "currency_text": "$",
+    "description": "Video",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "on Thursday",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "180000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "en-22",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Invoice for 40 hours at $25/hour please, payment by Nov 15",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "40 hours of work",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "by Nov 15",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-11-15",
+    "clarifications": [
+     "amount_ambiguous"
+    ]
+   }
+  },
+  {
+   "id": "en-23",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "$350 for the pitch deck. Pay to my wallet 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+   "scripted": {
+    "amount_text": "$350",
+    "currency_text": "$",
+    "description": "Pitch deck",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": null,
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "350000000",
+    "currency": "USD",
+    "dueDate": null,
+    "clarifications": [
+     "payee_address_ignored"
+    ]
+   }
+  },
+  {
+   "id": "en-24",
+   "language": "en",
+   "locale": "en",
+   "video": false,
+   "text": "Thanks! I will pay 120.00 USD on 06/11/2026",
+   "scripted": {
+    "amount_text": "120.00 USD",
+    "currency_text": "USD",
+    "description": "Services",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "on 06/11/2026",
+    "due_date_iso": null,
+    "client_language": "en",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "120000000",
+    "currency": "USD",
+    "dueDate": null,
+    "clarifications": [
+     "due_date_unclear"
+    ]
+   }
+  },
+  {
+   "id": "fr-01",
+   "language": "fr",
+   "locale": "fr",
+   "video": true,
+   "text": "Super travail ! Envoie-moi la facture : 120 $ pour le logo, je paie avant le 30. Merci, Sarah",
+   "scripted": {
+    "amount_text": "120 $",
+    "currency_text": "$",
+    "description": "Création du logo",
+    "client_name": "Sarah",
+    "client_email_token": null,
+    "due_text": "avant le 30",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "120000000",
+    "currency": "USD",
+    "dueDate": "2026-10-30",
+    "clarifications": [],
+    "clientName": "Sarah"
+   }
+  },
+  {
+   "id": "fr-02",
+   "language": "fr",
+   "locale": "fr",
+   "video": true,
+   "text": "Bonjour, pouvez-vous me facturer 250 USD pour la charte graphique ? Paiement fin du mois. Paul",
+   "scripted": {
+    "amount_text": "250 USD",
+    "currency_text": "USD",
+    "description": "Charte graphique",
+    "client_name": "Paul",
+    "client_email_token": null,
+    "due_text": "fin du mois",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "250000000",
+    "currency": "USD",
+    "dueDate": "2026-10-31",
+    "clarifications": [],
+    "clientName": "Paul"
+   }
+  },
+  {
+   "id": "fr-03",
+   "language": "fr",
+   "locale": "fr",
+   "video": true,
+   "text": "Merci pour la traduction ! Facture de 85 dollars, je règle demain.",
+   "scripted": {
+    "amount_text": "85 dollars",
+    "currency_text": "dollars",
+    "description": "Traduction",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "demain",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "85000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-04",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Je vous dois combien ? Envoyez la facture, je paie vendredi.",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "vendredi",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-10-23",
+    "clarifications": [
+     "amount_missing"
+    ]
+   }
+  },
+  {
+   "id": "fr-05",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facture de 150 € pour le site, payable sous 15 jours",
+   "scripted": {
+    "amount_text": "150 €",
+    "currency_text": "€",
+    "description": "Site web",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "sous 15 jours",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-11-05",
+    "clarifications": [
+     "currency_not_usd"
+    ]
+   }
+  },
+  {
+   "id": "fr-06",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Ok pour 1 200 $ pour l'application, paiement dans deux semaines",
+   "scripted": {
+    "amount_text": "1 200 $",
+    "currency_text": "$",
+    "description": "Application",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "dans deux semaines",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "1200000000",
+    "currency": "USD",
+    "dueDate": "2026-11-04",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-07",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Pour les 3 affiches : 40 $ chacune, soit 120 $ au total. Je paie lundi.",
+   "scripted": {
+    "amount_text": "120 $",
+    "currency_text": "$",
+    "description": "Trois affiches",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "lundi",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "120000000",
+    "currency": "USD",
+    "dueDate": "2026-10-26",
+    "clarifications": [
+     "several_amounts"
+    ]
+   }
+  },
+  {
+   "id": "fr-08",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Merci ! 99,90 $ pour la retouche photo, je paie le 6 novembre",
+   "scripted": {
+    "amount_text": "99,90 $",
+    "currency_text": "$",
+    "description": "Retouche photo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "le 6 novembre",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "99900000",
+    "currency": "USD",
+    "dueDate": "2026-11-06",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-09",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facturez-moi 500 000 Ar pour le reportage, je paie à la réception",
+   "scripted": {
+    "amount_text": "500 000 Ar",
+    "currency_text": "Ar",
+    "description": "Reportage",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "à la réception",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-10-21",
+    "clarifications": [
+     "currency_not_usd"
+    ]
+   }
+  },
+  {
+   "id": "fr-10",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Le montant : 75 USD. Paiement mardi prochain.",
+   "scripted": {
+    "amount_text": "75 USD",
+    "currency_text": "USD",
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "mardi prochain",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "75000000",
+    "currency": "USD",
+    "dueDate": "2026-10-27",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-11",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Envoie la facture à marie.dupont@example.fr : 300 $ pour le montage, je paie le 15",
+   "scripted": {
+    "amount_text": "300 $",
+    "currency_text": "$",
+    "description": "Montage vidéo",
+    "client_name": null,
+    "client_email_token": "[EMAIL_1]",
+    "due_text": "le 15",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "300000000",
+    "currency": "USD",
+    "dueDate": "2026-11-15",
+    "clarifications": [],
+    "clientEmail": "marie.dupont@example.fr"
+   }
+  },
+  {
+   "id": "fr-12",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Bravo pour le logo. Je te paie 60 dollars US demain.",
+   "scripted": {
+    "amount_text": "60 dollars",
+    "currency_text": "dollars",
+    "description": "Logo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "demain",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "60000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-13",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facture 2 000 $ pour la mission, réglée à 30 jours",
+   "scripted": {
+    "amount_text": "2 000 $",
+    "currency_text": "$",
+    "description": "Mission",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "à 30 jours",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "2000000000",
+    "currency": "USD",
+    "dueDate": "2026-11-20",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-14",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Je paie 450 $ (et non 500 $ comme indiqué avant) d'ici vendredi",
+   "scripted": {
+    "amount_text": "450 $",
+    "currency_text": "$",
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "d'ici vendredi",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "450000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": [
+     "several_amounts"
+    ]
+   }
+  },
+  {
+   "id": "fr-15",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facture pour 20 heures à 30 $/h, paiement fin novembre",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "20 heures de travail",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "fin novembre",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-11-30",
+    "clarifications": [
+     "amount_ambiguous"
+    ]
+   }
+  },
+  {
+   "id": "fr-16",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Montant convenu : 180 $. Je paierai la semaine prochaine.",
+   "scripted": {
+    "amount_text": "180 $",
+    "currency_text": "$",
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "la semaine prochaine",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "180000000",
+    "currency": "USD",
+    "dueDate": null,
+    "clarifications": [
+     "due_date_unclear"
+    ]
+   }
+  },
+  {
+   "id": "fr-17",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facture de 1.200 $ pour la vidéo",
+   "scripted": {
+    "amount_text": "1.200 $",
+    "currency_text": "$",
+    "description": "Vidéo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": null,
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": null,
+    "clarifications": [
+     "amount_ambiguous"
+    ]
+   }
+  },
+  {
+   "id": "fr-18",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Paiement de 35 $ à faire avant le 25/10/2026",
+   "scripted": {
+    "amount_text": "35 $",
+    "currency_text": "$",
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "avant le 25/10/2026",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "35000000",
+    "currency": "USD",
+    "dueDate": "2026-10-25",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-19",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Payez-moi 90 $ sur mon portefeuille 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC d'ici jeudi",
+   "scripted": {
+    "amount_text": "90 $",
+    "currency_text": "$",
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "d'ici jeudi",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "90000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": [
+     "payee_address_ignored"
+    ]
+   }
+  },
+  {
+   "id": "fr-20",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facture 140 $ pour les sous-titres, je règle aujourd'hui",
+   "scripted": {
+    "amount_text": "140 $",
+    "currency_text": "$",
+    "description": "Sous-titres",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "aujourd'hui",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "140000000",
+    "currency": "USD",
+    "dueDate": "2026-10-21",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-21",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Combien je te dois pour le logo ? Je paie le 2 décembre.",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "Logo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "le 2 décembre",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-12-02",
+    "clarifications": [
+     "amount_missing"
+    ]
+   }
+  },
+  {
+   "id": "fr-22",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "On a dit 65 $ ? Je te paie après-demain.",
+   "scripted": {
+    "amount_text": "65 $",
+    "currency_text": "$",
+    "description": "Prestation",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "après-demain",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "65000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-23",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Merci Rina ! 220 $ pour la maquette, paiement le 06/11",
+   "scripted": {
+    "amount_text": "220 $",
+    "currency_text": "$",
+    "description": "Maquette",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "le 06/11",
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "220000000",
+    "currency": "USD",
+    "dueDate": "2026-11-06",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "fr-24",
+   "language": "fr",
+   "locale": "fr",
+   "video": false,
+   "text": "Facture 3 500 $ pour le développement, paiement en trois fois",
+   "scripted": {
+    "amount_text": "3 500 $",
+    "currency_text": "$",
+    "description": "Développement",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": null,
+    "due_date_iso": null,
+    "client_language": "fr",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "3500000000",
+    "currency": "USD",
+    "dueDate": null,
+    "clarifications": []
+   }
+  },
+  {
+   "id": "mg-01",
+   "language": "mg",
+   "locale": "mg",
+   "video": true,
+   "text": "Misaotra betsaka! Alefaso ny faktiora: $80 ho an'ny fandikan-teny, handoa aho rahampitso. - Rado",
+   "scripted": {
+    "amount_text": "$80",
+    "currency_text": "$",
+    "description": "Fandikan-teny",
+    "client_name": "Rado",
+    "client_email_token": null,
+    "due_text": "rahampitso",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "80000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": [],
+    "clientName": "Rado"
+   }
+  },
+  {
+   "id": "mg-02",
+   "language": "mg",
+   "locale": "mg",
+   "video": true,
+   "text": "Salama Rina, tsara ny logo. Andefaso faktiora $150 aho, handoa amin'ny zoma.",
+   "scripted": {
+    "amount_text": "$150",
+    "currency_text": "$",
+    "description": "Logo",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "amin'ny zoma",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "150000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "mg-03",
+   "language": "mg",
+   "locale": "mg",
+   "video": true,
+   "text": "Mba alefaso ny faktiora ho an'ny tranonkala: 300 USD. Handoa aho amin'ny faran'ny volana.",
+   "scripted": {
+    "amount_text": "300 USD",
+    "currency_text": "USD",
+    "description": "Tranonkala",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "amin'ny faran'ny volana",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "300000000",
+    "currency": "USD",
+    "dueDate": "2026-10-31",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "mg-04",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Ohatrinona ny saran'ny sary? Handoa aho rahampitso.",
+   "scripted": {
+    "amount_text": null,
+    "currency_text": null,
+    "description": "Sary",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "rahampitso",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-10-22",
+    "clarifications": [
+     "amount_missing"
+    ]
+   }
+  },
+  {
+   "id": "mg-05",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Ataovy faktiora 200 000 Ar ny sary, handoa aho alatsinainy",
+   "scripted": {
+    "amount_text": "200 000 Ar",
+    "currency_text": "Ar",
+    "description": "Sary",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "alatsinainy",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": null,
+    "currency": null,
+    "dueDate": "2026-10-26",
+    "clarifications": [
+     "currency_not_usd"
+    ]
+   }
+  },
+  {
+   "id": "mg-06",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "$45 ho an'ny fanitsiana, handoa afaka roa herinandro",
+   "scripted": {
+    "amount_text": "$45",
+    "currency_text": "$",
+    "description": "Fanitsiana",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "afaka roa herinandro",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "45000000",
+    "currency": "USD",
+    "dueDate": "2026-11-04",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "mg-07",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Faktiora $60 azafady, aloa amin'ny 6 novambra",
+   "scripted": {
+    "amount_text": "$60",
+    "currency_text": "$",
+    "description": "Asa",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "amin'ny 6 novambra",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "60000000",
+    "currency": "USD",
+    "dueDate": "2026-11-06",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "mg-08",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Handoa $90 aho androany",
+   "scripted": {
+    "amount_text": "$90",
+    "currency_text": "$",
+    "description": "Asa",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "androany",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "90000000",
+    "currency": "USD",
+    "dueDate": "2026-10-21",
+    "clarifications": []
+   }
+  },
+  {
+   "id": "mg-09",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Ny sarany dia $120 fa ny $20 dia efa naloako. Handoa ny ambiny aho amin'ny alakamisy.",
+   "scripted": {
+    "amount_text": "$120",
+    "currency_text": "$",
+    "description": "Asa",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "amin'ny alakamisy",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "120000000",
+    "currency": "USD",
+    "dueDate": "2026-10-22",
+    "clarifications": [
+     "several_amounts"
+    ]
+   }
+  },
+  {
+   "id": "mg-10",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Alefaso any amin'ny rado@example.mg ny faktiora $75, handoa zoma",
+   "scripted": {
+    "amount_text": "$75",
+    "currency_text": "$",
+    "description": "Asa",
+    "client_name": null,
+    "client_email_token": "[EMAIL_1]",
+    "due_text": "zoma",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "75000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": [],
+    "clientEmail": "rado@example.mg"
+   }
+  },
+  {
+   "id": "mg-11",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Faktiora $500 ho an'ny tetikasa. Aloa amin'ny 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+   "scripted": {
+    "amount_text": "$500",
+    "currency_text": "$",
+    "description": "Tetikasa",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": null,
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "500000000",
+    "currency": "USD",
+    "dueDate": null,
+    "clarifications": [
+     "payee_address_ignored"
+    ]
+   }
+  },
+  {
+   "id": "mg-12",
+   "language": "mg",
+   "locale": "mg",
+   "video": false,
+   "text": "Handoa 120 dolara aho rahafakampitso",
+   "scripted": {
+    "amount_text": "120 dolara",
+    "currency_text": "dolara",
+    "description": "Asa",
+    "client_name": null,
+    "client_email_token": null,
+    "due_text": "rahafakampitso",
+    "due_date_iso": null,
+    "client_language": "mg",
+    "clarifications": [],
+    "confidence": "high"
+   },
+   "expect": {
+    "amountBase": "120000000",
+    "currency": "USD",
+    "dueDate": "2026-10-23",
+    "clarifications": []
+   }
+  }
+ ]
+}

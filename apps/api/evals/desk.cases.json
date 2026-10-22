@@ -1,0 +1,316 @@
+{
+ "set": "desk",
+ "version": 1,
+ "now": "2026-10-21T12:00:00.000Z",
+ "floor": 15,
+ "target": 20,
+ "bars": {
+  "exactSet": 1.0,
+  "grounding": 1.0
+ },
+ "setups": {
+  "open": "Shared on PayPal, payable on chain, due 2026-11-06, recipient email (S1)",
+  "overdue": "As open, due 2026-10-20 (S1, PayPal's reminder allowed)",
+  "overdue-no-email": "As overdue, no recipient email (S1, no PayPal reminder)",
+  "paid-paypal": "Paid on PayPal's hosted page (S2)",
+  "paid-chain": "Paid on chain at the exact amount (S3, auto-recorded, then closed)",
+  "paypal-cancelled": "Cancelled on PayPal (S6)",
+  "chain-cancelled": "Cancelled on chain (S7)",
+  "pending": "PayPal payment pending (S5)",
+  "mismatch": "PayPal's amount 99.00 against 120.00 signed (S0)",
+  "refunded": "Refunded on PayPal (S9)"
+ },
+ "note": "Ledgers are made up. The expected set is the spec's situation table (docs/paypal/SPEC.md §10.2) read by hand: every tap action of every fence, nothing else. CI replays a scripted reference model (test/ai/evals/lib.ts) to check the pipeline; the owner's live run measures the model.",
+ "cases": [
+  {
+   "id": "L01",
+   "note": "One open invoice, not due: only the shareable reminder text.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "open"
+    }
+   ],
+   "expected": [
+    [
+     "share_reminder_text",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L02",
+   "note": "Overdue with a recipient email: PayPal's reminder and the text.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "overdue"
+    }
+   ],
+   "expected": [
+    [
+     "send_reminder",
+     "A"
+    ],
+    [
+     "share_reminder_text",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L03",
+   "note": "Overdue without an email: PayPal's reminder is not offered.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "overdue-no-email"
+    }
+   ],
+   "expected": [
+    [
+     "share_reminder_text",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L04",
+   "note": "Paid on PayPal: close the token rail.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "paid-paypal"
+    }
+   ],
+   "expected": [
+    [
+     "cancel_paylink",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L05",
+   "note": "Cancelled on chain: close the PayPal invoice.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "chain-cancelled"
+    }
+   ],
+   "expected": [
+    [
+     "cancel_paypal",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L06",
+   "note": "Cancelled on PayPal: close the token rail.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "paypal-cancelled"
+    }
+   ],
+   "expected": [
+    [
+     "cancel_paylink",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L07",
+   "note": "A PayPal payment in flight: wait.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "pending"
+    }
+   ],
+   "expected": []
+  },
+  {
+   "id": "L08",
+   "note": "PayPal's amount differs from the signed one: hands off.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "mismatch"
+    }
+   ],
+   "expected": []
+  },
+  {
+   "id": "L09",
+   "note": "Refunded: information only.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "refunded"
+    }
+   ],
+   "expected": []
+  },
+  {
+   "id": "L10",
+   "note": "Paid on chain: recorded on PayPal automatically, nothing to propose.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "paid-chain"
+    }
+   ],
+   "expected": []
+  },
+  {
+   "id": "L11",
+   "note": "Two invoices, two different actions.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "open"
+    },
+    {
+     "label": "B",
+     "setup": "chain-cancelled"
+    }
+   ],
+   "expected": [
+    [
+     "share_reminder_text",
+     "A"
+    ],
+    [
+     "cancel_paypal",
+     "B"
+    ]
+   ]
+  },
+  {
+   "id": "L12",
+   "note": "An overdue invoice and a paid one.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "overdue"
+    },
+    {
+     "label": "B",
+     "setup": "paid-paypal"
+    }
+   ],
+   "expected": [
+    [
+     "send_reminder",
+     "A"
+    ],
+    [
+     "share_reminder_text",
+     "A"
+    ],
+    [
+     "cancel_paylink",
+     "B"
+    ]
+   ]
+  },
+  {
+   "id": "L13",
+   "note": "Only one of three needs a proposal.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "open"
+    },
+    {
+     "label": "B",
+     "setup": "pending"
+    },
+    {
+     "label": "C",
+     "setup": "mismatch"
+    }
+   ],
+   "expected": [
+    [
+     "share_reminder_text",
+     "A"
+    ]
+   ]
+  },
+  {
+   "id": "L14",
+   "note": "A recorded chain payment and an overdue invoice without email.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "paid-chain"
+    },
+    {
+     "label": "B",
+     "setup": "overdue-no-email"
+    }
+   ],
+   "expected": [
+    [
+     "share_reminder_text",
+     "B"
+    ]
+   ]
+  },
+  {
+   "id": "L15",
+   "note": "Four invoices, five proposals.",
+   "twins": [
+    {
+     "label": "A",
+     "setup": "open"
+    },
+    {
+     "label": "B",
+     "setup": "overdue"
+    },
+    {
+     "label": "C",
+     "setup": "chain-cancelled"
+    },
+    {
+     "label": "D",
+     "setup": "paypal-cancelled"
+    }
+   ],
+   "expected": [
+    [
+     "share_reminder_text",
+     "A"
+    ],
+    [
+     "send_reminder",
+     "B"
+    ],
+    [
+     "share_reminder_text",
+     "B"
+    ],
+    [
+     "cancel_paypal",
+     "C"
+    ],
+    [
+     "cancel_paylink",
+     "D"
+    ]
+   ]
+  },
+  {
+   "id": "L16",
+   "note": "No open invoice: no model call.",
+   "twins": [],
+   "expected": []
+  }
+ ]
+}
