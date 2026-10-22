@@ -105,31 +105,8 @@ describe("the PayPal edition's profile and registry", () => {
   });
 });
 
-describe.each(LOCALES)("PayPal routes in %s", (locale) => {
-  it.each(ROUTES)("%s renders in the edition's frame", async (_name, page, path) => {
-    await render(page, path, locale);
-    expect(document.querySelector("header.top .edition-tag")?.textContent).toBe("PayPal");
-    expect(document.querySelector("main#terminal")).not.toBeNull();
-    expect(document.querySelector(".intro h1")?.textContent).not.toBe("");
-    expect(document.body.textContent).not.toMatch(RAW_KEY);
-    expect(document.querySelector("footer .foot-links a.ext")?.getAttribute("href")).toBe("https://github.com/nambininasafidison/paylink/tree/paypal");
-  });
-});
-
-describe("tabs", () => {
-  it("lead to create, ledger, desk and till under /paypal/", async () => {
-    await render(deskPage, "/paypal/desk/", "en");
-    const tabs = [...document.querySelectorAll<HTMLAnchorElement>("nav.tabs a")];
-    expect(tabs.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-      ["Create", "/paypal/"],
-      ["Ledger", "/paypal/ledger/"],
-      ["Desk", "/paypal/desk/"],
-      ["Till", "/paypal/till/"],
-    ]);
-    expect(tabs[2]?.getAttribute("aria-current")).toBe("page");
-  });
-});
-
+// Before any page renders: a page rendered earlier keeps reading its chain for a moment after its test, and those
+// reads would land in the next stub (the desk without an API must call no one, which only a clean slate can show).
 describe("desk", () => {
   it("needs the edition's API: without one it says so, signs and approves nothing, and calls no one", async () => {
     const calls = stubNetwork();
@@ -164,6 +141,31 @@ describe("desk", () => {
     expect(document.querySelector(".view-desk .desk-foot li")?.textContent).toBe("API PayLinkInjoignable");
     expect(apiUrl({ config: { version: 1, banner: null, relayer: null, indexer: null, api: { url: API, chains: [84532] }, rpc: {} } })).toBeNull();
     expect(apiUrl({ config: { version: 1, banner: null, relayer: null, indexer: null, rpc: {} } })).toBeNull();
+  });
+});
+
+describe.each(LOCALES)("PayPal routes in %s", (locale) => {
+  it.each(ROUTES)("%s renders in the edition's frame", async (_name, page, path) => {
+    await render(page, path, locale);
+    expect(document.querySelector("header.top .edition-tag")?.textContent).toBe("PayPal");
+    expect(document.querySelector("main#terminal")).not.toBeNull();
+    expect(document.querySelector(".intro h1")?.textContent).not.toBe("");
+    expect(document.body.textContent).not.toMatch(RAW_KEY);
+    expect(document.querySelector("footer .foot-links a.ext")?.getAttribute("href")).toBe("https://github.com/nambininasafidison/paylink/tree/paypal");
+  });
+});
+
+describe("tabs", () => {
+  it("lead to create, ledger, desk and till under /paypal/", async () => {
+    await render(deskPage, "/paypal/desk/", "en");
+    const tabs = [...document.querySelectorAll<HTMLAnchorElement>("nav.tabs a")];
+    expect(tabs.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+      ["Create", "/paypal/"],
+      ["Ledger", "/paypal/ledger/"],
+      ["Desk", "/paypal/desk/"],
+      ["Till", "/paypal/till/"],
+    ]);
+    expect(tabs[2]?.getAttribute("aria-current")).toBe("page");
   });
 });
 
