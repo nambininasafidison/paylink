@@ -6,7 +6,7 @@
  * the footer's source link to the branch paypal. Runs with `__PAYLINK_EDITION__ = "paypal"` (vitest project "paypal").
  */
 import "fake-indexeddb/auto";
-import { LOCALES } from "@paylink/i18n";
+import { EN, LOCALES, loadEditionMessages, loadMessages, placeholders } from "@paylink/i18n";
 import type { Locale } from "@paylink/i18n";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { boot } from "../../src/app/boot.ts";
@@ -14,7 +14,7 @@ import type { PageDefinition } from "../../src/app/boot.ts";
 import { prefs } from "../../src/core/prefs.ts";
 import { appRegistry } from "../../src/core/registry.ts";
 import { edition } from "../../src/editions/index.ts";
-import { PAYPAL_COPY } from "../../src/editions/paypal/copy.ts";
+import { loadPaypalCopy, PAYPAL_COPY, paypalTranslator } from "../../src/editions/paypal/copy.ts";
 import { createPage } from "../../src/pages/create.ts";
 import { apiUrl, deskPage } from "../../src/pages/desk.ts";
 import { ledgerPage } from "../../src/pages/ledger.ts";
@@ -91,7 +91,6 @@ describe("the PayPal edition's profile and registry", () => {
     expect(profile.accountLayers.map((layer) => layer.kind)).toEqual(["injected"]);
     expect(profile.rails.map((rail) => rail.id)).toEqual(["self-authorization", "wallet"]);
     expect(profile.testFunds).toEqual({ kind: "link", url: "https://faucet.circle.com", name: "Circle Faucet" });
-    expect(PAYPAL_COPY).toEqual({});
   });
 
   it("carries Ethereum Sepolia alone, with USDC preselected and PayPal USD offered", () => {
@@ -102,6 +101,41 @@ describe("the PayPal edition's profile and registry", () => {
       ["USDC", "default"],
       ["PYUSD", "listed"],
     ]);
+  });
+});
+
+describe("the PayPal words", () => {
+  it("rewords existing core sentences with the same placeholders, in every language", async () => {
+    expect(Object.keys(PAYPAL_COPY).length).toBeGreaterThanOrEqual(10);
+    for (const locale of LOCALES) {
+      const core = locale === "en" ? EN : await loadMessages(locale);
+      const own = await loadEditionMessages("paypal", locale);
+      for (const [key, paypal] of Object.entries(PAYPAL_COPY)) {
+        const original = (core as Readonly<Record<string, string>>)[key];
+        const reworded = own[paypal];
+        expect(original, `${locale} ${key}`).toBeDefined();
+        expect(reworded, `${locale} ${paypal}`).toBeDefined();
+        expect(placeholders(reworded ?? "").sort(), `${locale} ${key}`).toEqual(placeholders(original ?? "").sort());
+      }
+    }
+  });
+
+  it("names PayPal where the core says the client pays only from a wallet, and never claims Status is uncached", async () => {
+    for (const locale of LOCALES) {
+      const t = paypalTranslator(locale, locale === "en" ? EN : await loadMessages(locale), await loadPaypalCopy(locale)).t;
+      for (const key of ["create.kicker", "create.h1b", "create.lede", "create.step3.text", "pay.voice.bill.lede", "pay.step2.text", "till.lede", "status.lede"] as const) {
+        expect(t(key), `${locale} ${key}`).toContain("PayPal");
+      }
+      expect(t("ticket.scanSub", { symbol: "USDC" }), `${locale} ticket.scanSub`).toContain("PayPal");
+    }
+    const t = paypalTranslator("en", EN, await loadPaypalCopy("en")).t;
+    expect(`${t("create.h1a")} ${t("create.h1b")}`).toBe("One invoice. Paid on PayPal or in dollars on chain");
+    expect(t("create.lede")).not.toContain("straight to your wallet");
+    expect(t("ticket.scanSub", { symbol: "USDC" })).toBe("Pay on PayPal, or in USDC from any wallet. The first payment closes the invoice.");
+    expect(t("status.lede")).not.toContain("nothing here is cached");
+    expect(t("ledger.tally")).toBe("Received on chain, all invoices");
+    // Untouched keys stay the core's.
+    expect(t("create.step1.title")).toBe(EN["create.step1.title"]);
   });
 });
 

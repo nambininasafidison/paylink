@@ -1192,7 +1192,30 @@ export type MessageKey =
   | "paypal.till.noTwin"
   | "paypal.till.unreachable"
   | "paypal.till.noApi"
-  | "paypal.banner.sandbox";
+  | "paypal.banner.sandbox"
+  | "paypal.copy.createKicker"
+  | "paypal.copy.createH1a"
+  | "paypal.copy.createH1b"
+  | "paypal.copy.createLede"
+  | "paypal.copy.createStep3"
+  | "paypal.copy.payBillLede"
+  | "paypal.copy.payStep2"
+  | "paypal.copy.ticketScanSub"
+  | "paypal.copy.tillLede"
+  | "paypal.copy.statusLede"
+  | "paypal.copy.ledgerLede"
+  | "paypal.copy.ledgerTally"
+  | "paypal.copy.ledgerFooting"
+  | "paypal.ledger.paidPaypal"
+  | "paypal.ledger.markedPaypal"
+  | "paypal.ledger.paidMeta"
+  | "paypal.ledger.markedMeta"
+  | "paypal.ledger.receivedPaypal"
+  | "paypal.rails.tokenKey"
+  | "paypal.rails.paypalWord"
+  | "paypal.rails.payWith"
+  | "paypal.alert.recordMissingPill"
+  | "paypal.alert.recordMissingNote";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -2383,6 +2406,29 @@ export interface MessageParams {
   readonly "paypal.till.unreachable": never;
   readonly "paypal.till.noApi": never;
   readonly "paypal.banner.sandbox": never;
+  readonly "paypal.copy.createKicker": never;
+  readonly "paypal.copy.createH1a": never;
+  readonly "paypal.copy.createH1b": never;
+  readonly "paypal.copy.createLede": never;
+  readonly "paypal.copy.createStep3": never;
+  readonly "paypal.copy.payBillLede": never;
+  readonly "paypal.copy.payStep2": never;
+  readonly "paypal.copy.ticketScanSub": { readonly symbol: ParamValue };
+  readonly "paypal.copy.tillLede": never;
+  readonly "paypal.copy.statusLede": never;
+  readonly "paypal.copy.ledgerLede": never;
+  readonly "paypal.copy.ledgerTally": never;
+  readonly "paypal.copy.ledgerFooting": never;
+  readonly "paypal.ledger.paidPaypal": never;
+  readonly "paypal.ledger.markedPaypal": never;
+  readonly "paypal.ledger.paidMeta": { readonly number: ParamValue };
+  readonly "paypal.ledger.markedMeta": { readonly number: ParamValue };
+  readonly "paypal.ledger.receivedPaypal": never;
+  readonly "paypal.rails.tokenKey": { readonly symbol: ParamValue };
+  readonly "paypal.rails.paypalWord": never;
+  readonly "paypal.rails.payWith": never;
+  readonly "paypal.alert.recordMissingPill": never;
+  readonly "paypal.alert.recordMissingNote": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -2904,4 +2950,27 @@ export type EditionKey =
   | "paypal.till.noTwin"
   | "paypal.till.unreachable"
   | "paypal.till.noApi"
-  | "paypal.banner.sandbox";
+  | "paypal.banner.sandbox"
+  | "paypal.copy.createKicker"
+  | "paypal.copy.createH1a"
+  | "paypal.copy.createH1b"
+  | "paypal.copy.createLede"
+  | "paypal.copy.createStep3"
+  | "paypal.copy.payBillLede"
+  | "paypal.copy.payStep2"
+  | "paypal.copy.ticketScanSub"
+  | "paypal.copy.tillLede"
+  | "paypal.copy.statusLede"
+  | "paypal.copy.ledgerLede"
+  | "paypal.copy.ledgerTally"
+  | "paypal.copy.ledgerFooting"
+  | "paypal.ledger.paidPaypal"
+  | "paypal.ledger.markedPaypal"
+  | "paypal.ledger.paidMeta"
+  | "paypal.ledger.markedMeta"
+  | "paypal.ledger.receivedPaypal"
+  | "paypal.rails.tokenKey"
+  | "paypal.rails.paypalWord"
+  | "paypal.rails.payWith"
+  | "paypal.alert.recordMissingPill"
+  | "paypal.alert.recordMissingNote";
