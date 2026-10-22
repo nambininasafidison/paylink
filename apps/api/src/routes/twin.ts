@@ -273,7 +273,7 @@ export function createTwinHandlers(options: { readonly registry?: Registry } = {
         throw new ProblemError("not-found", "no twin for this key");
       }
       if (now - twin.checkedAt >= TWIN_FRESH_MS) {
-        const outcome = await reconcileTwin(services, payee, key as InvoiceKey, now, { source: "sweep" });
+        const outcome = await reconcileTwin(services, payee, key as InvoiceKey, now, { source: "view" });
         if (outcome.status === "done") {
           twin = outcome.twin;
         }

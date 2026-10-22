@@ -49,7 +49,8 @@ export const APPROVING_WAIT_MS = 10 * 60 * 1000;
 const MINUTE = 60_000;
 
 /** Where a reconciliation was started from (logged and audited). */
-export type ReconcileSource = "register" | "webhook" | "cron" | "sweep" | "executor" | "check" | "undo";
+/** What caused a reconciliation (logs and the audit only): `view` is a stale `GET /v1/twin/:key` (the till). */
+export type ReconcileSource = "register" | "webhook" | "cron" | "sweep" | "view" | "executor" | "check" | "undo";
 
 export interface ReconcileOptions {
   readonly source: ReconcileSource;
