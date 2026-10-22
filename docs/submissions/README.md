@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Competitions** | Monad Metropolis (Monad edition), Colosseum Crypto World's Fair (Base edition) and, since 2026-10-13 on the local branch `mezo`, the Mezo Buildathon wave 1 (Mezo edition, [§5](#5-mezo-buildathon-akindo-wave-1)). Arc Microgrants (v1) and PayPal have their own timelines (PAYLINK-V2-SPEC §1.2) and are not covered here |
+| **Competitions** | Monad Metropolis (Monad edition), Colosseum Crypto World's Fair (Base edition) and, since 2026-10-13 on the local branch `mezo`, the Mezo Buildathon wave 1 (Mezo edition, [§5](#5-mezo-buildathon-akindo-wave-1)). Since 2026-10-22, on the branch `paypal`, the PayPal AI Hackathon (PayPal edition, "PayLink Twin": [paypal.md](paypal.md), with its own checklist in French). Arc Microgrants (v1) has its own timeline (PAYLINK-V2-SPEC §1.2) and is not covered here |
 | **Written** | 2026-10-09 ~03:00 UTC, against the repository at `d9662c3` plus the commit that adds this folder; revised the same day after the pack's review (v2 landing README, no "audited" wording in the app, texts true with or without the indexer, the Agora "mobile app" requirement). Re-check every "Done" line that depends on something outside the repository (the live site, the relayer, the indexer) on the day you submit |
 | **Who does what** | Claude drafts, builds and checks; you push, deploy, record, paste and submit ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 
@@ -12,6 +12,7 @@
 | [colosseum.md](colosseum.md) | Description, Base track framing (and why not Arbitrum yet), architecture, business plan and go-to-market, demand validation, why now, the open invoice specification as a public good, team, prior work and other events, a judge's quick test |
 | [video-scripts.md](video-scripts.md) | Shot-by-shot scripts with exact clicks, captions, preconditions and fallbacks: Monad demo, Monad pitch, Agora demo, Colosseum pitch and demo, an optional 30 s advertisement; French translations of every spoken line |
 | [mezo.md](mezo.md) | The Mezo Buildathon (AKINDO) wave 1 pack: facts with sources, every field's text, the MUSD integration, what is new in wave 1 and planned for wave 2, judge access instructions, honest limitations, a 2-minute demo video script with captions, and your checklist in French |
+| [paypal.md](paypal.md) | The PayPal AI Hackathon (Devpost) pack, branch `paypal`: facts with sources, every Devpost field's text (name, elevator pitch, story, built with, PayPal technologies, the AI line, what was built during the hackathon, testing instructions with placeholders for the sandbox buyer logins that go only into Devpost), the PayPal integration and the AI explained, judge paths, honest limitations, a storyboard under 3:00 with captions, disclosures and commit range, and your checklist in French |
 | [monad-forum.md](monad-forum.md) | The questions to the Monad organisers (Q2 Agora fit, Q3 both Mera bounties and Q5 whether a PWA counts as Agora's "mobile app" are still open) |
 | [`.github/README.md`](../../.github/README.md) | The repository's v2 README, which GitHub shows on the home page ahead of v1's frozen root `README.md`: what the Monad T&C ask a README to cover |
 | `assets/` | Logo, social card and product screenshots ([§3](#3-assets)) |
