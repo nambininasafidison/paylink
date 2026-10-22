@@ -35,13 +35,17 @@ export const DEFAULT_CONFIG: ApiConfig = {
   },
   chainId: PAYPAL_EDITION_CHAIN_ID,
   quotas: { twinsPerDay: 20, aiCallsPerDay: 60 },
+  // The owner adds the demo wallet's address here once it is chosen (docs/runbooks/paypal.md §10); empty, no payee has a
+  // reserved lane and the public limits apply to all.
+  demoPayees: [],
 };
 
 /** `DEFAULT_CONFIG` with some members replaced (Node entry, tests). */
-export function configWith(overrides: { readonly allowedOrigins?: readonly string[]; readonly paypal?: Partial<ApiConfig["paypal"]>; readonly ai?: Partial<ApiConfig["ai"]> }): ApiConfig {
+export function configWith(overrides: { readonly allowedOrigins?: readonly string[]; readonly paypal?: Partial<ApiConfig["paypal"]>; readonly ai?: Partial<ApiConfig["ai"]>; readonly demoPayees?: readonly string[] }): ApiConfig {
   return {
     ...DEFAULT_CONFIG,
     ...(overrides.allowedOrigins === undefined ? {} : { allowedOrigins: overrides.allowedOrigins }),
+    ...(overrides.demoPayees === undefined ? {} : { demoPayees: overrides.demoPayees }),
     paypal: { ...DEFAULT_CONFIG.paypal, ...overrides.paypal },
     ai: { ...DEFAULT_CONFIG.ai, ...overrides.ai },
   };

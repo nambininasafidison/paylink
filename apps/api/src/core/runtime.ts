@@ -67,6 +67,12 @@ export interface ApiConfig {
   readonly chainId: number;
   /** Per payee per day (docs/paypal/SPEC.md §9.4, E). */
   readonly quotas: { readonly twinsPerDay: number; readonly aiCallsPerDay: number };
+  /**
+   * The owner's demo payees (the wallet of the video and of the judges' links): their sessions and assistant calls draw
+   * on a reserved lane the public cannot spend, and no per-source cap applies to them (threat T-60,
+   * src/store/quotas.ts). Addresses are public; the list changes with a reviewed commit, like the rest of this file.
+   */
+  readonly demoPayees: readonly string[];
 }
 
 /** Everything the platform provides. */

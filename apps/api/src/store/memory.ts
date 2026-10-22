@@ -57,6 +57,7 @@ export const GLOBAL_STORE_METHODS = [
   "putToken",
   "spendAiBudget",
   "useQuota",
+  "useSubjectQuota",
   "markWebhookEvent",
   "markNonce",
   "indexTwin",

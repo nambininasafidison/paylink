@@ -5,7 +5,7 @@
  */
 import { SESSION_DOMAIN, SESSION_MAX_SECONDS, SESSION_TYPES } from "@paylink/api-contract";
 import type { ApiProblem, SessionRequest, SessionResponse } from "@paylink/api-contract";
-import { privateKeyToAccount } from "viem/accounts";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/core/app.ts";
 import { HANDLER_MAPS } from "../../src/core/app.ts";
@@ -13,6 +13,8 @@ import type { RouteHandlers } from "../../src/routes/types.ts";
 import { createSessions, sessionDigest } from "../../src/session/factory.ts";
 import { SESSION_SIGNED_WITHIN_S } from "../../src/session/types.ts";
 import { createMemoryStores } from "../../src/store/memory.ts";
+import { DEMO_RESERVE, PAYEE_DAILY, SOURCE_DAILY } from "../../src/store/quotas.ts";
+import type { StoreFactory } from "../../src/store/types.ts";
 import { T0, TEST_ORIGIN, testRuntime, testServices } from "../helpers.ts";
 import { deadFetch, rpcFake } from "../chain/rpc.ts";
 
@@ -46,9 +48,10 @@ const NO_CODE = rpcFake((method) => (method === "eth_getCode" ? "0x" : null)).fe
 
 const hex32 = (n: number): `0x${string}` => `0x${String(n).padStart(64, "0")}`;
 
-const sessions = (secret: string | null = SECRET, kind: "node" | "worker" = "node", fetchFn: typeof fetch = NO_CODE) => {
+const sessions = (secret: string | null = SECRET, kind: "node" | "worker" = "node", fetchFn: typeof fetch = NO_CODE, options: { readonly stores?: StoreFactory; readonly demoPayees?: readonly string[] } = {}) => {
   const runtime = testRuntime({ secrets: secret === null ? {} : { sessionHmacKey: secret } });
-  return createSessions({ runtime: { ...runtime, kind, fetch: fetchFn }, stores: createMemoryStores() });
+  const config = options.demoPayees === undefined ? runtime.config : { ...runtime.config, demoPayees: options.demoPayees };
+  return createSessions({ runtime: { ...runtime, config, kind, fetch: fetchFn }, stores: options.stores ?? createMemoryStores() });
 };
 
 const rule = async (promise: Promise<unknown>): Promise<string | undefined> => {
@@ -118,6 +121,69 @@ describe("opening a session", () => {
   it("needs the secret in the Worker", async () => {
     expect(await rule(sessions(null, "worker").open(await signed(), T0))).toBe("E_SESSION_KEY_MISSING");
     expect(await sessions(null, "worker").check("ps1.x", T0)).toEqual({ ok: false, reason: "malformed" });
+  });
+});
+
+describe("daily limits (threat T-60)", () => {
+  const DAY = "2026-10-21";
+  const read = async (stores: StoreFactory) => ({
+    // A limit of 0 refuses without counting: it reads the counter.
+    sessions: (await stores.global().useQuota(DAY, "sessions", 0)).used,
+    source: (await stores.global().useSubjectQuota(DAY, "sessions-source", "203.0.113.7", 0, Number.MAX_SAFE_INTEGER)).used,
+    payee: (await stores.global().useSubjectQuota(DAY, "sessions-payee", PAYEE.address, 0, Number.MAX_SAFE_INTEGER)).used,
+  });
+
+  it("a replayed signed body is refused before it counts: no counter moves (the review's probe: ten POSTs moved it ten times)", async () => {
+    const stores = createMemoryStores();
+    const s = sessions(SECRET, "node", NO_CODE, { stores });
+    const request = await signed({}, { nonce: 21 });
+    await s.open(request, T0, { source: "203.0.113.7" });
+    for (let i = 0; i < 9; i += 1) {
+      expect(await rule(s.open(request, T0 + i, { source: "203.0.113.7" }))).toBe("E_SESSION_REPLAYED");
+    }
+    expect(await read(stores)).toEqual({ sessions: 1, source: 1, payee: 1 });
+  });
+
+  it("one payee opens at most 20 sessions a day; one source at most 30, whatever the keys; another source still opens", async () => {
+    const stores = createMemoryStores();
+    const s = sessions(SECRET, "node", NO_CODE, { stores });
+    for (let i = 0; i < PAYEE_DAILY.sessions; i += 1) {
+      await s.open(await signed({}, { nonce: 100 + i }), T0, { source: "198.51.100.1" });
+    }
+    expect(await rule(s.open(await signed({}, { nonce: 199 }), T0, { source: "198.51.100.2" }))).toBe("E_QUOTA_PAYEE");
+    // An attacker with fresh keys from one source: stopped at the source's limit, long before the deployment's.
+    let opened = 0;
+    let refusal: string | undefined;
+    for (let i = 0; i < SOURCE_DAILY.sessions + 5 && refusal === undefined; i += 1) {
+      const key = privateKeyToAccount(generatePrivateKey());
+      const outcome = await rule(s.open(await signed({ payee: key.address }, { signer: key, nonce: 300 + i }), T0, { source: "192.0.2.66" }));
+      if (outcome === "resolved") {
+        opened += 1;
+      } else {
+        refusal = outcome;
+      }
+    }
+    expect({ opened, refusal }).toEqual({ opened: SOURCE_DAILY.sessions, refusal: "E_QUOTA_SOURCE" });
+    // A judge from elsewhere is not affected.
+    const judge = await signed({ payee: OTHER.address }, { signer: OTHER, nonce: 401 });
+    await expect(s.open(judge, T0, { source: "192.0.2.77" })).resolves.toMatchObject({ payee: OTHER.address });
+  });
+
+  it("the deployment's limit holds for the public, and the demo payees keep their own lane when it is spent", async () => {
+    const stores = createMemoryStores();
+    const s = sessions(SECRET, "node", NO_CODE, { stores, demoPayees: [PAYEE.address.toLowerCase()] });
+    const { SESSIONS_PER_DAY } = await import("../../src/session/types.ts");
+    for (let i = 0; i < SESSIONS_PER_DAY; i += 1) {
+      await stores.global().useQuota(DAY, "sessions", SESSIONS_PER_DAY);
+    }
+    const judge = await signed({ payee: OTHER.address }, { signer: OTHER, nonce: 500 });
+    expect(await rule(s.open(judge, T0, { source: "192.0.2.10" }))).toBe("E_SESSION_QUOTA");
+    // The demo payee: no payee or source limit, its own reserved lane.
+    for (let i = 0; i < PAYEE_DAILY.sessions + SOURCE_DAILY.sessions + 1; i += 1) {
+      await s.open(await signed({}, { nonce: 600 + i }), T0, { source: "192.0.2.10" });
+    }
+    expect((await stores.global().useQuota(DAY, "sessionsDemo", 0)).used).toBe(PAYEE_DAILY.sessions + SOURCE_DAILY.sessions + 1);
+    expect(DEMO_RESERVE.sessions).toBeGreaterThan(PAYEE_DAILY.sessions + SOURCE_DAILY.sessions + 1);
   });
 });
 

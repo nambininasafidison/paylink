@@ -15,7 +15,8 @@
  *
  * | Payee | `t:<K>` twin · `p:<id>` proposal · `r:<paymentId>` auto-record · `a:<K>` alert · `l:<seq>` audit · `m:seq` ·
  * |       | `q:<day>:<kind>` quota · `k:<K>` lock |
- * | Global | `token` · `b:<day>` AI budget · `q:<day>:<kind>` quota · `w:<eventId>` webhook · `n:<scope>:<nonce>` ·
+ * | Global | `token` · `b:<day>` AI budget · `q:<day>:<kind>` quota · `q:<day>:<kind>:<subject>` quota of one payee or
+ * |        | source · `w:<eventId>` webhook · `n:<scope>:<nonce>` ·
  * |        | `ip:<paypalId>`, `ik:<K>` twin index · `c:<payee>:<K>` check · `d:<dueAt>:<payee>:<K>` due order ·
  * |        | `pp:<payee>` payee · `h:<fact>` health |
  *
@@ -37,6 +38,7 @@ import type {
   PurgeReport,
   QuotaResult,
   ScheduledCheck,
+  SubjectQuotaKind,
   TwinIndexEntry,
   TwinRecord,
   UtcDay,
@@ -306,6 +308,10 @@ export class GlobalStoreCore implements Sync<GlobalStore> {
 
   useQuota(day: UtcDay, kind: GlobalQuotaKind, limit: number): QuotaResult {
     return count(this.#kv, `q:${day}:${kind}`, limit);
+  }
+
+  useSubjectQuota(day: UtcDay, kind: SubjectQuotaKind, subject: string, amount: number, limit: number): QuotaResult {
+    return count(this.#kv, `q:${day}:${kind}:${safeKeyPart(subject.toLowerCase(), 64)}`, limit, amount);
   }
 
   markWebhookEvent(eventId: string, now: EpochMs): "new" | "seen" {

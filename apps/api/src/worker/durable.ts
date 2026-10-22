@@ -32,6 +32,7 @@ import type {
   ProposalRecord,
   ScheduledCheck,
   StoreFactory,
+  SubjectQuotaKind,
   TwinIndexEntry,
   TwinRecord,
   UtcDay,
@@ -140,6 +141,9 @@ export class Global extends DurableObject<Env> {
   }
   useQuota(day: UtcDay, kind: GlobalQuotaKind, limit: number): { allowed: boolean; used: number; limit: number } {
     return this.#tx((c) => c.useQuota(day, kind, limit));
+  }
+  useSubjectQuota(day: UtcDay, kind: SubjectQuotaKind, subject: string, amount: number, limit: number): { allowed: boolean; used: number; limit: number } {
+    return this.#tx((c) => c.useSubjectQuota(day, kind, subject, amount, limit));
   }
   markWebhookEvent(eventId: string, now: EpochMs): "new" | "seen" {
     return this.#tx((c) => c.markWebhookEvent(eventId, now));

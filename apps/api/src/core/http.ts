@@ -92,3 +92,66 @@ export function parseBody<S extends z.ZodType>(schema: S, value: unknown): z.out
 export function json(c: Context, body: unknown, status: 200 | 201 | 202 = 200): Response {
   return c.json(body as object, status);
 }
+
+/**
+ * The request's source for the per-source daily limits (threat T-60): the client IP Cloudflare's edge puts in
+ * `CF-Connecting-IP` ("When no Worker subrequest is triggered, cf-connecting-ip reflects the client's IP address":
+ * cloudflare/cloudflare-docs at 3fe915d, src/content/docs/fundamentals/reference/http-headers.mdx). An IPv6 address
+ * counts by its /64 (one subscriber's prefix); an IPv4-mapped IPv6 address as its IPv4. Without the header (the Node
+ * entry, tests), every request shares the source `unknown`. That a client cannot set the header itself on a
+ * `workers.dev` route is UNVERIFIED (the page describes the edge-to-origin header).
+ */
+export function clientSource(c: Context): string {
+  return sourceOf(c.req.header("cf-connecting-ip"));
+}
+
+export function sourceOf(header: string | undefined): string {
+  const ip = (header ?? "").trim().toLowerCase();
+  const v4 = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/u;
+  if (v4.test(ip)) {
+    return ip;
+  }
+  if (!ip.includes(":") || ip.length > 45 || !/^[0-9a-f:.]+$/u.test(ip)) {
+    return "unknown";
+  }
+  const halves = ip.split("::");
+  if (halves.length > 2) {
+    return "unknown";
+  }
+  const groupsOf = (part: string | undefined): string[] | null => {
+    if (part === undefined || part === "") {
+      return [];
+    }
+    const out: string[] = [];
+    for (const g of part.split(":")) {
+      if (v4.test(g)) {
+        const [a = 0, b = 0, c2 = 0, d = 0] = g.split(".").map(Number);
+        out.push(((a << 8) | b).toString(16), ((c2 << 8) | d).toString(16));
+      } else if (/^[0-9a-f]{1,4}$/u.test(g)) {
+        out.push(g);
+      } else {
+        return null;
+      }
+    }
+    return out;
+  };
+  const head = groupsOf(halves[0]);
+  const tail = groupsOf(halves[1]);
+  if (head === null || tail === null) {
+    return "unknown";
+  }
+  const missing = 8 - head.length - tail.length;
+  if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) {
+    return "unknown";
+  }
+  const groups = [...head, ...Array.from({ length: halves.length === 2 ? missing : 0 }, () => "0"), ...tail].map((g) => Number.parseInt(g, 16));
+  // ::ffff:a.b.c.d is an IPv4 client.
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    const [hi = 0, lo = 0] = groups.slice(6);
+    return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+  }
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.toString(16))
+    .join(":")}::/64`;
+}

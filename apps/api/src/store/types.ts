@@ -135,8 +135,17 @@ export interface QuotaResult {
 
 /** Daily per-payee counters (§9.4): twins created, assistant calls, desk sweeps, "Was I really paid?" checks. */
 export type PayeeQuotaKind = "twins" | "aiCalls" | "sweeps" | "checks";
-/** Daily deployment-wide counters (abuse of the public demo, threat T-60). */
-export type GlobalQuotaKind = "twins" | "aiCalls" | "sessions" | "checks";
+/**
+ * Daily deployment-wide counters (abuse of the public demo, threat T-60). `sessions` and `aiCalls` count the public lane;
+ * `sessionsDemo` and `aiCallsDemo` the demo payees' reserved lane (`config.demoPayees`), which the public cannot spend.
+ */
+export type GlobalQuotaKind = "twins" | "aiCalls" | "sessions" | "checks" | "sessionsDemo" | "aiCallsDemo";
+/**
+ * Daily deployment-wide counters per subject (threat T-60: addresses cost nothing, so a payee cap alone does not bound a
+ * Sybil): sessions per payee, and sessions, assistant calls and neurons per request source (the client IP, an IPv6
+ * address by its /64; src/core/http.ts `clientSource`).
+ */
+export type SubjectQuotaKind = "sessions-payee" | "sessions-source" | "aiCalls-source" | "neurons-source";
 
 export interface PurgeReport {
   readonly removed: number;
@@ -209,6 +218,11 @@ export interface GlobalStore {
   spendAiBudget(day: UtcDay, neurons: number, ceiling: number): Promise<QuotaResult>;
   /** Counts one use against a deployment-wide daily limit; refuses (without counting) at the limit. */
   useQuota(day: UtcDay, kind: GlobalQuotaKind, limit: number): Promise<QuotaResult>;
+  /**
+   * Counts `amount` for one subject (a payee or a request source) against a daily limit; refuses (without counting)
+   * when the count would pass the limit. `amount` 0 reads the count.
+   */
+  useSubjectQuota(day: UtcDay, kind: SubjectQuotaKind, subject: string, amount: number, limit: number): Promise<QuotaResult>;
 
   /** Records a webhook event id: `new` the first time, `seen` afterwards (kept 7 days, §7.5 idempotency). */
   markWebhookEvent(eventId: string, now: EpochMs): Promise<"new" | "seen">;

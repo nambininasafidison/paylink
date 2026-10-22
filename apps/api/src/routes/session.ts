@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 /**
  * POST /v1/session: verify the signed `PayLinkSession` (src/session/factory.ts, docs/paypal/SPEC.md §12.2) and answer a
- * session token. The body is checked by its zod schema before any signature work.
+ * session token. The body is checked by its zod schema before any signature work; the request's source (its client IP)
+ * goes with it for the per-source daily limit.
  *
  * Routes: session.create. Owner: reconciler workstream.
  */
 import type { SessionRequest } from "@paylink/api-contract";
 import * as z from "zod";
-import { json, parseBody, readJson } from "../core/http.ts";
+import { clientSource, json, parseBody, readJson } from "../core/http.ts";
 import type { RouteHandlers } from "./types.ts";
 import { DEFAULT_BODY_LIMIT } from "./types.ts";
 
@@ -29,6 +30,6 @@ export const SessionRequestSchema = z.strictObject({
 export const sessionHandlers: RouteHandlers = {
   "session.create": async ({ c, services, now }) => {
     const body = parseBody(SessionRequestSchema, await readJson(c, DEFAULT_BODY_LIMIT)) as SessionRequest;
-    return json(c, await services.sessions.open(body, now), 201);
+    return json(c, await services.sessions.open(body, now, { source: clientSource(c) }), 201);
   },
 };

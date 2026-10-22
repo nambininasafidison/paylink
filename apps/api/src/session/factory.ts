@@ -20,7 +20,8 @@ import type { MacKey } from "../approvals/crypto.ts";
 import { chainClient } from "../chain/client.ts";
 import { ProblemError } from "../core/problem.ts";
 import type { FactoryDeps } from "../core/runtime.ts";
-import { utcDay } from "../reconciler/money.ts";
+import { msUntilNextUtcDay, utcDay } from "../reconciler/money.ts";
+import { DEMO_RESERVE, exhausted, PAYEE_DAILY, SOURCE_DAILY } from "../store/quotas.ts";
 import { SESSION_CLOCK_SKEW_S, SESSION_SIGNED_WITHIN_S, SESSIONS_PER_DAY } from "./types.ts";
 import type { SessionCheck, Sessions } from "./types.ts";
 
@@ -77,7 +78,7 @@ export function createSessions(deps: FactoryDeps): Sessions {
   };
 
   return {
-    open: async (request, now): Promise<SessionResponse> => {
+    open: async (request, now, context = { source: "unknown" }): Promise<SessionResponse> => {
       const k = await key();
       if (k === null) {
         throw new ProblemError("internal", "sessions are not configured", { rule: runtime.secrets.sessionHmacKey === undefined ? "E_SESSION_KEY_MISSING" : "E_SESSION_KEY_INVALID" });
@@ -102,14 +103,28 @@ export function createSessions(deps: FactoryDeps): Sessions {
         throw new ProblemError("unauthorized", "the signature does not prove the payee's address", { rule: "E_SESSION_SIGNATURE" });
       }
       const global = stores.global();
-      const quota = await global.useQuota(utcDay(now), "sessions", SESSIONS_PER_DAY);
-      if (!quota.allowed) {
-        throw new ProblemError("quota-exhausted", "the demo opened its sessions for today", { rule: "E_SESSION_QUOTA" });
-      }
+      // The nonce first: a replayed body is refused before it can count against any limit (T-60).
       if ((await global.markNonce("session", session.nonce.toLowerCase(), expiresAt * 1000, now)) === "seen") {
         throw new ProblemError("unauthorized", "this signed session was already used", { rule: "E_SESSION_REPLAYED" });
       }
       const payee = getAddress(session.payee);
+      const day = utcDay(now);
+      const demo = config.demoPayees.some((p) => p.toLowerCase() === payee.toLowerCase());
+      if (demo) {
+        if (!(await global.useQuota(day, "sessionsDemo", DEMO_RESERVE.sessions)).allowed) {
+          throw new ProblemError("quota-exhausted", "the demo opened its sessions for today", { rule: "E_SESSION_QUOTA", retryAfter: Math.ceil(msUntilNextUtcDay(now) / 1000) });
+        }
+      } else {
+        if (!(await global.useSubjectQuota(day, "sessions-source", context.source, 1, SOURCE_DAILY.sessions)).allowed) {
+          throw exhausted("sessions", "source", now);
+        }
+        if (!(await global.useSubjectQuota(day, "sessions-payee", payee, 1, PAYEE_DAILY.sessions)).allowed) {
+          throw exhausted("sessions", "payee", now);
+        }
+        if (!(await global.useQuota(day, "sessions", SESSIONS_PER_DAY)).allowed) {
+          throw new ProblemError("quota-exhausted", "the demo opened its sessions for today", { rule: "E_SESSION_QUOTA", retryAfter: Math.ceil(msUntilNextUtcDay(now) / 1000) });
+        }
+      }
       const expiresAtMs = Math.min(expiresAt * 1000, now + SESSION_MAX_SECONDS * 1000);
       const lowerPayee = payee.toLowerCase().slice(2);
       const mac = base64Url(await hmac(k, macInput(lowerPayee, expiresAtMs)));
