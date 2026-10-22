@@ -44,6 +44,14 @@ every packages/*/README.md and apps/*/README.md. Checks, each reported with file
              work and what was built, status, AI disclosure (AI_DISCLOSURE.md), attributions (NOTICE.md) and the
              licence; it says "not audited" and never calls the contract audited; its images exist. It is also
              checked like every other document (links, paths, addresses, stale rules).
+11. paypal   On the branch that carries the PayPal edition (docs/submissions/paypal.md exists), what the review of
+             2026-10-22 corrected stays corrected (docs/paypal/SPEC.md, "Review fixes of 2026-10-22"): no "two PayPal
+             rails" in the pack, the landing page, the runbook or the edition's catalogues (the demo's second rail is
+             Circle's USDC); the landing page leads with PayLink Twin and its judges' tour, its tagline makes no
+             passkey or gas-token claim, every "fingerprint" line names the editions it is true of, and its
+             architecture shows apps/api, PayPal and Workers AI; the runbook makes judge links that never expire and
+             checks weekly that they are still PAYABLE; the storyboard and the testing instructions put the desk
+             session's signature at "Draft", not at the twin; the story says whether Malagasy PayPal accounts receive.
 
 The spec's literal test vectors (§7.6, §17) are checked by the contract suite instead:
 protocol/test/vectors/SpecExamples.t.sol.
@@ -504,6 +512,113 @@ def check_landing() -> None:
             err("landing", LANDING, f"image {src} does not exist")
 
 
+# --------------------------------------------------------------------------- 11. paypal
+
+PAYPAL_PACK = DOCS / "submissions" / "paypal.md"
+PAYPAL_RUNBOOK = DOCS / "runbooks" / "paypal.md"
+PAYPAL_LOCALES = ROOT / "packages" / "i18n" / "src" / "locales"
+TWO_PAYPAL_RAILS_RE = re.compile(r"\btwo\s+PayPal\s+rails\b|\bdeux\s+rails\s+PayPal\b|\bboth\s+PayPal\s+rails\b", re.I)
+# The one way "two PayPal rails" may stay true: a sentence that limits it to a demo paid in PayPal USD.
+PYUSD_ONLY_RE = re.compile(r"only\s+(?:where|if|when)\s+the\s+demo\s+pays\s+in\s+PayPal\s+USD", re.I)
+ONLY_SOME_EDITIONS_RE = re.compile(r"\b(?:Monad|Base)\b")
+
+
+def md_section(text: str, heading: re.Pattern[str]) -> str:
+    """The text under the first heading matching `heading`, up to the next heading of the same or a higher level.
+
+    Raw text, code blocks included: the pack's paste-ready fields are ```text blocks whose own lines are headings."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if m and heading.search(m.group(2)):
+            level = len(m.group(1))
+            out = []
+            for later in lines[i + 1 :]:
+                n = re.match(r"^(#{1,6})\s", later)
+                if n and len(n.group(1)) <= level:
+                    break
+                out.append(later)
+            return "\n".join(out)
+    return ""
+
+
+def table_rows(text: str, needle: str) -> list[str]:
+    return [line for line in text.splitlines() if line.startswith("|") and needle in line]
+
+
+def check_paypal() -> None:
+    if not PAYPAL_PACK.exists():
+        return
+    pack = PAYPAL_PACK.read_text(encoding="utf-8")
+    landing = LANDING.read_text(encoding="utf-8") if LANDING.exists() else ""
+    runbook = PAYPAL_RUNBOOK.read_text(encoding="utf-8") if PAYPAL_RUNBOOK.exists() else ""
+
+    # (a) The demo's second rail is Circle's USDC: "two PayPal rails" overstates it.
+    wording = [PAYPAL_PACK, PAYPAL_RUNBOOK, *sorted(PAYPAL_LOCALES.glob("paypal.*.json"))]
+    for path in [*wording, *([LANDING] if LANDING.exists() else [])]:
+        if not path.exists():
+            continue
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if TWO_PAYPAL_RAILS_RE.search(line) and not PYUSD_ONLY_RE.search(line):
+                err("paypal", path, f'line {lineno}: "two PayPal rails": the demo pays its second rail in Circle\'s USDC; '
+                    'say "two rails: PayPal, and dollars on chain (USDC, or PayPal USD)"')
+
+    # (b) The landing page of the submitted branch leads with the PayPal edition.
+    if landing:
+        h1 = next((m.group(1) for m in re.finditer(r"^# (.+)$", strip_code(landing), re.M)), "")
+        if "PayLink Twin" not in h1:
+            err("paypal", LANDING, f'the title is "{h1}": the submitted branch leads with "PayLink Twin"')
+        tagline = next((line for line in landing.split(h1, 1)[-1].splitlines() if line.startswith("**")), "")
+        if "PayPal" not in tagline:
+            err("paypal", LANDING, "the tagline under the title does not say PayPal")
+        if re.search(r"fingerprint|passkey|no gas token|gasless|relayer", tagline, re.I):
+            err("paypal", LANDING, "the tagline claims a passkey, gasless or relayer feature the PayPal edition does not have")
+        for lineno, line in enumerate(strip_code(landing).splitlines(), 1):
+            if re.search(r"fingerprint", line, re.I) and not ONLY_SOME_EDITIONS_RE.search(line):
+                err("paypal", LANDING, f"line {lineno}: a fingerprint (passkey) claim that does not say which editions have it")
+        found = anchors(LANDING)
+        if "judges-tour" not in found:
+            err("paypal", LANDING, "no #judges-tour section")
+        pos_paypal = landing.find("\n## PayPal edition")
+        pos_problem = landing.find("\n## The problem and who it is for")
+        if pos_paypal < 0 or (pos_problem >= 0 and pos_paypal > pos_problem):
+            err("paypal", LANDING, 'the section "PayPal edition" does not come before the generic pitch')
+        architecture = md_section(landing, re.compile(r"^Architecture$"))
+        diagram = next(iter(re.findall(r"```text\n(.*?)```", architecture, re.S)), "")
+        for needle in ("apps/api", "PayPal", "Workers AI", "webhook"):
+            if needle not in diagram:
+                err("paypal", LANDING, f"the architecture diagram does not show {needle}")
+
+    # (c) Judge links stay payable through judging.
+    if runbook:
+        judges = md_section(runbook, re.compile(r"Judge sandbox buyers and judge links"))
+        if not re.search(r'"Never"', judges):
+            err("paypal", PAYPAL_RUNBOOK, 'section 10 does not make judge links with "Expires: Never" (the form defaults to 7 days)')
+        weekly = md_section(runbook, re.compile(r"Until judging ends"))
+        if not re.search(r"judge links?\b[^.;]*\bstill PAYABLE", weekly):
+            err("paypal", PAYPAL_RUNBOOK, "section 12's weekly check does not include every judge link still PAYABLE")
+    french = md_section(pack, re.compile(r"Liste de contr"))
+    if french and "Jamais" not in french:
+        err("paypal", PAYPAL_PACK, 'the French checklist does not make judge links with "Expire : Jamais"')
+
+    # (d) "Draft" opens the desk session (assistant.ts: withSession before postDraft), not the twin.
+    storyboard = md_section(pack, re.compile(r"Video storyboard"))
+    for row in table_rows(storyboard, "**Make the PayPal twin**"):
+        if re.search(r"session", row, re.I):
+            err("paypal", PAYPAL_PACK, "the storyboard signs the desk session at the twin; it is signed at Draft")
+    if not any(re.search(r"session", row, re.I) for row in table_rows(storyboard, "**Draft**")):
+        err("paypal", PAYPAL_PACK, "the storyboard's Draft shot does not show the desk session's signature")
+    testing = md_section(pack, re.compile(r"^Testing instructions$"))
+    for line in testing.splitlines():
+        if "Make the PayPal twin" in line and re.search(r"session", line, re.I):
+            err("paypal", PAYPAL_PACK, "the testing instructions sign the desk session at the twin; it is signed at Draft")
+
+    # (e) The story faces the constraint its own limitations table states.
+    inspiration = md_section(pack, re.compile(r"^Inspiration$"))
+    if not (re.search(r"Madagascar|Malagasy", inspiration) and re.search(r"\breceive\b", inspiration)):
+        err("paypal", PAYPAL_PACK, "the story's Inspiration does not say whether Malagasy PayPal accounts can receive")
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -532,6 +647,7 @@ def main(argv: list[str]) -> int:
     check_evidence(strict)
     check_fields()
     check_landing()
+    check_paypal()
     for w in warnings:
         print("warning:", w)
     for e in errors:
