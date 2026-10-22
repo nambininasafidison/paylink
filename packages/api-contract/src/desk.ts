@@ -21,6 +21,7 @@ export type DeskReasonCode =
   | "paid-on-chain"
   | "paypal-still-open-after-record"
   | "recorded-then-undone"
+  | "record-missing"
   | "paid-twice"
   | "payment-in-flight"
   | "chain-payment-confirming"
@@ -48,7 +49,8 @@ export type DeskAlertCode =
   | "paypal-open-with-payments"
   | "chain-paid-unverified"
   | "chain-payment-mismatch"
-  | "paid-twice";
+  | "paid-twice"
+  | "record-missing";
 
 /**
  * `open`: waiting for the payee; `approving`: approved, waiting for the effect (a chain cancel waits for the payee's
@@ -112,11 +114,11 @@ export interface AutoRecordView {
   readonly undone: boolean;
 }
 
-/** A red alert: paid on both rails (S4) or hands off (S0). */
+/** A red alert: paid on both rails (S4), hands off (S0), or a record PayLink made gone from PayPal (S3 `record-missing`). */
 export interface AlertView {
   readonly key: InvoiceKey;
   readonly invoiceNumber: string | null;
-  readonly situation: "S0" | "S4";
+  readonly situation: "S0" | "S3" | "S4";
   readonly code: DeskAlertCode;
   readonly raisedAt: IsoInstant;
 }
@@ -155,7 +157,15 @@ export interface ApproveRequest {
  * invoice cancelled. `share_reminder_text` has no server effect: `done` means the payee may share the text.
  */
 export type ApproveResponse =
-  | { readonly state: "done"; readonly proposalId: string }
+  | {
+      readonly state: "done";
+      readonly proposalId: string;
+      /**
+       * PayPal did not answer the write (no answer, or a 5xx): it may have carried it out. Set for PayPal's reminder
+       * (P9) only, which is then counted as sent: none is offered again for 24 hours, never repeated blind.
+       */
+      readonly unconfirmed?: true;
+    }
   | { readonly state: "signature-required"; readonly proposalId: string; readonly cancel: { readonly key: InvoiceKey; readonly deadline: string } };
 
 export interface RejectResponse {

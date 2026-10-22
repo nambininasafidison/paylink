@@ -22,7 +22,7 @@ import type { ApiServices } from "../core/services.ts";
 import { chargeQuota } from "../store/quotas.ts";
 import type { PayeeStore, ProposalRecord, TwinRecord } from "../store/types.ts";
 import { CRON_TWIN_BUDGET } from "./cron.ts";
-import { canonicalOf, chainTwinOf, PROPOSAL_TTL_MS, proposalId, reconcileTwin } from "./engine.ts";
+import { canonicalOf, chainTwinOf, CLOSED_RECHECK_MS, PROPOSAL_TTL_MS, proposalId, reconcileTwin } from "./engine.ts";
 import { admits } from "./situation.ts";
 import type { AllowedAction } from "./types.ts";
 
@@ -211,7 +211,8 @@ export async function deskView(services: ApiServices, payee: Address, now: numbe
 }
 
 /**
- * "Check my invoices" (`POST /v1/desk/sweep`): the payee's open twins, least recently checked first, at most 20 (the
+ * "Check my invoices" (`POST /v1/desk/sweep`): the payee's open twins, least recently checked first, then those closed
+ * (S8) in the last 30 days (a PayPal invoice can reopen: a record deleted in PayPal's dashboard), at most 20 in all (the
  * Free plan's subrequest budget, §7.5), read with one chain multicall and one P5 each; then the assistant once.
  */
 export async function sweep(
@@ -223,8 +224,10 @@ export async function sweep(
 ): Promise<DeskResponse & { readonly sweep: { readonly checked: number; readonly remaining: number } }> {
   await chargeQuota(services, payee, "sweeps", now);
   const store: PayeeStore = services.stores.payee(payee);
-  const open = [...(await store.listTwins({ open: true }))].sort((a, b) => a.checkedAt - b.checkedAt);
-  const batch = open.slice(0, CRON_TWIN_BUDGET);
+  const byAge = (a: TwinRecord, b: TwinRecord): number => a.checkedAt - b.checkedAt;
+  const open = [...(await store.listTwins({ open: true }))].sort(byAge);
+  const recentlyClosed = (await store.listTwins()).filter((t) => t.situation === "S8" && t.closedAt !== null && now - t.closedAt < CLOSED_RECHECK_MS).sort(byAge);
+  const batch = [...open, ...recentlyClosed].slice(0, CRON_TWIN_BUDGET);
   const chain = await services.chain.observeMany(batch.map(chainTwinOf));
   let checked = 0;
   for (const twin of batch) {
@@ -253,5 +256,5 @@ export async function sweep(
       assistant = { available: false, reason: "error" };
     }
   }
-  return { ...(await deskView(services, payee, now, assistant)), sweep: { checked, remaining: open.length - batch.length } };
+  return { ...(await deskView(services, payee, now, assistant)), sweep: { checked, remaining: Math.max(0, open.length - batch.length) } };
 }

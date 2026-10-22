@@ -15,6 +15,8 @@ export interface StubCall {
   readonly op: "get" | "record" | "delete" | "cancel" | "remind";
   readonly id: string;
   readonly body?: unknown;
+  /** The write's `PayPal-Request-Id`, when the caller sent one. */
+  readonly requestId?: string;
 }
 
 export interface PayPalStub {
@@ -31,6 +33,10 @@ export interface PayPalStub {
   failNext: Partial<Record<StubCall["op"], number>>;
   /** Every `get` fails with this status while set. */
   failGets: number | null;
+  /** The next call of `op` is carried out, then its answer is lost (no answer, `ambiguous`), as a timeout would. */
+  loseAnswer: Partial<Record<StubCall["op"], true>>;
+  /** Deletes a recorded payment outside PayLink (the merchant's PayPal dashboard): no call is recorded. */
+  deleteOutside(id: string, paymentId: string): void;
   writes(): StubCall[];
 }
 
@@ -68,7 +74,23 @@ export function paypalStub(): PayPalStub {
       invoices.set(id, { ...inv, status: "PAID", payments: { paid_amount: { currency_code: "USD", value }, transactions: [...(inv.payments?.transactions ?? []), { type: "PAYPAL", payment_id: `PAYPAL${String(counter).padStart(8, "0")}`, method: "PAYPAL", amount: { currency_code: "USD", value }, payment_date: "2026-10-21" }] } });
     },
     writes: () => calls.filter((c) => c.op !== "get"),
+    loseAnswer: {},
+    deleteOutside: (id, paymentId) => {
+      removePayment(id, paymentId);
+    },
   };
+  /** Throws the lost answer of `op` once, after the operation was applied. */
+  const lose = (op: StubCall["op"]): void => {
+    if (stub.loseAnswer[op] === true) {
+      stub.loseAnswer = Object.fromEntries(Object.entries(stub.loseAnswer).filter(([k]) => k !== op));
+      throw new PayPalError(op === "get" ? "P5" : op === "record" ? "P6" : op === "delete" ? "P7" : op === "cancel" ? "P8" : "P9", 0, { name: "E_PAYPAL_NO_ANSWER", ambiguous: true });
+    }
+  };
+  function removePayment(id: string, transactionId: string): void {
+    const inv = find(id);
+    const transactions = (inv.payments?.transactions ?? []).filter((t) => t.payment_id !== transactionId);
+    invoices.set(id, { ...inv, status: transactions.length === 0 ? "SHARED" : (inv.status ?? "SHARED"), payments: { paid_amount: { currency_code: "USD", value: "0.00" }, transactions } });
+  }
   const fail = (op: StubCall["op"]): void => {
     const status = stub.failNext[op];
     if (status !== undefined) {
@@ -96,8 +118,8 @@ export function paypalStub(): PayPalStub {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     },
-    recordPayment: (id, payment: PaymentDetail) => {
-      calls.push({ op: "record", id, body: copy(payment) });
+    recordPayment: (id, payment: PaymentDetail, options) => {
+      calls.push({ op: "record", id, body: copy(payment), ...(options?.requestId === undefined ? {} : { requestId: options.requestId }) });
       try {
         fail("record");
         const inv = find(id);
@@ -105,38 +127,43 @@ export function paypalStub(): PayPalStub {
         const paymentId = `EXT${String(counter).padStart(8, "0")}`;
         const value = payment.amount?.value ?? inv.amount?.value ?? "0.00";
         invoices.set(id, { ...inv, status: stub.afterRecord, payments: { paid_amount: { currency_code: "USD", value }, transactions: [...(inv.payments?.transactions ?? []), { ...payment, type: "EXTERNAL", payment_id: paymentId }] } });
+        lose("record");
         return Promise.resolve({ payment_id: paymentId });
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     },
-    deletePayment: (id, transactionId) => {
-      calls.push({ op: "delete", id, body: transactionId });
+    deletePayment: (id, transactionId, options) => {
+      calls.push({ op: "delete", id, body: transactionId, ...(options?.requestId === undefined ? {} : { requestId: options.requestId }) });
       try {
         fail("delete");
-        const inv = find(id);
-        const transactions = (inv.payments?.transactions ?? []).filter((t) => t.payment_id !== transactionId);
-        invoices.set(id, { ...inv, status: transactions.length === 0 ? "SHARED" : (inv.status ?? "SHARED"), payments: { paid_amount: { currency_code: "USD", value: "0.00" }, transactions } });
+        if (!(find(id).payments?.transactions ?? []).some((t) => t.payment_id === transactionId)) {
+          throw new PayPalError("P7", 404, { name: "RESOURCE_NOT_FOUND" });
+        }
+        removePayment(id, transactionId);
+        lose("delete");
         return Promise.resolve();
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     },
-    cancelInvoice: (id, notification) => {
-      calls.push({ op: "cancel", id, body: copy(notification) });
+    cancelInvoice: (id, notification, options) => {
+      calls.push({ op: "cancel", id, body: copy(notification), ...(options?.requestId === undefined ? {} : { requestId: options.requestId }) });
       try {
         fail("cancel");
         invoices.set(id, { ...find(id), status: "CANCELLED" });
+        lose("cancel");
         return Promise.resolve();
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     },
-    remindInvoice: (id, notification) => {
-      calls.push({ op: "remind", id, body: copy(notification) });
+    remindInvoice: (id, notification, options) => {
+      calls.push({ op: "remind", id, body: copy(notification), ...(options?.requestId === undefined ? {} : { requestId: options.requestId }) });
       try {
         fail("remind");
         find(id);
+        lose("remind");
         return Promise.resolve();
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));

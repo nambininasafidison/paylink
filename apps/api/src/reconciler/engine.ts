@@ -3,15 +3,20 @@
  * The reconciler's engine (docs/paypal/SPEC.md §10): reads one twin fresh (P5 and the chain), runs the situation table,
  * and applies its outcome to the payee's store, under the twin's advisory lock (threat T-59):
  *
- * 1. the automatic action of S3: record the verified chain payment on the PayPal twin (P6, PayLink's echo note), once
- *    per chain transaction, then read PayPal again (D-07; Undo in src/reconciler/desk.ts);
+ * 1. the automatic action of S3: record the verified chain payment on the PayPal twin (P6, PayLink's echo note), then
+ *    read PayPal again (D-07; Undo in src/reconciler/executor.ts). Whether a payment is recorded is P5's to say (an echo
+ *    of that transaction, §10.3): the store's record of an earlier P6 only holds off a second one for `RECORD_LAG_MS`
+ *    while PayPal catches up. Past that, a record P5 no longer shows was removed without an Undo here (a P7 whose
+ *    answer was lost, or the PayPal dashboard): it is marked `missing`, never recorded blind again, and the table raises
+ *    `record-missing` with a tap to record again or to cancel the PayPal invoice;
  * 2. the twin's cached record: status, paid amount, chain state, verified payment, situation, fence, closing time;
  * 3. the alert of S0 and S4, cleared when the situation moves on;
  * 4. proposals: one open proposal per tap action of the fence (deduplicated by its exact values, a rejected one never
  *    re-proposed), proposals the fence no longer holds made `stale`, unanswered ones `expired`, an approved chain cancel
  *    `done` when the chain shows the key cancelled;
  * 5. the audit line of every change of situation and every effect;
- * 6. the next check in the cron's schedule (adaptive polling, §7.5), or none once closed (S8, S9).
+ * 6. the next check in the cron's schedule (adaptive polling, §7.5): a closed twin (S8) once a day for 30 days, so a
+ *    PayPal invoice reopened elsewhere is noticed; none after a refund (S9).
  *
  * Every entry point (webhook, cron, "Check my invoices", the executor, "Was I really paid?") goes through
  * `reconcileTwin`; twins enter through `registerTwin`, which is idempotent (re-registering the same key keeps the
@@ -27,6 +32,7 @@ import { errorFields } from "../core/log.ts";
 import type { ApiServices } from "../core/services.ts";
 import { isPayPalError } from "../paypal/client.ts";
 import type { PayPalError } from "../paypal/client.ts";
+import { requestIdFor } from "../paypal/idempotency.ts";
 import type { Invoice } from "../paypal/types.ts";
 import type { AutoRecord, NewTwin, PayeeStore, ProposalRecord, TwinRecord } from "../store/types.ts";
 import { echoNote } from "./echo.ts";
@@ -47,6 +53,11 @@ export const CANCEL_WAIT_MS = 70 * 60 * 1000;
 export const APPROVING_WAIT_MS = 10 * 60 * 1000;
 
 const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
+/** PayPal may take this long to show a record it accepted (E): until then the store's record holds off a second P6. */
+export const RECORD_LAG_MS = 10 * MINUTE;
+/** A closed twin (S8) is read again once a day for this long after it closed (E). */
+export const CLOSED_RECHECK_MS = 30 * DAY;
 
 /** Where a reconciliation was started from (logged and audited). */
 /** What caused a reconciliation (logs and the audit only): `view` is a stale `GET /v1/twin/:key` (the till). */
@@ -180,11 +191,14 @@ async function reconcileLocked(services: ApiServices, store: PayeeStore, twin: T
   let paypal = read.observation;
   let recorded = false;
 
-  // 1. The automatic record of S3, once per chain transaction (the store remembers it even before PayPal shows it).
+  // 1. The automatic record of S3. The table offers it only while P5 shows no echo of this transaction: "recorded" is
+  // PayPal's to say, and the store's record of an earlier P6 only holds off a second one while PayPal catches up.
+  let base = twin;
   const automatic = result.allowed.find((a) => a.actor === "automatic");
   if (automatic !== undefined && options.automatic !== false && admits(result.allowed, automatic.kind, automatic.args, { automatic: true }) !== null) {
     const txHash = automatic.args["txHash"] ?? "";
-    if (!autoRecords.some((r) => r.txHash.toLowerCase() === txHash && !r.undone)) {
+    const held = autoRecords.find((r) => r.txHash.toLowerCase() === txHash && !r.undone);
+    if (held === undefined) {
       const record = await recordPayment(services, store, twin, automatic.args, now, "auto");
       if (record !== null) {
         recorded = true;
@@ -193,8 +207,18 @@ async function reconcileLocked(services: ApiServices, store: PayeeStore, twin: T
         paypal = again.observation;
         result = reconcile({ twin: twinFacts({ ...twin, recordedPaymentIds: [...twin.recordedPaymentIds, record.paymentId] }, autoRecords), paypal, chain, now });
       }
-    } else {
+    } else if (now - held.recordedAt < RECORD_LAG_MS) {
       logger.log("info", "reconcile.record-pending", { key: twin.key, situation: result.situation });
+    } else {
+      // P5 no longer shows a record PayLink made, and no Undo here removed it: never record it blind again (the payee
+      // may have deleted it on purpose); say so and let the payee choose (the table's `record-missing`).
+      const missing = { ...held, undone: true, missing: true };
+      await store.putAutoRecord(missing);
+      await store.audit({ at: now, action: "paypal.record-missing", key: twin.key, actor: "system", result: "ok", code: held.paymentId });
+      logger.log("warn", "reconcile.record-missing", { key: twin.key, paymentId: held.paymentId });
+      autoRecords = autoRecords.map((r) => (r.paymentId === held.paymentId ? missing : r));
+      base = { ...twin, recordedPaymentIds: twin.recordedPaymentIds.filter((id) => id !== held.paymentId) };
+      result = reconcile({ twin: twinFacts(base, autoRecords), paypal, chain, now });
     }
   }
 
@@ -202,12 +226,12 @@ async function reconcileLocked(services: ApiServices, store: PayeeStore, twin: T
   const verified = chain.state === "paid" ? (chain.payments[0] ?? null) : null;
   const closed = result.situation === "S8" || result.situation === "S9";
   const updated: TwinRecord = {
-    ...twin,
+    ...base,
     lastStatus: paypal.read === "ok" && paypal.statusClass !== "unknown" ? (paypal.status as TwinRecord["lastStatus"]) : twin.lastStatus,
     paidAmount: paypal.read === "ok" ? paypal.paidAmount : twin.paidAmount,
     lastChainState: chain.state,
     chainPayment: verified ?? (chain.state === "paid" ? twin.chainPayment : null),
-    recordedPaymentIds: [...new Set([...twin.recordedPaymentIds, ...autoRecords.filter((r) => !r.undone).map((r) => r.paymentId), ...result.echoes])],
+    recordedPaymentIds: [...new Set([...base.recordedPaymentIds, ...autoRecords.filter((r) => !r.undone).map((r) => r.paymentId), ...result.echoes])],
     situation: result.situation,
     fence: result.allowed,
     checkedAt: now,
@@ -215,8 +239,8 @@ async function reconcileLocked(services: ApiServices, store: PayeeStore, twin: T
   };
   await store.putTwin(updated);
 
-  // 3. Alerts.
-  if (result.alert !== null && (result.situation === "S0" || result.situation === "S4")) {
+  // 3. Alerts (S0, S4, and a record gone from PayPal in S3).
+  if (result.alert !== null && (result.situation === "S0" || result.situation === "S3" || result.situation === "S4")) {
     await store.putAlert({ key: twin.key, invoiceNumber: twin.invoiceNumber, situation: result.situation, code: result.alert, raisedAt: now });
   } else {
     await store.clearAlert(twin.key);
@@ -248,13 +272,20 @@ async function reconcileLocked(services: ApiServices, store: PayeeStore, twin: T
  */
 export async function recordPayment(services: ApiServices, store: PayeeStore, twin: TwinRecord, args: Readonly<Record<string, string>>, now: number, actor: "auto" | "approved"): Promise<AutoRecord | null> {
   const txHash = (args["txHash"] ?? "") as `0x${string}`;
+  // One request id per attempt to record this transaction: a retry of a lost answer reuses it, a record after an Undo
+  // (a new attempt) does not (src/paypal/idempotency.ts).
+  const attempt = (await store.listAutoRecords({ key: twin.key })).filter((r) => r.txHash.toLowerCase() === txHash.toLowerCase()).length;
   try {
-    const reference = await services.paypal.recordPayment(twin.paypalId, {
-      method: "OTHER",
-      payment_date: args["paymentDate"] ?? "",
-      amount: { currency_code: "USD", value: args["amount"] ?? "" },
-      note: echoNote(twin.chainId, txHash, twin.key),
-    });
+    const reference = await services.paypal.recordPayment(
+      twin.paypalId,
+      {
+        method: "OTHER",
+        payment_date: args["paymentDate"] ?? "",
+        amount: { currency_code: "USD", value: args["amount"] ?? "" },
+        note: echoNote(twin.chainId, txHash, twin.key),
+      },
+      { requestId: requestIdFor("record", twin.key, txHash, String(attempt)) },
+    );
     const record: AutoRecord = { key: twin.key, paymentId: reference.payment_id, rail: twin.rail, txHash, recordedAt: now, undoUntil: now + UNDO_WINDOW_MS, undone: false };
     await store.putAutoRecord(record);
     await store.audit({ at: now, action: "paypal.record", key: twin.key, actor, result: "ok", code: reference.payment_id });
@@ -322,10 +353,14 @@ async function syncProposals(services: ApiServices, store: PayeeStore, twin: Twi
 export function nextCheckAt(twin: TwinRecord, result: ReconcileResult, now: number): number | null {
   switch (result.situation) {
     case "S8":
+      // Closed, yet PayPal's side can reopen (a record deleted in its dashboard): read it once a day for a while.
+      return twin.closedAt !== null && now - twin.closedAt < CLOSED_RECHECK_MS ? now + DAY : null;
     case "S9":
       return null;
-    case "S5":
     case "S3":
+      // A record gone from PayPal waits for the payee's tap (the alert is up): no need to read it every minute.
+      return result.reasonCode === "record-missing" ? now + 15 * MINUTE : now + MINUTE;
+    case "S5":
       return now + MINUTE;
     case "S2":
     case "S6":

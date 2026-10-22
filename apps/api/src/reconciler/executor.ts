@@ -14,6 +14,13 @@
  *    `Cancel(key, deadline)` to sign (deadline: one hour, invoice spec §9.2) and the proposal closes when the chain shows
  *    the key cancelled (src/reconciler/engine.ts).
  *
+ * A write whose answer is lost is settled by reading, never repeated blind (src/paypal/client.ts): each carries a
+ * deterministic `PayPal-Request-Id` (src/paypal/idempotency.ts); a lost P8 or P6 reopens the proposal, and the next
+ * approval's fresh read finds whether it happened (the fence then no longer holds it); a lost P9 cannot be read back
+ * (an invoice does not list its reminders), so it counts as sent: the proposal closes `unconfirmed`, `lastReminderAt` is
+ * set, and none is offered for 24 hours. Only PayPal's definite refusal (a 4xx) reopens a reminder. A lost P7 (Undo) is
+ * settled by P5: a record P5 no longer lists was deleted.
+ *
  * Nothing here takes a value from the request beyond the proposal id, the hash and the token: every exact value comes
  * from the stored proposal, checked against the fence. Model text never reaches this module.
  *
@@ -25,6 +32,7 @@ import { errorFields } from "../core/log.ts";
 import { ProblemError } from "../core/problem.ts";
 import type { ApiServices } from "../core/services.ts";
 import { isPayPalError } from "../paypal/client.ts";
+import { requestIdFor } from "../paypal/idempotency.ts";
 import type { PayeeStore, ProposalRecord, TwinRecord } from "../store/types.ts";
 import { canonicalOf, chainTwinOf, LOCK_TTL_MS, readPayPal, reconcileTwin, recordPayment } from "./engine.ts";
 import { twinFacts } from "./observe.ts";
@@ -40,6 +48,17 @@ function paypalProblem(error: unknown, kind: string): ProblemError {
     return error.retryable ? new ProblemError("paypal-unavailable", "PayPal did not carry out the action; try again later", { rule, retryAfter: 60 }) : new ProblemError("paypal-rejected", "PayPal refused the action", { rule });
   }
   return new ProblemError("paypal-unavailable", "PayPal did not carry out the action", { rule: "E_PAYPAL_UNAVAILABLE", retryAfter: 60 });
+}
+
+/** Whether a failed write may have reached PayPal and been carried out: no answer, a 5xx, or a fault of unknown kind. */
+function possiblyApplied(error: unknown): boolean {
+  return isPayPalError(error) ? error.ambiguous || error.status >= 500 : true;
+}
+
+/** A reminder round (`first`, or the ISO time of the last reminder) as a request-id part: `first` or milliseconds. */
+function roundOf(round: string | undefined): string {
+  const ms = round === undefined || round === "first" ? Number.NaN : Date.parse(round);
+  return Number.isFinite(ms) ? String(ms) : "first";
 }
 
 async function proposalOf(store: PayeeStore, id: string): Promise<ProposalRecord> {
@@ -125,10 +144,10 @@ async function execute(services: ApiServices, store: PayeeStore, proposal: Propo
     return await stale(`${twin.situation}->${result.situation}`);
   }
   // 6. The effect.
-  const done = async (code: string): Promise<ApproveResponse> => {
+  const done = async (code: string, unconfirmed = false): Promise<ApproveResponse> => {
     await store.transitionProposal(proposal.id, "approving", "done", now);
     await store.audit({ at: now, action: `desk.${proposal.kind}`, key: proposal.key, actor: "approved", result: "ok", code });
-    return { state: "done", proposalId: proposal.id };
+    return unconfirmed ? { state: "done", proposalId: proposal.id, unconfirmed: true } : { state: "done", proposalId: proposal.id };
   };
   const failed = async (error: unknown): Promise<never> => {
     await store.transitionProposal(proposal.id, "approving", "open", now);
@@ -141,15 +160,21 @@ async function execute(services: ApiServices, store: PayeeStore, proposal: Propo
       return await done("share");
     case "send_reminder":
       try {
-        await services.paypal.remindInvoice(twin.paypalId, REMIND);
+        await services.paypal.remindInvoice(twin.paypalId, REMIND, { requestId: requestIdFor("remind", twin.key, roundOf(proposal.args["round"])) });
       } catch (error) {
-        return await failed(error);
+        if (!possiblyApplied(error)) {
+          return await failed(error);
+        }
+        // PayPal may have sent it, and nothing can read that back: count it as sent (module comment).
+        services.runtime.logger.log("warn", "executor.unconfirmed", { kind: proposal.kind, ...errorFields(error) });
+        await store.putTwin({ ...twin, lastReminderAt: now } satisfies TwinRecord);
+        return await done("P9-unconfirmed", true);
       }
       await store.putTwin({ ...twin, lastReminderAt: now } satisfies TwinRecord);
       return await done("P9");
     case "cancel_paypal":
       try {
-        await services.paypal.cancelInvoice(twin.paypalId, CANCEL);
+        await services.paypal.cancelInvoice(twin.paypalId, CANCEL, { requestId: requestIdFor("cancel", twin.key) });
       } catch (error) {
         return await failed(error);
       }
@@ -203,16 +228,23 @@ export async function undoRecord(services: ApiServices, payee: Address, id: stri
     throw new ProblemError("conflict", "the invoice is being checked: try again in a moment", { rule: "E_BUSY", retryAfter: 5 });
   }
   try {
+    let code = paymentId;
     try {
       // UNVERIFIED until the owner's capture run: that P7's transaction id is P6's payment_id (§7.1 P7).
-      await services.paypal.deletePayment(twin.paypalId, paymentId);
+      await services.paypal.deletePayment(twin.paypalId, paymentId, { requestId: requestIdFor("undo", paymentId) });
     } catch (error) {
-      await store.audit({ at: now, action: "paypal.undo", key: record.key, actor: "payee", result: "failed", code: isPayPalError(error) ? (error.paypalName ?? `HTTP_${String(error.status)}`) : "error" });
-      throw paypalProblem(error, "undo");
+      // A lost answer, or "not found" on a second try: settle it by reading P5 (a record it no longer lists is deleted).
+      const settle = isPayPalError(error) && (error.ambiguous || error.status === 404) ? await readPayPal(services, twin.paypalId) : null;
+      const gone = settle?.observation.read === "ok" && !settle.observation.transactions.some((tx) => tx.paymentId === paymentId);
+      if (!gone) {
+        await store.audit({ at: now, action: "paypal.undo", key: record.key, actor: "payee", result: "failed", code: isPayPalError(error) ? (error.paypalName ?? `HTTP_${String(error.status)}`) : "error" });
+        throw paypalProblem(error, "undo");
+      }
+      code = `${paymentId}:settled-by-read`;
     }
     await store.putAutoRecord({ ...record, undone: true });
     await store.putTwin({ ...twin, recordedPaymentIds: twin.recordedPaymentIds.filter((p) => p !== paymentId) });
-    await store.audit({ at: now, action: "paypal.undo", key: record.key, actor: "payee", result: "ok", code: paymentId });
+    await store.audit({ at: now, action: "paypal.undo", key: record.key, actor: "payee", result: "ok", code });
   } finally {
     await store.unlock(record.key, holder);
   }

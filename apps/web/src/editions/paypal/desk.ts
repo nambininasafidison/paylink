@@ -49,6 +49,7 @@ const REASON_TEXT: Readonly<Record<DeskReasonCode, PlainMessageKey>> = {
   "paid-on-chain": "paypal.reason.paidOnChain",
   "paypal-still-open-after-record": "paypal.reason.stillOpen",
   "recorded-then-undone": "paypal.reason.undone",
+  "record-missing": "paypal.reason.recordMissing",
   "paid-twice": "paypal.reason.paidTwice",
   "payment-in-flight": "paypal.reason.inFlight",
   "chain-payment-confirming": "paypal.reason.confirming",
@@ -77,6 +78,7 @@ const ALERT_TEXT: Readonly<Record<DeskAlertCode, PlainMessageKey>> = {
   "chain-paid-unverified": "paypal.alert.unverified",
   "chain-payment-mismatch": "paypal.alert.chainMismatch",
   "paid-twice": "paypal.alert.paidTwice",
+  "record-missing": "paypal.alert.recordMissing",
 };
 
 const KIND_TEXT: Readonly<Record<ProposalKind, PlainMessageKey>> = {
@@ -296,6 +298,12 @@ export function proposalCard(app: App, proposal: ProposalView, actions: DeskActi
             }
           });
           replace(keys, share);
+          return;
+        }
+        if (answer.unconfirmed === true) {
+          // PayPal did not answer the reminder: it may have gone, so it counts as sent (never repeated blind).
+          setStatus(status, "warn", t("paypal.approve.unconfirmed"));
+          announce(t("paypal.approve.unconfirmed"));
           return;
         }
         setStatus(status, "ok", t("paypal.approved"));

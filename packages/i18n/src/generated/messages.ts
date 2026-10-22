@@ -932,6 +932,7 @@ export type MessageKey =
   | "paypal.approve.cancelPaylink"
   | "paypal.approve.cancelPaypal"
   | "paypal.approve.record"
+  | "paypal.approve.unconfirmed"
   | "paypal.reject"
   | "paypal.readAgain"
   | "paypal.approving"
@@ -968,6 +969,7 @@ export type MessageKey =
   | "paypal.reason.paidOnChain"
   | "paypal.reason.stillOpen"
   | "paypal.reason.undone"
+  | "paypal.reason.recordMissing"
   | "paypal.reason.paidTwice"
   | "paypal.reason.inFlight"
   | "paypal.reason.confirming"
@@ -982,6 +984,7 @@ export type MessageKey =
   | "paypal.alert.paidTwicePill"
   | "paypal.alert.handsOffPill"
   | "paypal.alert.paidTwice"
+  | "paypal.alert.recordMissing"
   | "paypal.alert.guide1"
   | "paypal.alert.guideSend"
   | "paypal.alert.guide2"
@@ -2119,6 +2122,7 @@ export interface MessageParams {
   readonly "paypal.approve.cancelPaylink": never;
   readonly "paypal.approve.cancelPaypal": never;
   readonly "paypal.approve.record": never;
+  readonly "paypal.approve.unconfirmed": never;
   readonly "paypal.reject": never;
   readonly "paypal.readAgain": never;
   readonly "paypal.approving": never;
@@ -2155,6 +2159,7 @@ export interface MessageParams {
   readonly "paypal.reason.paidOnChain": never;
   readonly "paypal.reason.stillOpen": never;
   readonly "paypal.reason.undone": never;
+  readonly "paypal.reason.recordMissing": never;
   readonly "paypal.reason.paidTwice": never;
   readonly "paypal.reason.inFlight": never;
   readonly "paypal.reason.confirming": never;
@@ -2169,6 +2174,7 @@ export interface MessageParams {
   readonly "paypal.alert.paidTwicePill": never;
   readonly "paypal.alert.handsOffPill": never;
   readonly "paypal.alert.paidTwice": never;
+  readonly "paypal.alert.recordMissing": never;
   readonly "paypal.alert.guide1": never;
   readonly "paypal.alert.guideSend": never;
   readonly "paypal.alert.guide2": never;
@@ -2638,6 +2644,7 @@ export type EditionKey =
   | "paypal.approve.cancelPaylink"
   | "paypal.approve.cancelPaypal"
   | "paypal.approve.record"
+  | "paypal.approve.unconfirmed"
   | "paypal.reject"
   | "paypal.readAgain"
   | "paypal.approving"
@@ -2674,6 +2681,7 @@ export type EditionKey =
   | "paypal.reason.paidOnChain"
   | "paypal.reason.stillOpen"
   | "paypal.reason.undone"
+  | "paypal.reason.recordMissing"
   | "paypal.reason.paidTwice"
   | "paypal.reason.inFlight"
   | "paypal.reason.confirming"
@@ -2688,6 +2696,7 @@ export type EditionKey =
   | "paypal.alert.paidTwicePill"
   | "paypal.alert.handsOffPill"
   | "paypal.alert.paidTwice"
+  | "paypal.alert.recordMissing"
   | "paypal.alert.guide1"
   | "paypal.alert.guideSend"
   | "paypal.alert.guide2"

@@ -11,7 +11,7 @@
  * | S0        | unreadable, unknown, SCHEDULED, DRAFT, a mismatch | unreadable, not deployed, a mismatch | nothing (hands off), alert        |
  * | S1        | open                                            | payable                   | share_reminder_text; send_reminder if due  |
  * | S2        | paid (≥ 1 non-echo), or marked paid by the merchant | payable               | cancel_paylink (tap + signature)           |
- * | S3        | open                                            | paid, verified            | record_external_payment (automatic), or cancel_paypal once recorded, or a tap record after an Undo |
+ * | S3        | open                                            | paid, verified            | record_external_payment (automatic), or cancel_paypal once recorded, or a tap record after an Undo; after a record vanished from PayPal (`record-missing`, alert): a tap record or cancel_paypal |
  * | S4        | paid (≥ 1 non-echo transaction)                 | paid                      | nothing, alert `paid-twice`                |
  * | S5        | in flight (PAYMENT_PENDING, PARTIALLY_PAID), or open while a chain payment confirms | any | nothing (wait)        |
  * | S6        | cancelled                                       | payable                   | cancel_paylink (tap + signature)           |
@@ -210,6 +210,17 @@ function decide(input: ReconcileInput, verified: readonly ChainPayment[], listed
       if (echoed) {
         // Recorded, yet PayPal still shows the invoice open (K4): propose closing PayPal's rail.
         return { situation: "S3", reasonCode: "paypal-still-open-after-record", paidVia: payment.rail, allowed: [action("cancel_paypal", fenceArgs.cancelPayPal(twin), "paypal-still-open-after-record")] };
+      }
+      if (twin.recordMissing) {
+        // A record PayLink made is gone from PayPal without an Undo here (a lost P7 answer, or the dashboard): the
+        // invoice is payable on PayPal again while the chain is paid. Say so, and offer to close the gap by a tap.
+        return {
+          situation: "S3",
+          reasonCode: "record-missing",
+          alert: "record-missing",
+          paidVia: payment.rail,
+          allowed: [action("record_external_payment", fenceArgs.recordExternalPayment(twin, payment), "record-missing", "tap"), action("cancel_paypal", fenceArgs.cancelPayPal(twin), "record-missing")],
+        };
       }
       if (twin.autoRecordUndone) {
         return { situation: "S3", reasonCode: "recorded-then-undone", paidVia: payment.rail, allowed: [action("record_external_payment", fenceArgs.recordExternalPayment(twin, payment), "recorded-then-undone", "tap")] };

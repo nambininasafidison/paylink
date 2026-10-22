@@ -75,5 +75,6 @@ export function twinFacts(twin: TwinRecord, autoRecords: readonly AutoRecord[]):
     sentAt: twin.sentAt,
     dueDate: twin.dueDate,
     autoRecordUndone: autoRecords.some((r) => r.key === twin.key && r.undone),
+    recordMissing: autoRecords.some((r) => r.key === twin.key && r.undone && r.missing === true),
   };
 }

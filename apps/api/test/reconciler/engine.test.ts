@@ -91,7 +91,9 @@ describe("S2: paid on PayPal closes the token rail by the payee's signature", ()
     w.advance(60_000);
     expect(await reconcileNow(w)).toMatchObject({ result: { situation: "S8", reasonCode: "closed-paid-paypal", paidVia: "PAYPAL" } });
     expect((await store(w).getProposal(cancel.id))?.state).toBe("done");
-    expect(await w.services.stores.global().dueChecks(w.clock.now + DAY, 20)).toEqual([]);
+    // Closed: read again once a day (a PayPal invoice can reopen), not every few minutes.
+    expect(await w.services.stores.global().dueChecks(w.clock.now + DAY - 1, 20)).toEqual([]);
+    expect(await w.services.stores.global().dueChecks(w.clock.now + DAY, 20)).toEqual([{ payee: PAYEE, key: KEY, dueAt: w.clock.now + DAY }]);
     expect(w.paypal.writes()).toEqual([]);
   });
 
@@ -190,6 +192,100 @@ describe("S3: paid on chain records the payment on PayPal automatically, undoabl
   });
 });
 
+describe("a record PayPal no longer shows: P5 decides, the store only holds off for PayPal's lag", () => {
+  const recordedOnChain = async (): Promise<World> => {
+    const w = await registered();
+    w.payOnChain(KEY, TX);
+    expect(await reconcileNow(w)).toMatchObject({ recorded: true, result: { situation: "S8" } });
+    return w;
+  };
+
+  it("(a) an Undo whose answer is lost is settled by reading P5: undone, with no 503 and no blind retry (the review's probe)", async () => {
+    const w = await recordedOnChain();
+    w.advance(HOUR);
+    w.paypal.loseAnswer.delete = true;
+    expect(await undoRecord(w.services, PAYEE, "r_EXT00000001", w.clock.now)).toEqual({ state: "undone", key: KEY, paymentId: "EXT00000001" });
+    expect((await store(w).listAudit(10)).find((l) => l.action === "paypal.undo")).toMatchObject({ result: "ok", code: "EXT00000001:settled-by-read" });
+    for (let i = 0; i < 3; i += 1) {
+      w.advance(15 * 60_000);
+      await reconcileNow(w);
+    }
+    expect(await twinOf(w)).toMatchObject({ situation: "S3" });
+    expect((await openOf(w, "record_external_payment")).reasonCode).toBe("recorded-then-undone");
+    expect(w.paypal.writes().map((c) => c.op)).toEqual(["record", "delete"]);
+    // A second Undo of the same record finds nothing to undo, and says so; PayPal is not written to again.
+    expect(await problemOf(undoRecord(w.services, PAYEE, "r_EXT00000001", w.clock.now))).toMatchObject({ rule: "E_ALREADY_UNDONE" });
+  });
+
+  it("(a') a record gone from PayPal without an Undo here: held while PayPal may lag, then the alert, a tap to record again or to cancel PayPal, never a blind re-record", async () => {
+    const w = await registered();
+    w.paypal.afterRecord = "SHARED";
+    w.payOnChain(KEY, TX);
+    await reconcileNow(w);
+    // A P7 sent by a lost request (or anyone with the merchant's PayPal access) removes it; PayLink does not know.
+    w.paypal.deleteOutside(ID, "EXT00000001");
+    w.advance(5 * 60_000);
+    expect(await reconcileNow(w)).toMatchObject({ recorded: false, result: { situation: "S3", reasonCode: "paid-on-chain" } });
+    expect((await deskView(w.services, PAYEE, w.clock.now)).alerts).toEqual([]);
+    w.advance(6 * 60_000);
+    expect(await reconcileNow(w)).toMatchObject({ recorded: false, result: { situation: "S3", reasonCode: "record-missing", alert: "record-missing" } });
+    const view = await deskView(w.services, PAYEE, w.clock.now);
+    expect(view.alerts).toEqual([{ key: KEY, invoiceNumber: `PL-11155111-${KEY.slice(2, 14)}`, situation: "S3", code: "record-missing", raisedAt: new Date(w.clock.now).toISOString() }]);
+    // (cancel_paypal was already open since the record left the invoice open: the same action, the same values.)
+    expect(view.proposals.filter((p) => p.state === "open").map((p) => p.kind).sort()).toEqual(["cancel_paypal", "record_external_payment"]);
+    expect((await openOf(w, "record_external_payment")).reasonCode).toBe("record-missing");
+    expect(view.autoRecords).toEqual([expect.objectContaining({ paymentId: "EXT00000001", undone: true })]);
+    expect(w.paypal.writes().map((c) => c.op)).toEqual(["record"]);
+    // The payee records it again by a tap: a new attempt, a new request id; the alert clears.
+    const again = await openOf(w, "record_external_payment");
+    expect(await approve(w, again)).toEqual({ state: "done", proposalId: again.id });
+    expect(w.paypal.writes().map((c) => c.requestId)).toEqual([`pl-record-${KEY.slice(2, 26)}-${TX.slice(2, 26)}-0`, `pl-record-${KEY.slice(2, 26)}-${TX.slice(2, 26)}-1`]);
+    expect((await deskView(w.services, PAYEE, w.clock.now)).alerts).toEqual([]);
+  });
+
+  it("(b) a record deleted in PayPal's dashboard after the Undo window: the closed twin's daily re-check finds it (the review's probe)", async () => {
+    const w = await recordedOnChain();
+    w.advance(25 * HOUR);
+    expect(await problemOf(undoRecord(w.services, PAYEE, "r_EXT00000001", w.clock.now))).toMatchObject({ rule: "E_UNDO_EXPIRED" });
+    // As E_UNDO_EXPIRED tells the payee: the dashboard deletes the record. The invoice is SHARED and payable again.
+    w.paypal.deleteOutside(ID, "EXT00000001");
+    expect((await w.services.stores.global().dueChecks(w.clock.now, 20)).map((c) => c.key)).toEqual([KEY]);
+    expect(await reconcileNow(w)).toMatchObject({ result: { situation: "S3", reasonCode: "record-missing", alert: "record-missing" } });
+    expect((await deskView(w.services, PAYEE, w.clock.now)).alerts.map((a) => a.code)).toEqual(["record-missing"]);
+    expect(w.paypal.writes().map((c) => c.op)).toEqual(["record"]);
+  });
+
+  it("(b') \"Check my invoices\" reads a recently closed twin again, and stops after 30 days", async () => {
+    const w = await recordedOnChain();
+    w.advance(2 * DAY);
+    w.paypal.deleteOutside(ID, "EXT00000001");
+    const swept = await sweep(w.services, PAYEE, w.clock.now, null);
+    expect(swept.sweep).toEqual({ checked: 1, remaining: 0 });
+    expect(swept.alerts.map((a) => a.code)).toEqual(["record-missing"]);
+    const old = await recordedOnChain();
+    old.advance(31 * DAY);
+    expect((await sweep(old.services, PAYEE, old.clock.now, null)).sweep).toEqual({ checked: 0, remaining: 0 });
+    expect(await old.services.stores.global().dueChecks(old.clock.now + 2 * DAY, 20)).toHaveLength(1);
+    await reconcileNow(old);
+    expect(await old.services.stores.global().dueChecks(old.clock.now + 2 * DAY, 20)).toEqual([]);
+  });
+
+  it("every write carries a deterministic PayPal-Request-Id: record per attempt, undo per payment, cancel per twin", async () => {
+    const w = await recordedOnChain();
+    w.advance(HOUR);
+    await undoRecord(w.services, PAYEE, "r_EXT00000001", w.clock.now);
+    const s7 = await registered(world(), OTHER_KEY, "INV2-TEST-0000-0000-0002");
+    s7.cancelOnChain(OTHER_KEY);
+    await reconcileNow(s7, OTHER_KEY);
+    await approve(s7, await openOf(s7, "cancel_paypal"));
+    expect([...w.paypal.writes(), ...s7.paypal.writes()].map((c) => [c.op, c.requestId])).toEqual([
+      ["record", `pl-record-${KEY.slice(2, 26)}-${TX.slice(2, 26)}-0`],
+      ["delete", "pl-undo-EXT00000001"],
+      ["cancel", `pl-cancel-${OTHER_KEY.slice(2, 26)}`],
+    ]);
+  });
+});
+
 describe("the advisory lock (T-59)", () => {
   it("lets one of two simultaneous reconciliations act, so a chain payment is recorded once", async () => {
     const w = await registered();
@@ -279,7 +375,7 @@ describe("reminders (P9)", () => {
     const w = await registered(world(), KEY, ID, { dueDate: "2026-10-20" });
     const remind = await openOf(w, "send_reminder");
     expect(await approve(w, remind)).toEqual({ state: "done", proposalId: remind.id });
-    expect(w.paypal.writes()).toEqual([{ op: "remind", id: ID, body: { send_to_recipient: true, send_to_invoicer: false } }]);
+    expect(w.paypal.writes()).toEqual([{ op: "remind", id: ID, body: { send_to_recipient: true, send_to_invoicer: false }, requestId: `pl-remind-${KEY.slice(2, 26)}-first` }]);
     await reconcileNow(w);
     expect((await desk(w)).filter((p) => p.kind === "send_reminder" && p.state === "open")).toEqual([]);
     w.advance(DAY);
@@ -295,6 +391,42 @@ describe("reminders (P9)", () => {
     expect((await store(w).getProposal(remind.id))?.state).toBe("open");
     w.paypal.failNext.remind = 400;
     expect(await problemOf(approve(w, remind))).toMatchObject({ code: "paypal-rejected" });
+  });
+
+  it("a reminder whose answer is lost counts as sent: closed unconfirmed, never sent again within 24 hours (the review's probe)", async () => {
+    const w = await registered(world(), KEY, ID, { dueDate: "2026-10-20" });
+    const remind = await openOf(w, "send_reminder");
+    // PayPal sends the reminder, then the answer is lost (no answer, or a 5xx).
+    w.paypal.loseAnswer.remind = true;
+    expect(await approve(w, remind)).toEqual({ state: "done", proposalId: remind.id, unconfirmed: true });
+    expect((await twinOf(w))?.lastReminderAt).toBe(w.clock.now);
+    expect((await store(w).listAudit(5)).find((l) => l.action === "desk.send_reminder")).toMatchObject({ result: "ok", code: "P9-unconfirmed" });
+    // The next tap cannot send a second one: the proposal is used, and the fence offers none for 24 hours.
+    expect(await problemOf(approve(w, remind))).toMatchObject({ code: "conflict", rule: "E_ALREADY_USED" });
+    w.advance(60_000);
+    await reconcileNow(w);
+    expect((await desk(w)).filter((p) => p.kind === "send_reminder" && p.state === "open")).toEqual([]);
+    expect(w.paypal.writes().filter((c) => c.op === "remind")).toHaveLength(1);
+    // A day later, a new round with its own request id.
+    w.advance(DAY);
+    await reconcileNow(w);
+    const next = await openOf(w, "send_reminder");
+    expect(await approve(w, next)).toEqual({ state: "done", proposalId: next.id });
+    const ids = w.paypal.writes().map((c) => c.requestId);
+    expect(ids).toEqual([`pl-remind-${KEY.slice(2, 26)}-first`, `pl-remind-${KEY.slice(2, 26)}-${String(T0)}`]);
+  });
+
+  it("a 5xx on the reminder is a possible send too; only PayPal's definite refusal (4xx) reopens it", async () => {
+    const w = await registered(world(), KEY, ID, { dueDate: "2026-10-20" });
+    const remind = await openOf(w, "send_reminder");
+    w.paypal.failNext.remind = 503;
+    expect(await approve(w, remind)).toMatchObject({ state: "done", unconfirmed: true });
+    const other = await registered(world(), KEY, ID, { dueDate: "2026-10-20" });
+    const again = await openOf(other, "send_reminder");
+    other.paypal.failNext.remind = 422;
+    expect(await problemOf(approve(other, again))).toMatchObject({ code: "paypal-rejected" });
+    expect((await store(other).getProposal(again.id))?.state).toBe("open");
+    expect((await twinOf(other))?.lastReminderAt).toBeNull();
   });
 
   it("offers no PayPal reminder for a twin without a recipient email", async () => {

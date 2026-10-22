@@ -109,6 +109,12 @@ export interface AutoRecord {
   readonly recordedAt: EpochMs;
   readonly undoUntil: EpochMs;
   readonly undone: boolean;
+  /**
+   * PayPal's GET (P5) no longer shows this record, though no Undo of this app removed it (a P7 whose answer was lost,
+   * or the record deleted in PayPal's dashboard): the reconciler marked it undone, raised the alert `record-missing`
+   * and offers the payee to record again or to cancel the PayPal invoice (src/reconciler/engine.ts).
+   */
+  readonly missing?: boolean;
 }
 
 /** An alert (S4 paid twice, or S0 hands off). */

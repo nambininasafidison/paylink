@@ -102,6 +102,8 @@ export interface TwinFacts {
   readonly dueDate: string | null;
   /** The payee undid an automatic record of this twin: never record it automatically again (a tap proposal instead). */
   readonly autoRecordUndone: boolean;
+  /** A record of this twin disappeared from PayPal without an Undo here (AutoRecord `missing`): alert, tap actions only. */
+  readonly recordMissing: boolean;
 }
 
 export interface ReconcileInput {

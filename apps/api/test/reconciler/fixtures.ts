@@ -39,6 +39,7 @@ export const TWIN: TwinFacts = {
   sentAt: T0 - HOUR,
   dueDate: "2026-11-06",
   autoRecordUndone: false,
+  recordMissing: false,
 };
 
 export const PAYMENT: ChainPayment = {

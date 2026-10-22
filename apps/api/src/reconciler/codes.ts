@@ -25,6 +25,7 @@ export const REASON_CODES = [
   "paid-on-chain",
   "paypal-still-open-after-record",
   "recorded-then-undone",
+  "record-missing",
   // S4
   "paid-twice",
   // S5
@@ -59,6 +60,7 @@ export const ALERT_CODES = [
   "chain-paid-unverified",
   "chain-payment-mismatch",
   "paid-twice",
+  "record-missing",
 ] as const satisfies readonly DeskAlertCode[];
 
 // Both lists name every member of their contract type (a missing code fails type-checking here).

@@ -68,6 +68,7 @@ const inputArb: fc.Arbitrary<ReconcileInput> = fc.record({
     sentAt: fc.option(fc.integer({ min: T0 - 10 * DAY, max: T0 }), { nil: null }),
     dueDate: fc.constantFrom("2026-10-01", "2026-10-21", "2026-11-06", null),
     autoRecordUndone: fc.boolean(),
+    recordMissing: fc.boolean(),
   }).map((t) => ({ ...TWIN, ...t })),
   paypal: paypalArb,
   chain: chainArb,
@@ -129,11 +130,11 @@ describe("properties of the situation table (fast-check)", () => {
     );
   });
 
-  it("alerts exactly in S0 and S4; nothing is allowed in S0, S4, S5, S8, S9", () => {
+  it("alerts exactly in S0, S4 and a record gone from PayPal (S3 record-missing); nothing is allowed in S0, S4, S5, S8, S9", () => {
     fc.assert(
       fc.property(inputArb, (input) => {
         const result = reconcile(input);
-        expect(result.alert !== null).toBe(result.situation === "S0" || result.situation === "S4");
+        expect(result.alert !== null).toBe(result.situation === "S0" || result.situation === "S4" || (result.situation === "S3" && result.reasonCode === "record-missing"));
         if (["S0", "S4", "S5", "S8", "S9"].includes(result.situation)) {
           expect(result.allowed).toEqual([]);
         }
