@@ -61,7 +61,8 @@
   /* The desk. */
   .desk-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 16px; }
   .desk-tools .key { flex: 0 1 auto; }
-  .desk-tools .view-meta { flex: 1 1 200px; }
+  /* The check line wraps (it is a sentence); the design system keeps short meta on one line. */
+  .desk-tools .view-meta { flex: 1 1 200px; min-width: 0; white-space: normal; }
   .desk-cards { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; }
   .desk-card { padding: 14px 16px 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); min-width: 0; }
   .desk-card.is-alert { border-color: var(--led-err); border-left-width: 4px; }
