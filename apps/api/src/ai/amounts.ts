@@ -44,6 +44,7 @@ const BEFORE: readonly (readonly [RegExp, CurrencyMark])[] = [
   [/(?:€|EUR)\s?$/iu, "EUR"],
   [/(?:£|GBP)\s?$/iu, "GBP"],
   [/(?:\bMGA|\bAr\.?)\s?$/u, "MGA"],
+  [/\b(?:CAD|AUD|NZD|HKD|SGD|CHF|JPY|CNY|INR|NGN|KES|ZAR|XOF|XAF)\s?$/u, "OTHER"],
 ];
 const AFTER: readonly (readonly [RegExp, CurrencyMark])[] = [
   [/^\s?(?:US\$|USD\b|\$|dollars?\b|dolara\b|bucks\b)/iu, "USD"],

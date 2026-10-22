@@ -6,8 +6,9 @@
  * differs. A phrase code cannot resolve, or that reads two ways, gives no date and the clarification `due_date_unclear`;
  * a date before today gives `due_date_past`, one more than 365 days ahead `due_date_too_far` (and no date).
  *
- * Phrases resolved (EN, FR, MG; case and accents ignored): ISO dates; today, tomorrow, the day after; "in N days /
- * weeks / months", "dans N jours / semaines / mois", "afaka N andro / herinandro / volana" (digits or the words one to
+ * Phrases resolved (EN, FR, MG; case and accents ignored): ISO dates; today (and "right away", "tout de suite"),
+ * tomorrow, the day after; "in N days /
+ * weeks / months", "dans N jours / semaines / mois", "à N jours", "afaka N andro / herinandro / volana" (digits or the words one to
  * ten); "net 30"; "on receipt"; end of the month, end of a named month; weekdays (the coming one; English "next Friday"
  * reads two ways); "6 Nov", "November 6th", "le 6 novembre", "6 novambra", with or without a year; numeric dates
  * (day first in French and Malagasy; in English only when one part is above 12); "the 30th", "le 30", "avant le 30".
@@ -140,14 +141,14 @@ export function resolveDuePhrase(phrase: string, today: IsoDate, language: Local
   if (/\bday after tomorrow\b|\bapres[- ]demain\b|\brahafakampitso\b/u.test(p)) {
     return date(addDays(today, 2));
   }
-  if (/\b(?:today|tonight|aujourd'hui|ce soir|androany|anio)\b/u.test(p)) {
+  if (/\b(?:today|tonight|right away|immediately|aujourd'hui|ce soir|tout de suite|androany|anio|avy hatrany)\b/u.test(p)) {
     return date(today);
   }
   if (/\b(?:tomorrow|demain|rahampitso)\b/u.test(p)) {
     return date(addDays(today, 1));
   }
-  m = new RegExp(`\\b(?:in|within|dans|sous|d'ici|afaka|ao anatin'ny)?\\s*${NUM}\\s+(days?|weeks?|months?|jours?|semaines?|mois|andro|herinandro|volana)\\b`, "u").exec(p);
-  if (m !== null && /\b(?:in|within|dans|sous|d'ici|afaka|ao anatin'ny)\b/u.test(p)) {
+  m = new RegExp(`\\b(?:in|within|dans|sous|d'ici|a|afaka|ao anatin'ny)?\\s*${NUM}\\s+(days?|weeks?|months?|jours?|semaines?|mois|andro|herinandro|volana)\\b`, "u").exec(p);
+  if (m !== null && /\b(?:in|within|dans|sous|d'ici|a|afaka|ao anatin'ny)\b/u.test(p)) {
     const n = numberOf(m[1] ?? "");
     const unit = m[2] ?? "";
     if (!Number.isInteger(n) || n <= 0) {
