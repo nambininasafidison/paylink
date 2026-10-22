@@ -6,8 +6,9 @@
  *
  * - Headers: `/paypal/` under a policy of its own whose `connect-src` is exactly Ethereum Sepolia's RPC and the API; the
  *   root's policy has neither; the manifest and the service worker are scoped to `/paypal/`.
- * - The four tabs (create, ledger, desk, till); the desk is a "coming" placeholder whose only live part is the API's
- *   health, read through the CSP and the API's own CORS allowlist; no CSP violation under Trusted Types.
+ * - The four tabs (create, ledger, desk, till); the desk, without a wallet, asks for the payee's wallet and calls nothing
+ *   but the API's public health, read through the CSP and the API's own CORS allowlist; no CSP violation under Trusted
+ *   Types. Its screens with a session, on a mocked API, are e2e/specs/paypal-ui.spec.ts.
  * - Create offers Ethereum Sepolia alone and says PayLinkV2 is not deployed there yet (the owner deploys it later).
  * - Desk and create in EN, FR and MG, light and dark, at 320 px: axe-core WCAG 2.2 AA zero violations, no sideways scroll.
  */
@@ -86,19 +87,18 @@ test("serves /paypal/ under a policy of its own: Ethereum Sepolia's RPC and the 
   expect(manifest).toMatchObject({ name: "PayLink PayPal", scope: "/paypal/", start_url: "/paypal/" });
 });
 
-test("shows the four tabs and the desk's placeholder, and reads the API's health through the CSP and the API's CORS", async ({ browser }) => {
+test("shows the four tabs and the desk, which asks for the payee's wallet first, and reads the API's health through the CSP and the API's CORS", async ({ browser }) => {
   const { page, problems, calls } = await open(browser);
   await page.goto(`${server.origin}/paypal/desk/`);
   await expect(page.locator("header.top .edition-tag")).toHaveText("PayPal");
   await expect(page.locator("nav.tabs a")).toHaveText(["Create", "Ledger", "Desk", "Till"]);
   await expect(page.locator("nav.tabs a[aria-current=page]")).toHaveText("Desk");
   const view = page.locator(".view-desk");
-  await expect(view).toHaveAttribute("data-coming", "");
-  await expect(view.locator(".pill")).toHaveText("Coming");
-  await expect(view.locator(".note-list li")).toHaveCount(3);
-  await expect(view.locator("button")).toHaveCount(0);
-  // The API answers; "degraded" (amber) while its stores are the scaffold's stubs, green once they read.
-  const row = view.locator(".vstrip > li");
+  await expect(view).toHaveAttribute("data-desk", "no-wallet");
+  // Without a wallet the desk offers one key, the wallet's, and asks the API for nothing but its public health.
+  await expect(view.locator("button")).toHaveCount(1);
+  await expect(view.locator("[data-action=connect]")).toHaveText("Connect wallet");
+  const row = view.locator(".desk-foot > li");
   await expect(row).toHaveAttribute("data-lamp", /^(ok|wait)$/);
   await expect(row).toContainText("Online · 0.1.0");
   expect(calls).toEqual([{ method: "GET", path: "/v1/health", status: 200 }]);
