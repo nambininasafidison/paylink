@@ -7808,6 +7808,366 @@ function superRefine(fn, params) {
 }
 
 //#endregion
+//#region apps/api/src/core/problem.ts
+/**
+* RFC 9457 problem responses with the contract's stable codes (`API_PROBLEMS` in @paylink/api-contract). Clients branch
+* on `code` and `rule`, never on `detail`.
+*
+* Owner: foundation.
+*/
+function problem(code, detail, extensions = {}) {
+	const { status, title } = API_PROBLEMS[code];
+	return {
+		type: problemType(code),
+		code,
+		status,
+		title,
+		detail,
+		...extensions
+	};
+}
+/** The documentation URI of a problem code (RFC 9457 `type`). */
+function problemType(code) {
+	return `https://github.com/nambininasafidison/paylink/blob/paypal/apps/api/README.md#problem-${code}`;
+}
+/** A thrown problem: route handlers throw it, the app turns it into the response. */
+var ProblemError = class extends Error {
+	problem;
+	constructor(code, detail, extensions = {}) {
+		super(detail);
+		this.name = "ProblemError";
+		this.problem = problem(code, detail, extensions);
+	}
+};
+
+//#endregion
+//#region apps/api/src/reconciler/money.ts
+/**
+* Money and dates exactly as the reconciler compares them. Code, never a model, turns a signed amount into PayPal's
+* two-decimal USD string and compares PayPal's strings with it (invariant AI-5).
+*
+* - PayPal's `money.value` matches `^((-?[0-9]+)|(-?([0-9]+)?[.][0-9]+))$`, at most 32 characters (V, `invoicing_v2.json`
+*   at 90e8041); PayLink only ever accepts a non-negative value with at most two significant decimals.
+* - USDC and PYUSD on Ethereum Sepolia have 6 decimals (packages/chains/src/chains/ethereum-sepolia.ts, read on chain).
+*
+* Owner: reconciler workstream.
+*/
+const PAYPAL_VALUE = /^(?<whole>[0-9]{0,30})(?:\.(?<fraction>[0-9]{1,30}))?$/u;
+const BASE_UNITS = /^(?:0|[1-9][0-9]{0,38})$/u;
+/** The value in cents, or null when it is not a non-negative amount with at most two significant decimals. */
+function centsOf$1(value) {
+	if (typeof value !== "string" || value.length === 0 || value.length > 32) return null;
+	const match = PAYPAL_VALUE.exec(value);
+	const whole = match?.groups?.["whole"] ?? "";
+	const fraction = (match?.groups?.["fraction"] ?? "").replace(/0+$/u, "");
+	if (match === null || whole === "" && match.groups?.["fraction"] === void 0 || fraction.length > 2) return null;
+	return BigInt(whole === "" ? "0" : whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+}
+/** Two PayPal values denote the same amount (both well formed). */
+function sameMoney(a, b) {
+	const x = centsOf$1(a);
+	return x !== null && x === centsOf$1(b);
+}
+/**
+* A 6-decimal base-unit amount as PayPal's USD string with exactly two decimals (`"120.00"`), or null when it has
+* sub-cent precision or is not a base-unit string (`E_TWIN_PRECISION`, docs/paypal/SPEC.md §7.2).
+*/
+function usdFromBase(base, decimals = 6) {
+	if (!BASE_UNITS.test(base) || decimals < 2) return null;
+	const units = BigInt(base);
+	const perCent = 10n ** BigInt(decimals - 2);
+	if (units % perCent !== 0n) return null;
+	const cents = units / perCent;
+	return `${(cents / 100n).toString()}.${(cents % 100n).toString().padStart(2, "0")}`;
+}
+/** The UTC calendar day of an instant, `YYYY-MM-DD`: quotas, budgets, due dates and P6's `payment_date`. */
+function utcDay$4(ms) {
+	return new Date(ms).toISOString().slice(0, 10);
+}
+/** Milliseconds until the next UTC midnight (a daily quota's `Retry-After`). */
+function msUntilNextUtcDay(ms) {
+	const day = new Date(ms);
+	return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1) - ms;
+}
+/** Whether `due` (`YYYY-MM-DD`) is today or past, in UTC (E: PayPal's own timezone handling is not documented). */
+function isDue(due, now) {
+	return due !== null && /^\d{4}-\d{2}-\d{2}$/u.test(due) && utcDay$4(now) >= due;
+}
+
+//#endregion
+//#region apps/api/src/store/quotas.ts
+const PAYEE_DAILY = {
+	sweeps: 100,
+	checks: 100,
+	sessions: 20
+};
+const GLOBAL_DAILY = {
+	twins: 500,
+	aiCalls: 150,
+	checks: 2e3
+};
+/** Per request source per day (E): a judge's whole tour uses a few sessions and a dozen assistant calls. */
+const SOURCE_DAILY = {
+	sessions: 30,
+	aiCalls: 30,
+	neurons: 1500
+};
+/** The demo payees' own lane per day (E): sessions, assistant calls, and the neurons kept out of the public's reach. */
+const DEMO_RESERVE = {
+	sessions: 500,
+	aiCalls: 150,
+	neurons: 2500
+};
+/** Whether `payee` is one of the owner's demo payees (`config.demoPayees`). */
+function isDemoPayee(services, payee) {
+	const lower = payee.toLowerCase();
+	return services.runtime.config.demoPayees.some((p) => p.toLowerCase() === lower);
+}
+function exhausted(kind, scope, now) {
+	return new ProblemError("quota-exhausted", `the ${scope}'s daily ${kind} quota is used up`, {
+		rule: scope === "payee" ? "E_QUOTA_PAYEE" : scope === "source" ? "E_QUOTA_SOURCE" : "E_QUOTA_GLOBAL",
+		retryAfter: Math.ceil(msUntilNextUtcDay(now) / 1e3)
+	});
+}
+/** Counts one use for the payee (and the deployment, where it has a limit); throws `quota-exhausted` at a limit. */
+async function chargeQuota(services, payee, kind, now) {
+	const { quotas } = services.runtime.config;
+	const limit = kind === "twins" ? quotas.twinsPerDay : kind === "aiCalls" ? quotas.aiCallsPerDay : PAYEE_DAILY[kind];
+	const day = utcDay$4(now);
+	if (!(await services.stores.payee(payee).useQuota(day, kind, limit)).allowed) throw exhausted(kind, "payee", now);
+	if (kind === "sweeps") return;
+	const lane = kind === "aiCalls" && isDemoPayee(services, payee) ? ["aiCallsDemo", DEMO_RESERVE.aiCalls] : [kind, GLOBAL_DAILY[kind]];
+	if (!(await services.stores.global().useQuota(day, lane[0], lane[1])).allowed) throw exhausted(kind, "deployment", now);
+}
+/**
+* Counts one assistant run: the payee's `aiCalls`, then (for a public payee) its source's calls, then the lane's calls
+* (public or demo). Throws `quota-exhausted` at the first limit reached, leaving the later counters untouched.
+*/
+async function chargeAssistantCall(services, payee, source, now) {
+	const day = utcDay$4(now);
+	if (!(await services.stores.payee(payee).useQuota(day, "aiCalls", services.runtime.config.quotas.aiCallsPerDay)).allowed) throw exhausted("aiCalls", "payee", now);
+	await chargeSource(services, payee, source, "aiCalls", now);
+	const demo = isDemoPayee(services, payee);
+	if (!(await services.stores.global().useQuota(day, demo ? "aiCallsDemo" : "aiCalls", demo ? DEMO_RESERVE.aiCalls : GLOBAL_DAILY.aiCalls)).allowed) throw exhausted("aiCalls", "deployment", now);
+}
+/** Counts one use for a request source (never for a demo payee); throws `quota-exhausted` (`E_QUOTA_SOURCE`) at a limit. */
+async function chargeSource(services, payee, source, kind, now) {
+	if (isDemoPayee(services, payee)) return;
+	const subject = kind === "sessions" ? "sessions-source" : "aiCalls-source";
+	if (!(await services.stores.global().useSubjectQuota(utcDay$4(now), subject, source, 1, SOURCE_DAILY[kind])).allowed) throw exhausted(kind, "source", now);
+}
+
+//#endregion
+//#region apps/api/src/ai/models.ts
+const PRIMARY_MODEL = {
+	id: "@cf/google/gemma-4-26b-a4b-it",
+	dialect: "chat-completions",
+	contextWindow: 256e3,
+	neuronsPerMillion: {
+		input: 9091,
+		output: 27273
+	},
+	jsonSchema: "catalog",
+	toolChoice: true,
+	reasoningSwitch: true
+};
+const FALLBACK_MODEL = {
+	id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+	dialect: "legacy",
+	contextWindow: 24e3,
+	neuronsPerMillion: {
+		input: 26668,
+		output: 204805
+	},
+	jsonSchema: "json-mode-page",
+	toolChoice: false,
+	reasoningSwitch: false
+};
+/** The models this API knows the facts of. */
+const KNOWN_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL];
+/** Workers AI's free allocation per day (pricing page: "10,000 Neurons per day at no charge"). */
+const FREE_NEURONS_PER_DAY = 1e4;
+/**
+* The facts of a configured model id. An id this module does not know is called in the chat-completions dialect and
+* costed at the highest known rates, so the daily ceiling errs on the side of resting.
+*/
+function modelFacts(id) {
+	const known = KNOWN_MODELS.find((m) => m.id === id);
+	if (known !== void 0) return known;
+	return {
+		id,
+		dialect: "chat-completions",
+		contextWindow: 8e3,
+		neuronsPerMillion: {
+			input: Math.max(...KNOWN_MODELS.map((m) => m.neuronsPerMillion.input)),
+			output: Math.max(...KNOWN_MODELS.map((m) => m.neuronsPerMillion.output))
+		},
+		jsonSchema: "catalog",
+		toolChoice: false,
+		reasoningSwitch: false
+	};
+}
+/** Neurons a call costs, from its token usage and the model's rates (rounded up). */
+function neuronsFor(model, inputTokens, outputTokens) {
+	return Math.ceil((inputTokens * model.neuronsPerMillion.input + outputTokens * model.neuronsPerMillion.output) / 1e6);
+}
+/**
+* Tokens of a text when the provider reports none (E): one token per three characters, rounded up. Deliberately high
+* for English (about four characters a token) so that estimates over-count neurons rather than under-count them.
+*/
+function estimateTokens(text) {
+	return Math.ceil(text.length / 3);
+}
+
+//#endregion
+//#region apps/api/src/ai/budget.ts
+/** Whether the fallback model may be tried after this failure (module comment). */
+function fallbackWorthy(result) {
+	switch (result.outcome) {
+		case "ok":
+		case "refused": return false;
+		case "timeout":
+		case "invalid-output":
+		case "truncated": return true;
+		case "unavailable": return result.reason === "error" || result.reason === "rate-limited";
+	}
+}
+function withFallback(primary, fallback) {
+	if (fallback === null) return primary;
+	return {
+		kind: primary.kind,
+		model: primary.model,
+		async structured(request) {
+			const first = await primary.structured(request);
+			return fallbackWorthy(first) ? await fallback.structured(request) : first;
+		},
+		async toolTurn(request) {
+			const first = await primary.toolTurn(request);
+			return fallbackWorthy(first) ? await fallback.toolTurn(request) : first;
+		}
+	};
+}
+const utcDay$3 = (ms) => new Date(ms).toISOString().slice(0, 10);
+const RESTING$1 = {
+	outcome: "unavailable",
+	reason: "budget"
+};
+/** The cost of a call before it is made: its whole input, and every output token it may produce. */
+function estimateNeurons(model, sentText, maxOutputTokens) {
+	return neuronsFor(model, estimateTokens(sentText), maxOutputTokens);
+}
+function withBudget(inner, options) {
+	const { ceiling, clock, logger, model } = options;
+	const metered = async (call, sentText, maxOutputTokens, invoke) => {
+		const day = utcDay$3(clock());
+		const estimate = estimateNeurons(model, sentText, maxOutputTokens);
+		const room = await options.global().spendAiBudget(day, 0, Math.max(0, ceiling - estimate));
+		if (!room.allowed) {
+			logger.log("info", "ai.resting", {
+				call,
+				model: model.id,
+				day,
+				used: room.used,
+				ceiling
+			});
+			return RESTING$1;
+		}
+		const result = await invoke();
+		let neurons = 0;
+		if (result.outcome === "ok") neurons = result.usage.neurons ?? estimate;
+		else if (result.outcome === "timeout" || result.outcome === "invalid-output" || result.outcome === "truncated" || result.outcome === "refused") neurons = estimate;
+		if (result.outcome === "unavailable" && result.reason === "budget") neurons = Number.MAX_SAFE_INTEGER;
+		if (neurons > 0) {
+			const spent = await options.global().spendAiBudget(day, neurons, ceiling);
+			if (!spent.allowed && spent.limit > spent.used) await options.global().spendAiBudget(day, spent.limit - spent.used, ceiling);
+		}
+		logger.log(result.outcome === "ok" ? "info" : "warn", "ai.call", {
+			call,
+			feature: options.feature,
+			model: result.outcome === "ok" ? result.model : model.id,
+			outcome: result.outcome === "unavailable" ? `unavailable:${result.reason}` : result.outcome,
+			latencyMs: result.outcome === "ok" ? result.latencyMs : void 0,
+			usageIn: result.outcome === "ok" ? result.usage.inputTokens : void 0,
+			usageOut: result.outcome === "ok" ? result.usage.outputTokens : void 0,
+			usageEstimated: result.outcome === "ok" ? result.usage.estimated : void 0,
+			neurons: neurons === Number.MAX_SAFE_INTEGER ? null : neurons
+		});
+		return result;
+	};
+	return {
+		kind: inner.kind,
+		model: inner.model,
+		structured: async (request) => await metered("structured", request.system + request.user + JSON.stringify(request.schema), request.maxOutputTokens, async () => await inner.structured(request)),
+		toolTurn: async (request) => await metered("toolTurn", JSON.stringify(request.messages) + JSON.stringify(request.tools), request.maxOutputTokens, async () => await inner.toolTurn(request))
+	};
+}
+/**
+* Today's neurons against the ceiling, read without spending (for the Status page's assistant row: "budget left", and
+* "resting" once a typical call no longer fits). `typicalCall` is the estimate of one A1 draft by default (E).
+*/
+async function assistantBudget(global, ceiling, now, typicalCall = 40) {
+	const day = utcDay$3(now);
+	const read = await global.spendAiBudget(day, 0, Number.MAX_SAFE_INTEGER);
+	const left = Math.max(0, ceiling - read.used);
+	return {
+		day,
+		spent: read.used,
+		left,
+		resting: left < typicalCall
+	};
+}
+
+//#endregion
+//#region apps/api/src/ai/admission.ts
+const RESTING = {
+	outcome: "unavailable",
+	reason: "budget"
+};
+const utcDay$2 = (ms) => new Date(ms).toISOString().slice(0, 10);
+/** The provider for one public caller: each call fits under the public lane and the source's neurons, or rests. */
+function publicLane(services, source) {
+	const inner = services.ai;
+	const global = () => services.stores.global();
+	const ceiling = services.runtime.config.ai.dailyNeuronBudget;
+	const { logger } = services.runtime;
+	const metered = async (sentText, maxOutputTokens, invoke) => {
+		const day = utcDay$2(services.runtime.clock());
+		const estimate = estimateNeurons(PRIMARY_MODEL, sentText, maxOutputTokens);
+		const lane = await global().spendAiBudget(day, 0, Math.max(0, ceiling - DEMO_RESERVE.neurons - estimate));
+		const own = await global().useSubjectQuota(day, "neurons-source", source, 0, Math.max(0, SOURCE_DAILY.neurons - estimate));
+		if (!lane.allowed || !own.allowed) {
+			logger.log("info", "ai.resting", {
+				lane: "public",
+				reason: lane.allowed ? "source" : "reserve",
+				day
+			});
+			return RESTING;
+		}
+		const result = await invoke();
+		const spent = result.outcome === "ok" ? result.usage.neurons ?? estimate : result.outcome === "unavailable" ? 0 : estimate;
+		if (spent > 0) {
+			const counted = await global().useSubjectQuota(day, "neurons-source", source, spent, SOURCE_DAILY.neurons);
+			if (!counted.allowed && counted.limit > counted.used) await global().useSubjectQuota(day, "neurons-source", source, counted.limit - counted.used, SOURCE_DAILY.neurons);
+		}
+		return result;
+	};
+	return {
+		kind: inner.kind,
+		model: inner.model,
+		structured: async (request) => await metered(request.system + request.user + JSON.stringify(request.schema), request.maxOutputTokens, async () => await inner.structured(request)),
+		toolTurn: async (request) => await metered(JSON.stringify(request.messages) + JSON.stringify(request.tools), request.maxOutputTokens, async () => await inner.toolTurn(request))
+	};
+}
+/**
+* Admits one assistant run (module table): counts it for the payee, the source and the lane, and returns the provider
+* the run must use. Throws `quota-exhausted` (the caller answers "resting") when a count is at its limit.
+*/
+async function admitAssistant(services, caller, now) {
+	await chargeAssistantCall(services, caller.payee, caller.source, now);
+	return isDemoPayee(services, caller.payee) ? services.ai : publicLane(services, caller.source);
+}
+
+//#endregion
 //#region packages/sdk/src/generated/paylink-v2-abi.ts
 /** ABI of PayLinkV2, including the OpenZeppelin errors and events it inherits. */
 const payLinkV2Abi = [
@@ -31836,7 +32196,7 @@ function decodePaidLog(log) {
 
 //#endregion
 //#region apps/api/src/ai/amounts.ts
-const NUMBER$2 = `\\d{1,3}(?:(?:[ \\u00A0\\u202F]|[,.'’])\\d{3})+(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d+)?`;
+const NUMBER$1 = `\\d{1,3}(?:(?:[ \\u00A0\\u202F]|[,.'’])\\d{3})+(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d+)?`;
 const BEFORE = [
 	[/(?:US\$|USD|U\.S\.\s?\$)\s?$/iu, "USD"],
 	[/(?:[A-Z]{1,3}\$)\s?$/u, "OTHER"],
@@ -31909,7 +32269,7 @@ function baseOf(decimal) {
 /** Every number of `text`, with the currency written right before or after it (module table). */
 function scanMoney(text) {
 	const mentions = [];
-	const pattern = new RegExp(`(?<![\\d\\w])(?:${NUMBER$2})`, "gu");
+	const pattern = new RegExp(`(?<![\\d\\w])(?:${NUMBER$1})`, "gu");
 	for (const match of text.matchAll(pattern)) {
 		const digits = match[0];
 		const index = match.index;
@@ -32085,7 +32445,7 @@ const NUMBER_WORDS = {
 	sivy: 9,
 	folo: 10
 };
-const MONTH_OF = new Map([
+const MONTHS = [
 	[
 		"january",
 		"jan",
@@ -32163,8 +32523,10 @@ const MONTH_OF = new Map([
 		"decembre",
 		"desambra"
 	]
-].flatMap((names, i) => names.map((n) => [n, i + 1])));
-const MONTH_RE = [...MONTH_OF.keys()].sort((a, b) => b.length - a.length).join("|");
+];
+/** Month names and abbreviations (EN, FR, MG; lower case, no accents) to month numbers 1–12. */
+const MONTH_OF = new Map(MONTHS.flatMap((names, i) => names.map((n) => [n, i + 1])));
+const MONTH_RE$1 = [...MONTH_OF.keys()].sort((a, b) => b.length - a.length).join("|");
 const WEEKDAY_OF = new Map([
 	[
 		"sunday",
@@ -32235,7 +32597,7 @@ function resolveDuePhrase(phrase, today, language) {
 	m = /\bnet\s?(\d{1,3})\b/u.exec(p);
 	if (m !== null) return date(addDays(today, Number(m[1])));
 	if (/\bnext week\b|\bsemaine prochaine\b|\bherinandro (?:ho avy|manaraka)\b/u.test(p)) return { kind: "ambiguous" };
-	m = new RegExp(`\\b(?:end of|fin(?: de| du)?|faran'ny(?: volana)?)\\s+(${MONTH_RE})\\b`, "u").exec(p);
+	m = new RegExp(`\\b(?:end of|fin(?: de| du)?|faran'ny(?: volana)?)\\s+(${MONTH_RE$1})\\b`, "u").exec(p);
 	if (m !== null) {
 		const month = MONTH_OF.get(m[1] ?? "") ?? 0;
 		const thisYear = lastDayOf(year, month);
@@ -32245,12 +32607,12 @@ function resolveDuePhrase(phrase, today, language) {
 		const d = toDate(today);
 		return date(lastDayOf(d.getUTCFullYear(), d.getUTCMonth() + 1));
 	}
-	m = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th|er)?\\s+(?:of\\s+|de\\s+)?(${MONTH_RE})\\b\\.?(?:,?\\s+(\\d{4}))?`, "u").exec(p);
+	m = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th|er)?\\s+(?:of\\s+|de\\s+)?(${MONTH_RE$1})\\b\\.?(?:,?\\s+(\\d{4}))?`, "u").exec(p);
 	if (m !== null) {
 		const month = MONTH_OF.get(m[2] ?? "") ?? 0;
 		return date(m[3] === void 0 ? nextMonthDay(today, month, Number(m[1])) : validYmd(Number(m[3]), month, Number(m[1])));
 	}
-	m = new RegExp(`\\b(${MONTH_RE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`, "u").exec(p);
+	m = new RegExp(`\\b(${MONTH_RE$1})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`, "u").exec(p);
 	if (m !== null) {
 		const month = MONTH_OF.get(m[1] ?? "") ?? 0;
 		return date(m[3] === void 0 ? nextMonthDay(today, month, Number(m[2])) : validYmd(Number(m[3]), month, Number(m[2])));
@@ -32673,39 +33035,6 @@ async function draftInvoice(deps, input) {
 }
 
 //#endregion
-//#region apps/api/src/core/problem.ts
-/**
-* RFC 9457 problem responses with the contract's stable codes (`API_PROBLEMS` in @paylink/api-contract). Clients branch
-* on `code` and `rule`, never on `detail`.
-*
-* Owner: foundation.
-*/
-function problem(code, detail, extensions = {}) {
-	const { status, title } = API_PROBLEMS[code];
-	return {
-		type: problemType(code),
-		code,
-		status,
-		title,
-		detail,
-		...extensions
-	};
-}
-/** The documentation URI of a problem code (RFC 9457 `type`). */
-function problemType(code) {
-	return `https://github.com/nambininasafidison/paylink/blob/paypal/apps/api/README.md#problem-${code}`;
-}
-/** A thrown problem: route handlers throw it, the app turns it into the response. */
-var ProblemError = class extends Error {
-	problem;
-	constructor(code, detail, extensions = {}) {
-		super(detail);
-		this.name = "ProblemError";
-		this.problem = problem(code, detail, extensions);
-	}
-};
-
-//#endregion
 //#region apps/api/src/core/http.ts
 /** Reads the request body as text, refusing more than `limit` bytes (`payload-too-large`). */
 async function readText(c, limit) {
@@ -32779,85 +33108,54 @@ function parseBody(schema, value) {
 function json(c, body, status = 200) {
 	return c.json(body, status);
 }
-
-//#endregion
-//#region apps/api/src/reconciler/money.ts
 /**
-* Money and dates exactly as the reconciler compares them. Code, never a model, turns a signed amount into PayPal's
-* two-decimal USD string and compares PayPal's strings with it (invariant AI-5).
-*
-* - PayPal's `money.value` matches `^((-?[0-9]+)|(-?([0-9]+)?[.][0-9]+))$`, at most 32 characters (V, `invoicing_v2.json`
-*   at 90e8041); PayLink only ever accepts a non-negative value with at most two significant decimals.
-* - USDC and PYUSD on Ethereum Sepolia have 6 decimals (packages/chains/src/chains/ethereum-sepolia.ts, read on chain).
-*
-* Owner: reconciler workstream.
+* The request's source for the per-source daily limits (threat T-60): the client IP Cloudflare's edge puts in
+* `CF-Connecting-IP` ("When no Worker subrequest is triggered, cf-connecting-ip reflects the client's IP address":
+* cloudflare/cloudflare-docs at 3fe915d, src/content/docs/fundamentals/reference/http-headers.mdx). An IPv6 address
+* counts by its /64 (one subscriber's prefix); an IPv4-mapped IPv6 address as its IPv4. Without the header (the Node
+* entry, tests), every request shares the source `unknown`. That a client cannot set the header itself on a
+* `workers.dev` route is UNVERIFIED (the page describes the edge-to-origin header).
 */
-const PAYPAL_VALUE = /^(?<whole>[0-9]{0,30})(?:\.(?<fraction>[0-9]{1,30}))?$/u;
-const BASE_UNITS = /^(?:0|[1-9][0-9]{0,38})$/u;
-/** The value in cents, or null when it is not a non-negative amount with at most two significant decimals. */
-function centsOf$1(value) {
-	if (typeof value !== "string" || value.length === 0 || value.length > 32) return null;
-	const match = PAYPAL_VALUE.exec(value);
-	const whole = match?.groups?.["whole"] ?? "";
-	const fraction = (match?.groups?.["fraction"] ?? "").replace(/0+$/u, "");
-	if (match === null || whole === "" && match.groups?.["fraction"] === void 0 || fraction.length > 2) return null;
-	return BigInt(whole === "" ? "0" : whole) * 100n + BigInt(fraction.padEnd(2, "0"));
+function clientSource(c) {
+	return sourceOf(c.req.header("cf-connecting-ip"));
 }
-/** Two PayPal values denote the same amount (both well formed). */
-function sameMoney(a, b) {
-	const x = centsOf$1(a);
-	return x !== null && x === centsOf$1(b);
-}
-/**
-* A 6-decimal base-unit amount as PayPal's USD string with exactly two decimals (`"120.00"`), or null when it has
-* sub-cent precision or is not a base-unit string (`E_TWIN_PRECISION`, docs/paypal/SPEC.md §7.2).
-*/
-function usdFromBase(base, decimals = 6) {
-	if (!BASE_UNITS.test(base) || decimals < 2) return null;
-	const units = BigInt(base);
-	const perCent = 10n ** BigInt(decimals - 2);
-	if (units % perCent !== 0n) return null;
-	const cents = units / perCent;
-	return `${(cents / 100n).toString()}.${(cents % 100n).toString().padStart(2, "0")}`;
-}
-/** The UTC calendar day of an instant, `YYYY-MM-DD`: quotas, budgets, due dates and P6's `payment_date`. */
-function utcDay$2(ms) {
-	return new Date(ms).toISOString().slice(0, 10);
-}
-/** Milliseconds until the next UTC midnight (a daily quota's `Retry-After`). */
-function msUntilNextUtcDay(ms) {
-	const day = new Date(ms);
-	return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1) - ms;
-}
-/** Whether `due` (`YYYY-MM-DD`) is today or past, in UTC (E: PayPal's own timezone handling is not documented). */
-function isDue(due, now) {
-	return due !== null && /^\d{4}-\d{2}-\d{2}$/u.test(due) && utcDay$2(now) >= due;
-}
-
-//#endregion
-//#region apps/api/src/store/quotas.ts
-const PAYEE_DAILY = {
-	sweeps: 100,
-	checks: 100
-};
-const GLOBAL_DAILY = {
-	twins: 500,
-	aiCalls: 1500,
-	checks: 2e3
-};
-function exhausted(kind, scope, now) {
-	return new ProblemError("quota-exhausted", `the ${scope}'s daily ${kind} quota is used up`, {
-		rule: scope === "payee" ? "E_QUOTA_PAYEE" : "E_QUOTA_GLOBAL",
-		retryAfter: Math.ceil(msUntilNextUtcDay(now) / 1e3)
-	});
-}
-/** Counts one use for the payee (and the deployment, where it has a limit); throws `quota-exhausted` at a limit. */
-async function chargeQuota(services, payee, kind, now) {
-	const { quotas } = services.runtime.config;
-	const limit = kind === "twins" ? quotas.twinsPerDay : kind === "aiCalls" ? quotas.aiCallsPerDay : PAYEE_DAILY[kind];
-	const day = utcDay$2(now);
-	if (!(await services.stores.payee(payee).useQuota(day, kind, limit)).allowed) throw exhausted(kind, "payee", now);
-	if (kind !== "sweeps" && !(await services.stores.global().useQuota(day, kind, GLOBAL_DAILY[kind])).allowed) throw exhausted(kind, "deployment", now);
+function sourceOf(header) {
+	const ip = (header ?? "").trim().toLowerCase();
+	const v4 = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/u;
+	if (v4.test(ip)) return ip;
+	if (!ip.includes(":") || ip.length > 45 || !/^[0-9a-f:.]+$/u.test(ip)) return "unknown";
+	const halves = ip.split("::");
+	if (halves.length > 2) return "unknown";
+	const groupsOf = (part) => {
+		if (part === void 0 || part === "") return [];
+		const out = [];
+		for (const g of part.split(":")) if (v4.test(g)) {
+			const [a = 0, b = 0, c2 = 0, d = 0] = g.split(".").map(Number);
+			out.push((a << 8 | b).toString(16), (c2 << 8 | d).toString(16));
+		} else if (/^[0-9a-f]{1,4}$/u.test(g)) out.push(g);
+		else return null;
+		return out;
+	};
+	const head = groupsOf(halves[0]);
+	const tail = groupsOf(halves[1]);
+	if (head === null || tail === null) return "unknown";
+	const missing = 8 - head.length - tail.length;
+	if (halves.length === 1 && missing !== 0 || halves.length === 2 && missing < 1) return "unknown";
+	const groups = [
+		...head,
+		...Array.from({ length: halves.length === 2 ? missing : 0 }, () => "0"),
+		...tail
+	].map((g) => Number.parseInt(g, 16));
+	if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 65535) {
+		const [hi = 0, lo = 0] = groups.slice(6);
+		return [
+			hi >> 8,
+			hi & 255,
+			lo >> 8,
+			lo & 255
+		].join(".");
+	}
+	return `${groups.slice(0, 4).map((g) => g.toString(16)).join(":")}::/64`;
 }
 
 //#endregion
@@ -32873,8 +33171,9 @@ const DEFAULT_BODY_LIMIT = 8192;
 //#endregion
 //#region apps/api/src/routes/ai.ts
 /**
-* POST /v1/ai/draft: A1, a client message to an invoice draft (docs/paypal/SPEC.md §9.2), behind the payee's daily
-* assistant quota, the deployment's, and the daily neuron ceiling (src/ai/budget.ts).
+* POST /v1/ai/draft: A1, a client message to an invoice draft (docs/paypal/SPEC.md §9.2), admitted by
+* src/ai/admission.ts: the payee's daily assistant quota, its request source's, the public or demo lane's, and the
+* neurons of each (src/ai/budget.ts keeps the daily ceiling).
 *
 * Every way the assistant cannot help answers 200 `{ outcome: "unavailable", reason }` and the web edition opens the
 * manual form with a notice (U6): `disabled` (no provider), `resting` (a quota or the day's neurons are used up),
@@ -32897,8 +33196,12 @@ const aiHandlers = { "ai.draft": async ({ c, services, payee, now }) => {
 		outcome: "unavailable",
 		reason: "disabled"
 	});
+	let ai;
 	try {
-		await chargeQuota(services, payee, "aiCalls", now);
+		ai = await admitAssistant(services, {
+			payee,
+			source: clientSource(c)
+		}, now);
 	} catch (error) {
 		if (error instanceof ProblemError && error.problem.code === "quota-exhausted") {
 			services.runtime.logger.log("info", "a1.resting", { rule: error.problem.rule });
@@ -32910,7 +33213,7 @@ const aiHandlers = { "ai.draft": async ({ c, services, payee, now }) => {
 		throw error;
 	}
 	return json(c, await draftInvoice({
-		ai: services.ai,
+		ai,
 		logger: services.runtime.logger,
 		now
 	}, body));
@@ -33168,6 +33471,24 @@ function isPayPalError(error) {
 }
 
 //#endregion
+//#region apps/api/src/paypal/idempotency.ts
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/u;
+/** A deterministic request id for `kind` over `parts` (hex values or PayPal ids). Throws if the result is not a valid id. */
+function requestIdFor(kind, ...parts) {
+	const id = [
+		"pl",
+		kind,
+		...parts.map((part) => /^0x[0-9a-fA-F]+$/u.test(part) ? part.slice(2, 26).toLowerCase() : part)
+	].join("-");
+	if (!REQUEST_ID_PATTERN.test(id)) throw new RangeError(`not a valid PayPal-Request-Id: ${String(id.length)} characters`);
+	return id;
+}
+/** A random request id for a one-off write (128 bits). */
+function randomRequestId(random) {
+	return `pl-${[...random(16)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+//#endregion
 //#region apps/api/src/reconciler/echo.ts
 /** Longest P6 note PayPal accepts (V: `payment_detail.note`, ≤ 2000). */
 const PAYPAL_NOTE_MAX = 2e3;
@@ -33271,7 +33592,8 @@ function twinFacts(twin, autoRecords) {
 		lastReminderAt: twin.lastReminderAt,
 		sentAt: twin.sentAt,
 		dueDate: twin.dueDate,
-		autoRecordUndone: autoRecords.some((r) => r.key === twin.key && r.undone)
+		autoRecordUndone: autoRecords.some((r) => r.key === twin.key && r.undone),
+		recordMissing: autoRecords.some((r) => r.key === twin.key && r.undone && r.missing === true)
 	};
 }
 
@@ -33289,7 +33611,7 @@ function twinFacts(twin, autoRecords) {
 * | S0        | unreadable, unknown, SCHEDULED, DRAFT, a mismatch | unreadable, not deployed, a mismatch | nothing (hands off), alert        |
 * | S1        | open                                            | payable                   | share_reminder_text; send_reminder if due  |
 * | S2        | paid (≥ 1 non-echo), or marked paid by the merchant | payable               | cancel_paylink (tap + signature)           |
-* | S3        | open                                            | paid, verified            | record_external_payment (automatic), or cancel_paypal once recorded, or a tap record after an Undo |
+* | S3        | open                                            | paid, verified            | record_external_payment (automatic), or cancel_paypal once recorded, or a tap record after an Undo; after a record vanished from PayPal (`record-missing`, alert): a tap record or cancel_paypal |
 * | S4        | paid (≥ 1 non-echo transaction)                 | paid                      | nothing, alert `paid-twice`                |
 * | S5        | in flight (PAYMENT_PENDING, PARTIALLY_PAID), or open while a chain payment confirms | any | nothing (wait)        |
 * | S6        | cancelled                                       | payable                   | cancel_paylink (tap + signature)           |
@@ -33357,7 +33679,7 @@ const fenceArgs = {
 		chainId: String(t.chainId),
 		rail: p.rail,
 		txHash: p.txHash.toLowerCase(),
-		paymentDate: utcDay$2(p.timestamp * 1e3)
+		paymentDate: utcDay$4(p.timestamp * 1e3)
 	})
 };
 /** The situation of one twin. Pure: same input, same output. */
@@ -33488,6 +33810,13 @@ function decide(input, verified, listedCount, nonEchoCount) {
 				paidVia: payment.rail,
 				allowed: [action("cancel_paypal", fenceArgs.cancelPayPal(twin), "paypal-still-open-after-record")]
 			};
+			if (twin.recordMissing) return {
+				situation: "S3",
+				reasonCode: "record-missing",
+				alert: "record-missing",
+				paidVia: payment.rail,
+				allowed: [action("record_external_payment", fenceArgs.recordExternalPayment(twin, payment), "record-missing", "tap"), action("cancel_paypal", fenceArgs.cancelPayPal(twin), "record-missing")]
+			};
 			if (twin.autoRecordUndone) return {
 				situation: "S3",
 				reasonCode: "recorded-then-undone",
@@ -33541,6 +33870,11 @@ const CANCEL_WAIT_MS = 42e5;
 /** Any other approval left half-done this long (a crash between the approval and the effect) is released (E). */
 const APPROVING_WAIT_MS = 6e5;
 const MINUTE = 6e4;
+const DAY = 1440 * MINUTE;
+/** PayPal may take this long to show a record it accepted (E): until then the store's record holds off a second P6. */
+const RECORD_LAG_MS = 10 * MINUTE;
+/** A closed twin (S8) is read again once a day for this long after it closed (E). */
+const CLOSED_RECHECK_MS = 30 * DAY;
 /** The chain reader's view of a twin's record. */
 const chainTwinOf = (twin) => ({
 	key: twin.key,
@@ -33683,10 +34017,12 @@ async function reconcileLocked(services, store, twin, now, options) {
 	});
 	let paypal = read.observation;
 	let recorded = false;
+	let base = twin;
 	const automatic = result.allowed.find((a) => a.actor === "automatic");
 	if (automatic !== void 0 && options.automatic !== false && admits(result.allowed, automatic.kind, automatic.args, { automatic: true }) !== null) {
 		const txHash = automatic.args["txHash"] ?? "";
-		if (!autoRecords.some((r) => r.txHash.toLowerCase() === txHash && !r.undone)) {
+		const held = autoRecords.find((r) => r.txHash.toLowerCase() === txHash && !r.undone);
+		if (held === void 0) {
 			const record = await recordPayment(services, store, twin, automatic.args, now, "auto");
 			if (record !== null) {
 				recorded = true;
@@ -33702,21 +34038,52 @@ async function reconcileLocked(services, store, twin, now, options) {
 					now
 				});
 			}
-		} else logger.log("info", "reconcile.record-pending", {
+		} else if (now - held.recordedAt < 6e5) logger.log("info", "reconcile.record-pending", {
 			key: twin.key,
 			situation: result.situation
 		});
+		else {
+			const missing = {
+				...held,
+				undone: true,
+				missing: true
+			};
+			await store.putAutoRecord(missing);
+			await store.audit({
+				at: now,
+				action: "paypal.record-missing",
+				key: twin.key,
+				actor: "system",
+				result: "ok",
+				code: held.paymentId
+			});
+			logger.log("warn", "reconcile.record-missing", {
+				key: twin.key,
+				paymentId: held.paymentId
+			});
+			autoRecords = autoRecords.map((r) => r.paymentId === held.paymentId ? missing : r);
+			base = {
+				...twin,
+				recordedPaymentIds: twin.recordedPaymentIds.filter((id) => id !== held.paymentId)
+			};
+			result = reconcile({
+				twin: twinFacts(base, autoRecords),
+				paypal,
+				chain,
+				now
+			});
+		}
 	}
 	const verified = chain.state === "paid" ? chain.payments[0] ?? null : null;
 	const closed = result.situation === "S8" || result.situation === "S9";
 	const updated = {
-		...twin,
+		...base,
 		lastStatus: paypal.read === "ok" && paypal.statusClass !== "unknown" ? paypal.status : twin.lastStatus,
 		paidAmount: paypal.read === "ok" ? paypal.paidAmount : twin.paidAmount,
 		lastChainState: chain.state,
 		chainPayment: verified ?? (chain.state === "paid" ? twin.chainPayment : null),
 		recordedPaymentIds: [.../* @__PURE__ */ new Set([
-			...twin.recordedPaymentIds,
+			...base.recordedPaymentIds,
 			...autoRecords.filter((r) => !r.undone).map((r) => r.paymentId),
 			...result.echoes
 		])],
@@ -33726,7 +34093,7 @@ async function reconcileLocked(services, store, twin, now, options) {
 		closedAt: closed ? twin.closedAt ?? now : null
 	};
 	await store.putTwin(updated);
-	if (result.alert !== null && (result.situation === "S0" || result.situation === "S4")) await store.putAlert({
+	if (result.alert !== null && (result.situation === "S0" || result.situation === "S3" || result.situation === "S4")) await store.putAlert({
 		key: twin.key,
 		invoiceNumber: twin.invoiceNumber,
 		situation: result.situation,
@@ -33772,6 +34139,7 @@ async function reconcileLocked(services, store, twin, now, options) {
 */
 async function recordPayment(services, store, twin, args, now, actor) {
 	const txHash = args["txHash"] ?? "";
+	const attempt = (await store.listAutoRecords({ key: twin.key })).filter((r) => r.txHash.toLowerCase() === txHash.toLowerCase()).length;
 	try {
 		const reference = await services.paypal.recordPayment(twin.paypalId, {
 			method: "OTHER",
@@ -33781,7 +34149,7 @@ async function recordPayment(services, store, twin, args, now, actor) {
 				value: args["amount"] ?? ""
 			},
 			note: echoNote(twin.chainId, txHash, twin.key)
-		});
+		}, { requestId: requestIdFor("record", twin.key, txHash, String(attempt)) });
 		const record = {
 			key: twin.key,
 			paymentId: reference.payment_id,
@@ -33895,10 +34263,10 @@ async function syncProposals(services, store, twin, result, chain, now) {
 /** Adaptive polling (§7.5, E): often while something is about to happen, rarely while nothing will. */
 function nextCheckAt(twin, result, now) {
 	switch (result.situation) {
-		case "S8":
+		case "S8": return twin.closedAt !== null && now - twin.closedAt < 2592e6 ? now + DAY : null;
 		case "S9": return null;
-		case "S5":
-		case "S3": return now + MINUTE;
+		case "S3": return result.reasonCode === "record-missing" ? now + 15 * MINUTE : now + MINUTE;
+		case "S5": return now + MINUTE;
 		case "S2":
 		case "S6":
 		case "S0": return now + 5 * MINUTE;
@@ -33927,14 +34295,14 @@ const PAYPAL_HOSTS = [
 	"sandbox.paypal.com",
 	"www.sandbox.paypal.com"
 ];
-const NUMBER$1 = /\bPL-(?<chain>[1-9][0-9]{0,15})-(?<prefix>[0-9a-f]{12})\b/giu;
+const NUMBER = /\bPL-(?<chain>[1-9][0-9]{0,15})-(?<prefix>[0-9a-f]{12})\b/giu;
 const KEY$3 = /\b0x[0-9a-fA-F]{64}\b/gu;
 const AMOUNT = /(?:(?:US\$|\$|USD\s?)\s?(?<a>[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?))|(?:(?<b>[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\s?(?:USD|US dollars?|dollars?)\b)/giu;
 const LINK$1 = /\bhttps?:\/\/[^\s<>"'()]+/giu;
 /** What the text names, by code only. */
 function extract(text) {
 	const slice = text.slice(0, CHECK_MAX_TEXT);
-	const numbers = [...slice.matchAll(NUMBER$1)].map((m) => `pl-${m.groups?.["chain"] ?? ""}-${(m.groups?.["prefix"] ?? "").toLowerCase()}`);
+	const numbers = [...slice.matchAll(NUMBER)].map((m) => `pl-${m.groups?.["chain"] ?? ""}-${(m.groups?.["prefix"] ?? "").toLowerCase()}`);
 	const keys = [...slice.matchAll(KEY$3)].map((m) => m[0].toLowerCase());
 	const amounts = [...slice.matchAll(AMOUNT)].map((m) => centsOf$1((m.groups?.["a"] ?? m.groups?.["b"] ?? "").replaceAll(",", ""))).filter((c) => c !== null && c > 0n);
 	const links = [...slice.matchAll(LINK$1)].map((m) => m[0]).slice(0, 20);
@@ -34046,85 +34414,93 @@ const checkHandlers = { check: async ({ c, services, payee, now }) => {
 
 //#endregion
 //#region apps/api/src/ai/desk/grounding.ts
-/**
-* Checks on every text the desk model writes (docs/paypal/SPEC.md §9.2 A2, invariant AI-5): a message is kept with a
-* proposal only if all of these hold, otherwise the proposal carries no model text and the web edition shows its fixed,
-* owner-reviewed i18n text instead.
-*
-* - **Numeric grounding.** Every number in the message appears in the data the read tools returned in this run (an
-*   amount, a date, an invoice number). Numbers are compared as values: `120`, `120.00` and `120,00` are one number; a
-*   grouping that reads two ways (`1,200`) passes if either reading is in the data.
-* - **No contact or payment details.** No link, email address, phone number or `0x` address (the client receives this
-*   text: it must not carry anything a payer could act on but the invoice itself).
-* - **No threats, legal claims or credential talk** (EN, FR, MG word lists; E).
-* - **Short.** At most 400 characters, after control characters are removed.
-*
-* Numbers written in words ("one hundred") escape the numeric check; the banned-phrase list and the payee's review
-* before sharing are the remaining defences (E).
-*
-* Owner: AI workstream.
-*/
 const MESSAGE_MAX_CHARS = 400;
-const NUMBER = /\d+(?:[.,\u00A0\u202F ]\d+)*/gu;
-/** The values a written number can stand for, as canonical decimal strings (`"120"`, `"120.5"`, `"6"`). */
-function readingsOf(written) {
-	const compact = written.replace(/[\u00A0\u202F]/gu, " ");
-	const canonical = (s) => {
-		if (!/^\d+(?:\.\d+)?$/u.test(s)) return null;
-		const [whole = "0", fraction = ""] = s.split(".");
-		const w = whole.replace(/^0+(?=\d)/u, "");
-		const f = fraction.replace(/0+$/u, "");
-		return f === "" ? w : `${w}.${f}`;
+/** No facts: every number, date and invoice number is ungrounded (a message written before the twin was read). */
+const NO_FACTS = {
+	amounts: /* @__PURE__ */ new Set(),
+	dates: /* @__PURE__ */ new Set(),
+	invoiceNumbers: /* @__PURE__ */ new Set()
+};
+const utcDay$1 = (ms) => new Date(ms).toISOString().slice(0, 10);
+/** The facts of one twin, from named fields of its record only (never identifiers or timestamps). */
+function factsOfTwin(twin) {
+	const amounts = /* @__PURE__ */ new Set([BigInt(twin.amountBase).toString()]);
+	if (twin.paidAmount !== null) try {
+		amounts.add(parseAmount(twin.paidAmount, 6).toString());
+	} catch {}
+	const dates = /* @__PURE__ */ new Set();
+	if (twin.dueDate !== null) dates.add(twin.dueDate);
+	if (twin.sentAt !== null) dates.add(utcDay$1(twin.sentAt));
+	if (twin.lastReminderAt !== null) dates.add(utcDay$1(twin.lastReminderAt));
+	return {
+		amounts,
+		dates,
+		invoiceNumbers: /* @__PURE__ */ new Set([twin.invoiceNumber.toLowerCase()])
 	};
-	const out = /* @__PURE__ */ new Set();
-	if (compact.includes(" ")) {
-		for (const part of compact.split(" ")) for (const r of readingsOf(part)) out.add(r);
-		const grouped = canonical(compact.replace(/ /gu, ""));
-		if (grouped !== null && /^\d{1,3}(?: \d{3})+$/u.test(compact)) out.add(grouped);
-		return [...out];
-	}
-	const dots = (compact.match(/\./gu) ?? []).length;
-	const commas = (compact.match(/,/gu) ?? []).length;
-	if (dots + commas === 0) {
-		const c = canonical(compact);
-		return c === null ? [] : [c];
-	}
-	if (dots > 0 && commas > 0) {
-		const decimal = compact.lastIndexOf(".") > compact.lastIndexOf(",") ? "." : ",";
-		const grouping = decimal === "." ? "," : ".";
-		const c = canonical(compact.split(grouping).join("").replace(decimal, "."));
-		return c === null ? [] : [c];
-	}
-	const separator = dots > 0 ? "." : ",";
-	const parts = compact.split(separator);
-	if (parts.length > 2) {
-		const grouped = canonical(parts.join(""));
-		if (grouped !== null) out.add(grouped);
-		for (const part of parts) {
-			const c = canonical(part);
-			if (c !== null) out.add(c);
-		}
-		return [...out];
-	}
-	const asDecimal = canonical(parts.join("."));
-	if (asDecimal !== null) out.add(asDecimal);
-	if ((parts[1] ?? "").length === 3) {
-		const asGrouped = canonical(parts.join(""));
-		if (asGrouped !== null) out.add(asGrouped);
-	}
-	if (parts.every((part) => part.length <= 2)) for (const part of parts) {
-		const c = canonical(part);
-		if (c !== null) out.add(c);
-	}
-	return [...out];
 }
-/** Every number of a text, each with its readings. */
-function numbersOf(text) {
-	return [...text.matchAll(NUMBER)].map((m) => readingsOf(m[0])).filter((r) => r.length > 0);
+/** The union of several twins' facts (the run summary, which no client receives). */
+function unionFacts(list) {
+	return {
+		amounts: new Set(list.flatMap((f) => [...f.amounts])),
+		dates: new Set(list.flatMap((f) => [...f.dates])),
+		invoiceNumbers: new Set(list.flatMap((f) => [...f.invoiceNumbers]))
+	};
 }
-/** The set of values present in the tool data. */
-function groundSet(data) {
-	return new Set(numbersOf(data).flat());
+const MONTH_RE = [...MONTH_OF.keys()].sort((a, b) => b.length - a.length).join("|");
+const year = (written) => written === void 0 ? null : written.length === 2 ? 2e3 + Number(written) : Number(written);
+/** Date patterns, in the order they are looked for (each found date is masked before the next pattern runs). */
+const DATE_PATTERNS = [
+	[/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/gu, (m) => [{
+		y: Number(m[1]),
+		m: Number(m[2]),
+		d: Number(m[3])
+	}]],
+	[/\b(\d{1,2})([/.-])(\d{1,2})\2(\d{4}|\d{2})\b/gu, (m) => [{
+		y: year(m[4]),
+		m: Number(m[3]),
+		d: Number(m[1])
+	}, {
+		y: year(m[4]),
+		m: Number(m[1]),
+		d: Number(m[3])
+	}]],
+	[/\b(\d{1,2})\/(\d{1,2})\b/gu, (m) => [{
+		y: null,
+		m: Number(m[2]),
+		d: Number(m[1])
+	}, {
+		y: null,
+		m: Number(m[1]),
+		d: Number(m[2])
+	}]],
+	[new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th|er)?\\s+(?:of\\s+|de\\s+)?(${MONTH_RE})\\b\\.?(?:,?\\s+(\\d{4}))?`, "gu"), (m) => [{
+		y: year(m[3]),
+		m: MONTH_OF.get(m[2] ?? "") ?? 0,
+		d: Number(m[1])
+	}]],
+	[new RegExp(`\\b(${MONTH_RE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`, "gu"), (m) => [{
+		y: year(m[3]),
+		m: MONTH_OF.get(m[1] ?? "") ?? 0,
+		d: Number(m[2])
+	}]],
+	[new RegExp(`\\b(${MONTH_RE})\\.?\\s+(\\d{4})\\b`, "gu"), (m) => [{
+		y: year(m[2]),
+		m: MONTH_OF.get(m[1] ?? "") ?? 0,
+		d: null
+	}]]
+];
+const matchesDate = (r, iso) => {
+	const [y, m, d] = iso.split("-").map(Number);
+	return r.m === m && (r.d === null || r.d === d) && (r.y === null || r.y === y);
+};
+/** Lower case and without accents, character for character (UTF-16 offsets stay those of `text`). */
+function fold(text) {
+	let out = "";
+	for (const c of text) {
+		const f = c.normalize("NFD").replace(/[̀-ͯ]/gu, "").toLowerCase();
+		out += f.length === c.length ? f : c;
+	}
+	return out;
 }
 const BANNED = [
 	/\b(?:lawyers?|attorneys?|legal action|lawsuit|sue|suing|court|police|debt collectors?|collection agency|blacklist(?:ed)?|report you|consequences)\b/iu,
@@ -34134,15 +34510,66 @@ const BANNED = [
 	/\b(?:mot de passe|cl[eé] priv[eé]e|phrase de r[eé]cup[eé]ration|cartes? cadeaux?)\b/iu
 ];
 const LINK = /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(?:com|net|org|io|me|app|xyz|link|ly|co|info|biz|top|click|page|site|online|mg|fr)\b/iu;
-const CONTROLS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/gu;
-/** Runs every check of the module comment on a model text, against the run's tool data. */
-function checkMessage(raw, ground) {
+const CONTROLS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F‪-‮⁦-⁩‎‏؜]/gu;
+const INVOICE_NUMBER = /\bPL-[0-9A-Za-z]+(?:-[0-9A-Za-z]+)*/giu;
+const OTHER_DIGITS = /(?![0-9])\p{N}/u;
+/** `base` (6-decimal units) as a plain decimal (`"120"`, `"0.5"`), for logs. */
+const decimalOf = (base) => {
+	const whole = base / 1000000n;
+	const fraction = (base % 1000000n).toString().padStart(6, "0").replace(/0+$/u, "");
+	return fraction === "" ? whole.toString() : `${whole.toString()}.${fraction}`;
+};
+/** Runs every check of the module comment on a model text, against the facts of the twin it is about. */
+function checkMessage(raw, facts) {
 	const text = raw.normalize("NFC").replace(CONTROLS, " ").replace(/\s+/gu, " ").trim();
 	const problems = /* @__PURE__ */ new Set();
+	const ungrounded = [];
 	if (text === "") problems.add("empty");
 	if (text.length > 400) problems.add("too-long");
-	const ungrounded = numbersOf(text).filter((readings) => !readings.some((r) => ground.has(r))).map((readings) => readings[0] ?? "");
-	if (ungrounded.length > 0) problems.add("ungrounded-number");
+	const chars = text.split("");
+	const mask = (from, length) => {
+		for (let i = from; i < from + length; i += 1) chars[i] = " ";
+	};
+	for (const m of text.matchAll(INVOICE_NUMBER)) {
+		if (!facts.invoiceNumbers.has(m[0].toLowerCase())) {
+			problems.add("ungrounded-invoice-number");
+			ungrounded.push("invoice-number");
+		}
+		mask(m.index, m[0].length);
+	}
+	for (const [pattern, readings] of DATE_PATTERNS) {
+		const folded = fold(chars.join(""));
+		for (const m of folded.matchAll(pattern)) {
+			const options = readings(m);
+			if (!options.some((r) => [...facts.dates].some((iso) => matchesDate(r, iso)))) {
+				problems.add("ungrounded-date");
+				const first = options[0];
+				ungrounded.push(first === void 0 ? "date" : `date:${String(first.y ?? "")}-${String(first.m)}-${String(first.d ?? "")}`);
+			}
+			mask(m.index, m[0].length);
+		}
+	}
+	const rest = chars.join("").replace(/(\p{L})(?=\d)/gu, "$1 ").replace(/(\d)(?=\p{L})/gu, "$1 ");
+	if (OTHER_DIGITS.test(rest)) {
+		problems.add("ungrounded-number");
+		ungrounded.push("other-script-digits");
+	}
+	const covered = /* @__PURE__ */ new Set();
+	for (const mention of scanMoney(rest)) {
+		for (let i = mention.index; i < mention.index + mention.digits.length; i += 1) covered.add(i);
+		if (!((mention.currency === null || mention.currency === "USD") && mention.base !== null && !mention.ambiguous && facts.amounts.has(mention.base.toString()))) {
+			problems.add("ungrounded-number");
+			ungrounded.push(mention.base === null ? mention.digits.replace(/[^\d.,]/gu, "") : decimalOf(mention.base));
+		}
+	}
+	for (const m of rest.matchAll(/\d+/gu)) {
+		let whole = true;
+		for (let i = m.index; i < m.index + m[0].length; i += 1) whole &&= covered.has(i);
+		if (!whole) {
+			problems.add("ungrounded-number");
+			ungrounded.push(m[0]);
+		}
+	}
 	if (LINK.test(text)) problems.add("link");
 	const pii = tokenise(text).counts;
 	if (pii.EMAIL + pii.PHONE + pii.ADDRESS + pii.HEX > 0 || /0x[0-9a-f]{6,}/iu.test(text)) problems.add("contact-or-address");
@@ -34378,7 +34805,7 @@ const TOOL_ARGUMENTS = {
 	})
 };
 const isDeskTool = (name) => Object.hasOwn(TOOL_ARGUMENTS, name);
-const utcDay$1 = (ms) => new Date(ms).toISOString().slice(0, 10);
+const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 /** USD as PayPal writes it (`"120.00"`), from 6-decimal base units (twins are whole cents, §7.2). */
 function usdOf(base) {
 	const cents = BigInt(base) / 10000n;
@@ -34405,8 +34832,8 @@ function invoiceView(twin) {
 			value: twin.paidAmount
 		},
 		due_date: twin.dueDate,
-		shared_on: twin.sentAt === null ? null : utcDay$1(twin.sentAt),
-		last_paypal_reminder_on: twin.lastReminderAt === null ? null : utcDay$1(twin.lastReminderAt),
+		shared_on: twin.sentAt === null ? null : utcDay(twin.sentAt),
+		last_paypal_reminder_on: twin.lastReminderAt === null ? null : utcDay(twin.lastReminderAt),
 		situation: twin.situation,
 		chain_rail: twin.rail,
 		chain_state: twin.lastChainState,
@@ -34427,7 +34854,7 @@ function chainView(twin) {
 				currency_code: "USD",
 				value: usdOf(p.amount)
 			},
-			paid_on: utcDay$1(p.timestamp * 1e3),
+			paid_on: utcDay(p.timestamp * 1e3),
 			rail: p.rail
 		}
 	};
@@ -34478,45 +34905,55 @@ async function runTool(state, call, log) {
 	}
 	const name = call.name;
 	const { toolbox } = state;
-	const read = (value) => {
-		const text = result(value);
-		state.ground += `\n${text}`;
-		return text;
+	const read = (value, twins) => {
+		for (const twin of twins) state.read.set(twin.key, twin);
+		return result(value);
 	};
 	switch (name) {
 		case "list_invoices": {
 			const args = TOOL_ARGUMENTS.list_invoices.safeParse(raw);
-			return args.success ? read(paged(toolbox.twins.map(invoiceView), args.data)) : result({ error: "invalid_arguments" });
+			if (!args.success) return result({ error: "invalid_arguments" });
+			const page = paged(toolbox.twins, args.data);
+			return read({
+				...page,
+				items: page.items.map(invoiceView)
+			}, page.items);
 		}
 		case "get_invoice": {
 			const args = TOOL_ARGUMENTS.get_invoice.safeParse(raw);
 			if (!args.success) return result({ error: "invalid_arguments" });
 			const twin = findTwin(toolbox.twins, args.data.invoice_id);
-			return twin === null ? result({ error: "not_found" }) : read(invoiceView(twin));
+			return twin === null ? result({ error: "not_found" }) : read(invoiceView(twin), [twin]);
 		}
 		case "search_invoicing": {
 			const args = TOOL_ARGUMENTS.search_invoicing.safeParse(raw);
 			if (!args.success) return result({ error: "invalid_arguments" });
 			const f = args.data.invoice_filters ?? {};
 			const matches = toolbox.twins.filter((t) => (f.status === void 0 || t.lastStatus !== null && f.status.includes(t.lastStatus)) && (f.invoice_number === void 0 || t.invoiceNumber === f.invoice_number) && (f.reference === void 0 || t.key === f.reference.toLowerCase()));
-			return read(paged(matches.map(invoiceView), args.data));
+			const page = paged(matches, args.data);
+			return read({
+				...page,
+				items: page.items.map(invoiceView)
+			}, page.items);
 		}
 		case "chain_invoice_state": {
 			const args = TOOL_ARGUMENTS.chain_invoice_state.safeParse(raw);
 			if (!args.success) return result({ error: "invalid_arguments" });
 			const twin = findTwin(toolbox.twins, args.data.invoice_key);
-			return twin === null ? result({ error: "not_found" }) : read(chainView(twin));
+			return twin === null ? result({ error: "not_found" }) : read(chainView(twin), [twin]);
 		}
 		case "list_chain_payments": {
 			const args = TOOL_ARGUMENTS.list_chain_payments.safeParse(raw);
 			if (!args.success) return result({ error: "invalid_arguments" });
 			const since = args.data.since;
-			return read({ items: toolbox.twins.filter((t) => t.chainPayment !== null).map(chainView).filter((v) => since === void 0 || (v["payment"]?.paid_on ?? "") >= since) });
+			const paid = toolbox.twins.filter((t) => t.chainPayment !== null && (since === void 0 || (/* @__PURE__ */ new Date(t.chainPayment.timestamp * 1e3)).toISOString().slice(0, 10) >= since));
+			return read({ items: paid.map(chainView) }, paid);
 		}
 		case "allowed_actions": {
 			const args = TOOL_ARGUMENTS.allowed_actions.safeParse(raw);
 			if (!args.success) return result({ error: "invalid_arguments" });
 			const fence = await toolbox.allowedActions(args.data.invoice_key);
+			const twin = findTwin(toolbox.twins, args.data.invoice_key);
 			return read({
 				invoice_key: args.data.invoice_key.toLowerCase(),
 				actions: fence.map((a) => ({
@@ -34525,7 +34962,7 @@ async function runTool(state, call, log) {
 					reason_code: a.reasonCode,
 					values: a.args
 				}))
-			});
+			}, twin === null ? [] : [twin]);
 		}
 		case "propose_action": {
 			const args = TOOL_ARGUMENTS.propose_action.safeParse(raw);
@@ -34543,7 +34980,8 @@ async function runTool(state, call, log) {
 			});
 			let message;
 			if (args.data.message !== void 0) {
-				const checked = checkMessage(args.data.message, groundSet(state.ground));
+				const target = state.read.get(args.data.invoice_key.toLowerCase());
+				const checked = checkMessage(args.data.message, target === void 0 ? NO_FACTS : factsOfTwin(target));
 				if (!checked.grounded) {
 					state.messagesDropped += 1;
 					log.log("warn", "a2.message-dropped", {
@@ -34583,7 +35021,6 @@ async function runTool(state, call, log) {
 function createDeskAgent(options = {}) {
 	const limits = options.limits ?? DESK_LIMITS;
 	return async (services, toolbox, now) => {
-		const { ai } = services;
 		const logger = services.runtime.logger;
 		const finish = (report, assistant) => {
 			const full = {
@@ -34605,7 +35042,7 @@ function createDeskAgent(options = {}) {
 			options.onReport?.(full);
 			return assistant;
 		};
-		if (ai.kind === "disabled") return {
+		if (services.ai.kind === "disabled") return {
 			available: false,
 			reason: "disabled"
 		};
@@ -34613,8 +35050,12 @@ function createDeskAgent(options = {}) {
 			available: true,
 			reason: null
 		});
+		let ai;
 		try {
-			await chargeQuota(services, toolbox.payee, "aiCalls", now);
+			ai = await admitAssistant(services, {
+				payee: toolbox.payee,
+				source: toolbox.source ?? "unknown"
+			}, now);
 		} catch (error) {
 			if (error instanceof ProblemError && error.problem.code === "quota-exhausted") return finish({ ending: "resting" }, {
 				available: false,
@@ -34627,7 +35068,7 @@ function createDeskAgent(options = {}) {
 			toolbox,
 			locale,
 			limits,
-			ground: "",
+			read: /* @__PURE__ */ new Map(),
 			toolCalls: 0,
 			proposed: 0,
 			refusedByFence: 0,
@@ -34675,7 +35116,7 @@ function createDeskAgent(options = {}) {
 				});
 			}
 			if (answer.text !== null) {
-				const checked = checkMessage(answer.text, groundSet(state.ground));
+				const checked = checkMessage(answer.text, unionFacts([...state.read.values()].map(factsOfTwin)));
 				if (!checked.grounded) logger.log("info", "a2.summary-ungrounded", { problems: [...checked.problems] });
 			}
 			if (answer.toolCalls.length === 0) return finish({
@@ -34786,7 +35227,7 @@ async function runCron(services, now) {
 	}
 	let purged = false;
 	const lastPurge = health.purge;
-	if (lastPurge === void 0 || utcDay$2(lastPurge.at) !== utcDay$2(now)) try {
+	if (lastPurge === void 0 || utcDay$4(lastPurge.at) !== utcDay$4(now)) try {
 		const removed = (await global.purge(now)).removed;
 		let payees = 0;
 		for (const payee of await global.payeesToPurge(now, 10)) {
@@ -34855,8 +35296,8 @@ async function proposeFromAssistant(services, payee, input, now) {
 		...input.args
 	}) === null) return reject("values-differ");
 	const id = await proposalId(action.kind, twin.key, action.args);
-	const message = input.message !== void 0 && input.message.grounded && input.message.text.length > 0 ? {
-		text: input.message.text.slice(0, MESSAGE_MAX),
+	const message = input.message !== void 0 && input.message.grounded && input.message.text.length > 0 && input.message.text.length <= 1e3 && checkMessage(input.message.text, factsOfTwin(twin)).grounded ? {
+		text: input.message.text,
 		language: input.message.language,
 		grounded: true
 	} : null;
@@ -35027,14 +35468,17 @@ async function deskView(services, payee, now, assistant = assistantState(service
 	};
 }
 /**
-* "Check my invoices" (`POST /v1/desk/sweep`): the payee's open twins, least recently checked first, at most 20 (the
+* "Check my invoices" (`POST /v1/desk/sweep`): the payee's open twins, least recently checked first, then those closed
+* (S8) in the last 30 days (a PayPal invoice can reopen: a record deleted in PayPal's dashboard), at most 20 in all (the
 * Free plan's subrequest budget, §7.5), read with one chain multicall and one P5 each; then the assistant once.
 */
 async function sweep(services, payee, now, agent, options = {}) {
 	await chargeQuota(services, payee, "sweeps", now);
 	const store = services.stores.payee(payee);
-	const open = [...await store.listTwins({ open: true })].sort((a, b) => a.checkedAt - b.checkedAt);
-	const batch = open.slice(0, 20);
+	const byAge = (a, b) => a.checkedAt - b.checkedAt;
+	const open = [...await store.listTwins({ open: true })].sort(byAge);
+	const recentlyClosed = (await store.listTwins()).filter((t) => t.situation === "S8" && t.closedAt !== null && now - t.closedAt < 2592e6).sort(byAge);
+	const batch = [...open, ...recentlyClosed].slice(0, 20);
 	const chain = await services.chain.observeMany(batch.map(chainTwinOf));
 	let checked = 0;
 	for (const twin of batch) {
@@ -35052,6 +35496,7 @@ async function sweep(services, payee, now, agent, options = {}) {
 			assistant = await agent(services, {
 				payee,
 				...options.locale === void 0 ? {} : { locale: options.locale },
+				...options.source === void 0 ? {} : { source: options.source },
 				twins,
 				allowedActions: async (key) => await allowedActions(services, payee, key),
 				propose: async (proposal) => await proposeFromAssistant(services, payee, proposal, now)
@@ -35067,7 +35512,7 @@ async function sweep(services, payee, now, agent, options = {}) {
 		...await deskView(services, payee, now, assistant),
 		sweep: {
 			checked,
-			remaining: open.length - batch.length
+			remaining: Math.max(0, open.length - batch.length)
 		}
 	};
 }
@@ -35095,6 +35540,15 @@ function paypalProblem$1(error, kind) {
 		rule: "E_PAYPAL_UNAVAILABLE",
 		retryAfter: 60
 	});
+}
+/** Whether a failed write may have reached PayPal and been carried out: no answer, a 5xx, or a fault of unknown kind. */
+function possiblyApplied(error) {
+	return isPayPalError(error) ? error.ambiguous || error.status >= 500 : true;
+}
+/** A reminder round (`first`, or the ISO time of the last reminder) as a request-id part: `first` or milliseconds. */
+function roundOf(round) {
+	const ms = round === void 0 || round === "first" ? NaN : Date.parse(round);
+	return Number.isFinite(ms) ? String(ms) : "first";
 }
 async function proposalOf(store, id) {
 	const proposal = /^p_[0-9a-f]{24}$/u.test(id) ? await store.getProposal(id) : null;
@@ -35175,7 +35629,7 @@ async function execute(services, store, proposal, now) {
 		now
 	});
 	if (admits(result.allowed, proposal.kind, proposal.args) === null) return await stale(`${twin.situation}->${result.situation}`);
-	const done = async (code) => {
+	const done = async (code, unconfirmed = false) => {
 		await store.transitionProposal(proposal.id, "approving", "done", now);
 		await store.audit({
 			at: now,
@@ -35185,7 +35639,11 @@ async function execute(services, store, proposal, now) {
 			result: "ok",
 			code
 		});
-		return {
+		return unconfirmed ? {
+			state: "done",
+			proposalId: proposal.id,
+			unconfirmed: true
+		} : {
 			state: "done",
 			proposalId: proposal.id
 		};
@@ -35210,9 +35668,18 @@ async function execute(services, store, proposal, now) {
 		case "share_reminder_text": return await done("share");
 		case "send_reminder":
 			try {
-				await services.paypal.remindInvoice(twin.paypalId, REMIND);
+				await services.paypal.remindInvoice(twin.paypalId, REMIND, { requestId: requestIdFor("remind", twin.key, roundOf(proposal.args["round"])) });
 			} catch (error) {
-				return await failed(error);
+				if (!possiblyApplied(error)) return await failed(error);
+				services.runtime.logger.log("warn", "executor.unconfirmed", {
+					kind: proposal.kind,
+					...errorFields(error)
+				});
+				await store.putTwin({
+					...twin,
+					lastReminderAt: now
+				});
+				return await done("P9-unconfirmed", true);
 			}
 			await store.putTwin({
 				...twin,
@@ -35221,7 +35688,7 @@ async function execute(services, store, proposal, now) {
 			return await done("P9");
 		case "cancel_paypal":
 			try {
-				await services.paypal.cancelInvoice(twin.paypalId, CANCEL);
+				await services.paypal.cancelInvoice(twin.paypalId, CANCEL, { requestId: requestIdFor("cancel", twin.key) });
 			} catch (error) {
 				return await failed(error);
 			}
@@ -35286,18 +35753,23 @@ async function undoRecord(services, payee, id, now) {
 		retryAfter: 5
 	});
 	try {
+		let code = paymentId;
 		try {
-			await services.paypal.deletePayment(twin.paypalId, paymentId);
+			await services.paypal.deletePayment(twin.paypalId, paymentId, { requestId: requestIdFor("undo", paymentId) });
 		} catch (error) {
-			await store.audit({
-				at: now,
-				action: "paypal.undo",
-				key: record.key,
-				actor: "payee",
-				result: "failed",
-				code: isPayPalError(error) ? error.paypalName ?? `HTTP_${String(error.status)}` : "error"
-			});
-			throw paypalProblem$1(error, "undo");
+			const settle = isPayPalError(error) && (error.ambiguous || error.status === 404) ? await readPayPal(services, twin.paypalId) : null;
+			if (!(settle?.observation.read === "ok" && !settle.observation.transactions.some((tx) => tx.paymentId === paymentId))) {
+				await store.audit({
+					at: now,
+					action: "paypal.undo",
+					key: record.key,
+					actor: "payee",
+					result: "failed",
+					code: isPayPalError(error) ? error.paypalName ?? `HTTP_${String(error.status)}` : "error"
+				});
+				throw paypalProblem$1(error, "undo");
+			}
+			code = `${paymentId}:settled-by-read`;
 		}
 		await store.putAutoRecord({
 			...record,
@@ -35313,7 +35785,7 @@ async function undoRecord(services, payee, id, now) {
 			key: record.key,
 			actor: "payee",
 			result: "ok",
-			code: paymentId
+			code
 		});
 	} finally {
 		await store.unlock(record.key, holder);
@@ -35354,7 +35826,10 @@ function createDeskHandlers(agent = null) {
 		"desk.sweep": async (args) => {
 			const payee = payeeOf(args);
 			const body = parseBody(SweepRequestSchema, await readOptionalJson(args.c, DEFAULT_BODY_LIMIT));
-			return json(args.c, await sweep(args.services, payee, args.now, agent, body.locale === void 0 ? {} : { locale: body.locale }));
+			return json(args.c, await sweep(args.services, payee, args.now, agent, {
+				source: clientSource(args.c),
+				...body.locale === void 0 ? {} : { locale: body.locale }
+			}));
 		},
 		"desk.approve": async (args) => {
 			const body = parseBody(ApproveRequestSchema, await readJson(args.c, DEFAULT_BODY_LIMIT));
@@ -35366,166 +35841,6 @@ function createDeskHandlers(agent = null) {
 }
 /** The deployed desk: "Check my invoices" runs the AI workstream's desk assistant (A2) once after the sweep. */
 const deskHandlers = createDeskHandlers(deskAgent);
-
-//#endregion
-//#region apps/api/src/ai/models.ts
-const PRIMARY_MODEL = {
-	id: "@cf/google/gemma-4-26b-a4b-it",
-	dialect: "chat-completions",
-	contextWindow: 256e3,
-	neuronsPerMillion: {
-		input: 9091,
-		output: 27273
-	},
-	jsonSchema: "catalog",
-	toolChoice: true,
-	reasoningSwitch: true
-};
-const FALLBACK_MODEL = {
-	id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-	dialect: "legacy",
-	contextWindow: 24e3,
-	neuronsPerMillion: {
-		input: 26668,
-		output: 204805
-	},
-	jsonSchema: "json-mode-page",
-	toolChoice: false,
-	reasoningSwitch: false
-};
-/** The models this API knows the facts of. */
-const KNOWN_MODELS = [PRIMARY_MODEL, FALLBACK_MODEL];
-/** Workers AI's free allocation per day (pricing page: "10,000 Neurons per day at no charge"). */
-const FREE_NEURONS_PER_DAY = 1e4;
-/**
-* The facts of a configured model id. An id this module does not know is called in the chat-completions dialect and
-* costed at the highest known rates, so the daily ceiling errs on the side of resting.
-*/
-function modelFacts(id) {
-	const known = KNOWN_MODELS.find((m) => m.id === id);
-	if (known !== void 0) return known;
-	return {
-		id,
-		dialect: "chat-completions",
-		contextWindow: 8e3,
-		neuronsPerMillion: {
-			input: Math.max(...KNOWN_MODELS.map((m) => m.neuronsPerMillion.input)),
-			output: Math.max(...KNOWN_MODELS.map((m) => m.neuronsPerMillion.output))
-		},
-		jsonSchema: "catalog",
-		toolChoice: false,
-		reasoningSwitch: false
-	};
-}
-/** Neurons a call costs, from its token usage and the model's rates (rounded up). */
-function neuronsFor(model, inputTokens, outputTokens) {
-	return Math.ceil((inputTokens * model.neuronsPerMillion.input + outputTokens * model.neuronsPerMillion.output) / 1e6);
-}
-/**
-* Tokens of a text when the provider reports none (E): one token per three characters, rounded up. Deliberately high
-* for English (about four characters a token) so that estimates over-count neurons rather than under-count them.
-*/
-function estimateTokens(text) {
-	return Math.ceil(text.length / 3);
-}
-
-//#endregion
-//#region apps/api/src/ai/budget.ts
-/** Whether the fallback model may be tried after this failure (module comment). */
-function fallbackWorthy(result) {
-	switch (result.outcome) {
-		case "ok":
-		case "refused": return false;
-		case "timeout":
-		case "invalid-output":
-		case "truncated": return true;
-		case "unavailable": return result.reason === "error" || result.reason === "rate-limited";
-	}
-}
-function withFallback(primary, fallback) {
-	if (fallback === null) return primary;
-	return {
-		kind: primary.kind,
-		model: primary.model,
-		async structured(request) {
-			const first = await primary.structured(request);
-			return fallbackWorthy(first) ? await fallback.structured(request) : first;
-		},
-		async toolTurn(request) {
-			const first = await primary.toolTurn(request);
-			return fallbackWorthy(first) ? await fallback.toolTurn(request) : first;
-		}
-	};
-}
-const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
-const RESTING = {
-	outcome: "unavailable",
-	reason: "budget"
-};
-/** The cost of a call before it is made: its whole input, and every output token it may produce. */
-function estimateNeurons(model, sentText, maxOutputTokens) {
-	return neuronsFor(model, estimateTokens(sentText), maxOutputTokens);
-}
-function withBudget(inner, options) {
-	const { ceiling, clock, logger, model } = options;
-	const metered = async (call, sentText, maxOutputTokens, invoke) => {
-		const day = utcDay(clock());
-		const estimate = estimateNeurons(model, sentText, maxOutputTokens);
-		const room = await options.global().spendAiBudget(day, 0, Math.max(0, ceiling - estimate));
-		if (!room.allowed) {
-			logger.log("info", "ai.resting", {
-				call,
-				model: model.id,
-				day,
-				used: room.used,
-				ceiling
-			});
-			return RESTING;
-		}
-		const result = await invoke();
-		let neurons = 0;
-		if (result.outcome === "ok") neurons = result.usage.neurons ?? estimate;
-		else if (result.outcome === "timeout" || result.outcome === "invalid-output" || result.outcome === "truncated" || result.outcome === "refused") neurons = estimate;
-		if (result.outcome === "unavailable" && result.reason === "budget") neurons = Number.MAX_SAFE_INTEGER;
-		if (neurons > 0) {
-			const spent = await options.global().spendAiBudget(day, neurons, ceiling);
-			if (!spent.allowed && spent.limit > spent.used) await options.global().spendAiBudget(day, spent.limit - spent.used, ceiling);
-		}
-		logger.log(result.outcome === "ok" ? "info" : "warn", "ai.call", {
-			call,
-			feature: options.feature,
-			model: result.outcome === "ok" ? result.model : model.id,
-			outcome: result.outcome === "unavailable" ? `unavailable:${result.reason}` : result.outcome,
-			latencyMs: result.outcome === "ok" ? result.latencyMs : void 0,
-			usageIn: result.outcome === "ok" ? result.usage.inputTokens : void 0,
-			usageOut: result.outcome === "ok" ? result.usage.outputTokens : void 0,
-			usageEstimated: result.outcome === "ok" ? result.usage.estimated : void 0,
-			neurons: neurons === Number.MAX_SAFE_INTEGER ? null : neurons
-		});
-		return result;
-	};
-	return {
-		kind: inner.kind,
-		model: inner.model,
-		structured: async (request) => await metered("structured", request.system + request.user + JSON.stringify(request.schema), request.maxOutputTokens, async () => await inner.structured(request)),
-		toolTurn: async (request) => await metered("toolTurn", JSON.stringify(request.messages) + JSON.stringify(request.tools), request.maxOutputTokens, async () => await inner.toolTurn(request))
-	};
-}
-/**
-* Today's neurons against the ceiling, read without spending (for the Status page's assistant row: "budget left", and
-* "resting" once a typical call no longer fits). `typicalCall` is the estimate of one A1 draft by default (E).
-*/
-async function assistantBudget(global, ceiling, now, typicalCall = 40) {
-	const day = utcDay(now);
-	const read = await global.spendAiBudget(day, 0, Number.MAX_SAFE_INTEGER);
-	const left = Math.max(0, ceiling - read.used);
-	return {
-		day,
-		spent: read.used,
-		left,
-		resting: left < typicalCall
-	};
-}
 
 //#endregion
 //#region apps/api/src/routes/health.ts
@@ -35648,7 +35963,7 @@ const SessionRequestSchema = strictObject$1({
 });
 const sessionHandlers = { "session.create": async ({ c, services, now }) => {
 	const body = parseBody(SessionRequestSchema, await readJson(c, DEFAULT_BODY_LIMIT));
-	return json(c, await services.sessions.open(body, now), 201);
+	return json(c, await services.sessions.open(body, now, { source: clientSource(c) }), 201);
 } };
 
 //#endregion
@@ -35825,24 +36140,6 @@ function recipientsOf(recipient) {
 		...givenName === "" ? {} : { name: { given_name: givenName } },
 		...email === "" ? {} : { email_address: email }
 	} }] };
-}
-
-//#endregion
-//#region apps/api/src/paypal/idempotency.ts
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/u;
-/** A deterministic request id for `kind` over `parts` (hex values or PayPal ids). Throws if the result is not a valid id. */
-function requestIdFor(kind, ...parts) {
-	const id = [
-		"pl",
-		kind,
-		...parts.map((part) => /^0x[0-9a-fA-F]+$/u.test(part) ? part.slice(2, 26).toLowerCase() : part)
-	].join("-");
-	if (!REQUEST_ID_PATTERN.test(id)) throw new RangeError(`not a valid PayPal-Request-Id: ${String(id.length)} characters`);
-	return id;
-}
-/** A random request id for a one-off write (128 bits). */
-function randomRequestId(random) {
-	return `pl-${[...random(16)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 //#endregion
@@ -36065,7 +36362,7 @@ function createTwinHandlers(options = {}) {
 			if (token.symbol !== "USDC" && token.symbol !== "PYUSD") throw refuse("E_TWIN_TOKEN", "twins are made for USDC and PayPal USD invoices only");
 			const nowS = BigInt(Math.floor(now / 1e3));
 			if (invoice.validUntil !== 0n && invoice.validUntil < nowS) throw refuse("E_TWIN_EXPIRED", "the invoice has expired");
-			if (body.dueDate !== void 0 && body.dueDate < utcDay$2(now)) throw refuse("E_TWIN_DUE_DATE", "the due date is in the past");
+			if (body.dueDate !== void 0 && body.dueDate < utcDay$4(now)) throw refuse("E_TWIN_DUE_DATE", "the due date is in the past");
 			const store = services.stores.payee(payee);
 			const existing = await store.getTwin(decoded.key);
 			if (existing === null) await chargeQuota(services, payee, "twins", now);
@@ -39527,7 +39824,7 @@ function createSessions(deps) {
 		}
 	};
 	return {
-		open: async (request, now) => {
+		open: async (request, now, context = { source: "unknown" }) => {
 			const k = await key();
 			if (k === null) throw new ProblemError("internal", "sessions are not configured", { rule: runtime.secrets.sessionHmacKey === void 0 ? "E_SESSION_KEY_MISSING" : "E_SESSION_KEY_INVALID" });
 			const { session } = request;
@@ -39540,9 +39837,22 @@ function createSessions(deps) {
 			if (issuedAt > nowS + 300 || issuedAt < nowS - 600 || expiresAt <= nowS || expiresAt <= issuedAt || expiresAt - issuedAt > 43200) throw new ProblemError("invalid-request", "the session's times are outside the accepted window", { rule: "E_SESSION_TIME" });
 			if (!await verify(request)) throw new ProblemError("unauthorized", "the signature does not prove the payee's address", { rule: "E_SESSION_SIGNATURE" });
 			const global = stores.global();
-			if (!(await global.useQuota(utcDay$2(now), "sessions", 5e3)).allowed) throw new ProblemError("quota-exhausted", "the demo opened its sessions for today", { rule: "E_SESSION_QUOTA" });
 			if (await global.markNonce("session", session.nonce.toLowerCase(), expiresAt * 1e3, now) === "seen") throw new ProblemError("unauthorized", "this signed session was already used", { rule: "E_SESSION_REPLAYED" });
 			const payee = getAddress(session.payee);
+			const day = utcDay$4(now);
+			if (config.demoPayees.some((p) => p.toLowerCase() === payee.toLowerCase())) {
+				if (!(await global.useQuota(day, "sessionsDemo", DEMO_RESERVE.sessions)).allowed) throw new ProblemError("quota-exhausted", "the demo opened its sessions for today", {
+					rule: "E_SESSION_QUOTA",
+					retryAfter: Math.ceil(msUntilNextUtcDay(now) / 1e3)
+				});
+			} else {
+				if (!(await global.useSubjectQuota(day, "sessions-source", context.source, 1, SOURCE_DAILY.sessions)).allowed) throw exhausted("sessions", "source", now);
+				if (!(await global.useSubjectQuota(day, "sessions-payee", payee, 1, PAYEE_DAILY.sessions)).allowed) throw exhausted("sessions", "payee", now);
+				if (!(await global.useQuota(day, "sessions", 5e3)).allowed) throw new ProblemError("quota-exhausted", "the demo opened its sessions for today", {
+					rule: "E_SESSION_QUOTA",
+					retryAfter: Math.ceil(msUntilNextUtcDay(now) / 1e3)
+				});
+			}
 			const expiresAtMs = Math.min(expiresAt * 1e3, now + SESSION_MAX_SECONDS * 1e3);
 			const lowerPayee = payee.toLowerCase().slice(2);
 			const mac = base64Url(await hmac(k, macInput(lowerPayee, expiresAtMs)));
@@ -39794,6 +40104,9 @@ var GlobalStoreCore = class {
 	useQuota(day, kind, limit) {
 		return count(this.#kv, `q:${day}:${kind}`, limit);
 	}
+	useSubjectQuota(day, kind, subject, amount, limit) {
+		return count(this.#kv, `q:${day}:${kind}:${safeKeyPart(subject.toLowerCase(), 64)}`, limit, amount);
+	}
 	markWebhookEvent(eventId, now) {
 		const key = `w:${safeKeyPart(eventId, 128)}`;
 		if (this.#kv.get(key) !== void 0) return "seen";
@@ -40029,6 +40342,9 @@ var Global = class extends DurableObject {
 	useQuota(day, kind, limit) {
 		return this.#tx((c) => c.useQuota(day, kind, limit));
 	}
+	useSubjectQuota(day, kind, subject, amount, limit) {
+		return this.#tx((c) => c.useSubjectQuota(day, kind, subject, amount, limit));
+	}
 	markWebhookEvent(eventId, now) {
 		return this.#tx((c) => c.markWebhookEvent(eventId, now));
 	}
@@ -40160,7 +40476,8 @@ const DEFAULT_CONFIG = {
 	quotas: {
 		twinsPerDay: 20,
 		aiCallsPerDay: 60
-	}
+	},
+	demoPayees: []
 };
 
 //#endregion
