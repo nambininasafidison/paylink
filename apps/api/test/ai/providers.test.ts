@@ -213,6 +213,15 @@ describe("fallback and budget", () => {
     expect((await tomorrow.structured(STRUCTURED)).outcome).toBe("ok");
   });
 
+  it("Cloudflare's own 'daily free allocation' answer rests the assistant for the rest of the day", async () => {
+    const stores = createMemoryStores();
+    const inner = scriptedProvider({ structured: [{ outcome: "unavailable", reason: "budget" }, ok] });
+    const metered = withBudget(inner, { global: () => stores.global(), ceiling: 10_000, clock: () => T0, logger: testRuntime().logger, model: PRIMARY_MODEL });
+    expect(await metered.structured(STRUCTURED)).toEqual({ outcome: "unavailable", reason: "budget" });
+    expect(await metered.structured(STRUCTURED)).toEqual({ outcome: "unavailable", reason: "budget" });
+    expect(inner.structuredRequests).toHaveLength(1);
+  });
+
   it("the day's budget is readable without spending it (the Status row)", async () => {
     const stores = createMemoryStores();
     expect(await assistantBudget(stores.global(), 10_000, T0)).toEqual({ day: "2026-10-21", spent: 0, left: 10_000, resting: false });

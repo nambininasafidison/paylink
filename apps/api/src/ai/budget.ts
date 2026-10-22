@@ -96,6 +96,10 @@ export function withBudget(inner: AiProvider, options: BudgetOptions): AiProvide
       // The model ran; its usage is unknown: count the estimate (over-counting keeps the free allocation safe).
       neurons = estimate;
     }
+    if (result.outcome === "unavailable" && result.reason === "budget") {
+      // Cloudflare says the account's free allocation is spent (3036): rest for the rest of the day without asking again.
+      neurons = Number.MAX_SAFE_INTEGER;
+    }
     if (neurons > 0) {
       const spent = await options.global().spendAiBudget(day, neurons, ceiling);
       if (!spent.allowed && spent.limit > spent.used) {
@@ -111,7 +115,7 @@ export function withBudget(inner: AiProvider, options: BudgetOptions): AiProvide
       usageIn: result.outcome === "ok" ? result.usage.inputTokens : undefined,
       usageOut: result.outcome === "ok" ? result.usage.outputTokens : undefined,
       usageEstimated: result.outcome === "ok" ? result.usage.estimated : undefined,
-      neurons,
+      neurons: neurons === Number.MAX_SAFE_INTEGER ? null : neurons,
     });
     return result;
   };
