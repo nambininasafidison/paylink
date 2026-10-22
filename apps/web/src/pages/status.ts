@@ -14,6 +14,7 @@ import { networkName } from "../app/chains.ts";
 import type { App } from "../app/context.ts";
 import { intro, notes } from "../app/shell.ts";
 import { mezoRelayerNone, mezoRelayerUrl, mezoStatus } from "../editions/mezo/status.ts";
+import { paypalStatusRows } from "../editions/paypal/status.ts";
 import { indexerFor } from "../read/indexer.ts";
 import { hexGroups } from "../ui/atoms.ts";
 import { h } from "../ui/h.ts";
@@ -68,6 +69,11 @@ export const statusPage: PageDefinition = {
     }
     const relayer = light(t("status.relayer"));
     const indexer = light(t("status.indexer"));
+    const services = h("ul", { class: "vstrip" }, relayer.element, indexer.element);
+    if (__PAYLINK_EDITION__ === "paypal") {
+      // The edition's API and what it depends on: PayPal's sandbox, the webhook, the assistant (ADR 0018).
+      services.append(...paypalStatusRows(app));
+    }
     const build = light(t("status.build"));
     const config = light(t("status.config"));
     const storage = light(t("status.storage"));
@@ -104,7 +110,7 @@ export const statusPage: PageDefinition = {
         h("div", { class: "view-head" }, h("h2", { attrs: { id: "status-head" } }, t("status.head")), h("span", { class: "view-meta" }, t("status.release", { release: RELEASE.release }))),
         board,
         h("div", { class: "sub-head" }, h("h3", null, t("status.services"))),
-        h("ul", { class: "vstrip" }, relayer.element, indexer.element),
+        services,
         h("div", { class: "sub-head" }, h("h3", null, t("status.app"))),
         h("ul", { class: "vstrip" }, build.element, config.element, storage.element, offline.element),
         h("div", { class: "key-row" }, h("a", { class: "key key-line", attrs: { href: "/deploy/" } }, t("status.deployLink")), h("a", { class: "key key-line", attrs: { href: "/arc/" } }, t("status.arcLink"))),

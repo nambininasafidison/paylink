@@ -19,6 +19,7 @@ import { intro, notes, routeHref } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
 import { pickWallet } from "../app/wallet-ui.ts";
 import { activityBlock } from "./ledger-history.ts";
+import { paintRails, RAIL_CSV_COLUMNS, railColumns, refreshRails } from "../editions/paypal/ledger.ts";
 import { decodeUiError } from "../core/errors.ts";
 import { displayAmount, figureWidth, shortHex } from "../core/format.ts";
 import { payUrl, receiptUrl, tillUrl } from "../core/links.ts";
@@ -118,6 +119,10 @@ async function renderLedger(app: App, ui: PageUi, section: HTMLElement): Promise
   const paint = (): void => {
     const rows = snapshot.rows.filter((row) => matchesFilter(row, filter));
     replace(list, rows.length === 0 ? h("li", { class: "is-message" }, t("ledger.emptyFilter")) : rows.map((row) => ledgerRow(app, row, status, () => { void renderLedger(app, ui, section); })));
+    if (__PAYLINK_EDITION__ === "paypal") {
+      // The rail column (ADR 0018): which rail paid each invoice, and its PayPal twin's number.
+      paintRails(app, rows, list);
+    }
   };
   if (snapshot.rows.length === 0) {
     replace(
@@ -153,14 +158,24 @@ async function renderLedger(app: App, ui: PageUi, section: HTMLElement): Promise
       attrs: { type: "button" },
       on: {
         click: () => {
-          const csv = ledgerCsv(snapshot.rows, (row) => payUrl(app.site, encodeInvoiceFragment(row.link)));
-          download(`paylink-ledger-${new Date().toISOString().slice(0, 10)}.csv`, "text/csv;charset=utf-8", csv);
+          const linkOf = (row: LedgerRow): string => payUrl(app.site, encodeInvoiceFragment(row.link));
+          const name = `paylink-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+          if (__PAYLINK_EDITION__ === "paypal") {
+            // Which rail paid each invoice, and its PayPal twin's number (ADR 0018).
+            download(name, "text/csv;charset=utf-8", ledgerCsv(snapshot.rows, linkOf, { columns: RAIL_CSV_COLUMNS, values: railColumns }));
+          } else {
+            download(name, "text/csv;charset=utf-8", ledgerCsv(snapshot.rows, linkOf));
+          }
         },
       },
     },
     t("ledger.export"),
   );
   paint();
+  if (__PAYLINK_EDITION__ === "paypal") {
+    // The PayPal twins of these invoices, read again once per view when a desk session is open (no signature here).
+    refreshRails(app, snapshot.rows, list);
+  }
   replace(
     section,
     head,
@@ -248,6 +263,7 @@ function ledgerRow(app: App, row: LedgerRow, status: HTMLElement, reload: () => 
       { class: "row-main" },
       lamp(lampKind, t(LABEL_KEY[label]), true),
       h("span", { class: "row-band" }, chain.label),
+      __PAYLINK_EDITION__ === "paypal" ? h("span", { class: "row-rail", attrs: { "data-rail-cell": link.key } }) : null,
       h("p", { class: "row-memo" }, title),
       h("p", { class: "row-meta" }, meta, when === null ? null : [h("span", { class: "sr-only" }, ", "), when]),
     ),

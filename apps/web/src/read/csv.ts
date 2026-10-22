@@ -46,8 +46,14 @@ export function isoTime(seconds: bigint | number): string {
 
 const caip10 = (chainId: number, address: string): string => `eip155:${String(chainId)}:${address}`;
 
-export function ledgerCsv(rows: readonly LedgerRow[], linkOf: (row: LedgerRow) => string): string {
-  const lines = [CSV_COLUMNS.join(",")];
+/** Columns an edition adds after the standard ones (the PayPal edition's `rail` and `paypal_invoice`). */
+export interface ExtraColumns {
+  readonly columns: readonly string[];
+  values(row: LedgerRow): readonly string[];
+}
+
+export function ledgerCsv(rows: readonly LedgerRow[], linkOf: (row: LedgerRow) => string, extra?: ExtraColumns): string {
+  const lines = [[...CSV_COLUMNS, ...(extra?.columns ?? [])].join(",")];
   for (const row of rows) {
     const { link, chain, state } = row;
     const invoice = link.invoice;
@@ -72,6 +78,7 @@ export function ledgerCsv(rows: readonly LedgerRow[], linkOf: (row: LedgerRow) =
       new Date(row.record.createdAt).toISOString().replace(/\.\d{3}Z$/, "Z"),
       link.memo ?? "",
       linkOf(row),
+      ...(extra?.values(row) ?? []),
     ];
     lines.push(fields.map(csvField).join(","));
   }
