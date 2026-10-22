@@ -10,7 +10,8 @@
  * 4. the amount is parsed by code from the text the model copied, and only when the copy is in the message
  *    (src/ai/amounts.ts); the due date is resolved by code from the phrase the model copied (src/ai/dates.ts) (AI-5);
  * 5. the client's email is mapped back by code from its placeholder; names must be written in the message; the
- *    description loses placeholders, links and control characters and is cut to 280 bytes (the memo limit);
+ *    description loses placeholders, any email, phone or address written out, links and control characters, and is
+ *    cut to 280 bytes (the memo limit);
  * 6. a `0x` address in the message is never the payee (there is no payee field at all: the payee is the session's
  *    account) and raises `payee_address_ignored`;
  * 7. the clarifications are code's own; the model's list is not trusted.
@@ -99,9 +100,14 @@ export function cutToBytes(text: string, max: number): string {
   return out.trimEnd();
 }
 
-/** The memo the model proposed, made safe: no placeholders, links or controls, one line, at most 280 bytes. */
+/**
+ * The memo the model proposed, made safe: no placeholders, no personal data it may have written out (an email, a phone
+ * number, a `0x` address: the memo travels in the link and its hash goes on chain), no links or controls, one line, at
+ * most 280 bytes.
+ */
 export function cleanDescription(text: string): string {
-  return cutToBytes(withoutPlaceholders(text.normalize("NFC").replace(CONTROLS, " ").replace(URL, " ")).replace(/\s+/gu, " ").trim(), MEMO_MAX_BYTES);
+  const plain = text.normalize("NFC").replace(CONTROLS, " ").replace(URL, " ");
+  return cutToBytes(withoutPlaceholders(tokenise(withoutPlaceholders(plain)).text).replace(/\s+/gu, " ").replace(/\s+([,.;:!?])/gu, "$1").replace(/^[\s,.;:]+|[\s,;:]+$/gu, "").trim(), MEMO_MAX_BYTES);
 }
 
 const squashLower = (s: string): string => s.normalize("NFC").toLowerCase().replace(/\s+/gu, " ").trim();
@@ -111,7 +117,7 @@ export function cleanName(name: string | null, message: string): string | null {
   if (name === null) {
     return null;
   }
-  const cleaned = withoutPlaceholders(name.replace(CONTROLS, "")).replace(/\s+/gu, " ").trim().slice(0, NAME_MAX);
+  const cleaned = withoutPlaceholders(tokenise(withoutPlaceholders(name.replace(CONTROLS, ""))).text).replace(/\s+/gu, " ").trim().slice(0, NAME_MAX);
   return cleaned !== "" && squashLower(message).includes(squashLower(cleaned)) ? cleaned : null;
 }
 
