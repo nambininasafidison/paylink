@@ -123,3 +123,14 @@ export function withBudget(inner: AiProvider, options: BudgetOptions): AiProvide
     toolTurn: async (request) => await metered("toolTurn", JSON.stringify(request.messages) + JSON.stringify(request.tools), request.maxOutputTokens, async () => await inner.toolTurn(request)),
   };
 }
+
+/**
+ * Today's neurons against the ceiling, read without spending (for the Status page's assistant row: "budget left", and
+ * "resting" once a typical call no longer fits). `typicalCall` is the estimate of one A1 draft by default (E).
+ */
+export async function assistantBudget(global: GlobalStore, ceiling: number, now: number, typicalCall = 40): Promise<{ readonly day: string; readonly spent: number; readonly left: number; readonly resting: boolean }> {
+  const day = utcDay(now);
+  const read = await global.spendAiBudget(day, 0, Number.MAX_SAFE_INTEGER);
+  const left = Math.max(0, ceiling - read.used);
+  return { day, spent: read.used, left, resting: left < typicalCall };
+}

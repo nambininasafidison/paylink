@@ -5,7 +5,7 @@
  * ("Assistant resting") and the cost log line, the cassette and scripted providers, and the factory's modes.
  */
 import { describe, expect, it } from "vitest";
-import { estimateNeurons, withBudget, withFallback } from "../../src/ai/budget.ts";
+import { assistantBudget, estimateNeurons, withBudget, withFallback } from "../../src/ai/budget.ts";
 import { createAiProvider } from "../../src/ai/factory.ts";
 import { FALLBACK_MODEL, modelFacts, neuronsFor, PRIMARY_MODEL } from "../../src/ai/models.ts";
 import { cassetteProvider, recordingProvider, scriptedProvider, structuredFingerprint, toolTurnFingerprint } from "../../src/ai/replay.ts";
@@ -211,6 +211,14 @@ describe("fallback and budget", () => {
     // The next UTC day starts empty.
     const tomorrow = withBudget(scriptedProvider({ structured: [ok] }), { global: () => stores.global(), ceiling, clock: () => T0 + 86_400_000, logger: runtime.logger, model: PRIMARY_MODEL });
     expect((await tomorrow.structured(STRUCTURED)).outcome).toBe("ok");
+  });
+
+  it("the day's budget is readable without spending it (the Status row)", async () => {
+    const stores = createMemoryStores();
+    expect(await assistantBudget(stores.global(), 10_000, T0)).toEqual({ day: "2026-10-21", spent: 0, left: 10_000, resting: false });
+    await stores.global().spendAiBudget("2026-10-21", 9_980, 10_000);
+    expect(await assistantBudget(stores.global(), 10_000, T0)).toEqual({ day: "2026-10-21", spent: 9_980, left: 20, resting: true });
+    expect((await assistantBudget(stores.global(), 10_000, T0)).spent).toBe(9_980);
   });
 
   it("a call that would cross the ceiling fills it, so the next one rests", async () => {
