@@ -390,25 +390,32 @@ export function recordCard(app: App, record: AutoRecordView, actions: DeskAction
   return card;
 }
 
-/** A red alert: paid on both rails (with the guide), or hands off. Nothing on it acts. */
+/**
+ * A red alert: paid on both rails (with the guide), or hands off. Nothing on it acts. The card stays a list item (a list
+ * holds list items only, WCAG 1.3.1); its content is the `alert` region, announced when the desk shows it.
+ */
 export function alertCard(app: App, alert: AlertView): HTMLLIElement {
   const { t } = app.i18n;
   const raised = seconds(alert.raisedAt);
   return h(
     "li",
-    { class: "desk-card is-alert", attrs: { "data-kind": "alert", "data-situation": alert.situation, "data-code": alert.code, role: "alert" } },
-    h("div", { class: "desk-card-head" }, lamp("err", alert.situation === "S4" ? t("paypal.alert.paidTwicePill") : t("paypal.alert.handsOffPill"), true), h("span", { class: "view-meta" }, alert.invoiceNumber ?? shortHex(alert.key))),
-    h("h3", { class: "desk-card-title" }, alertText(app, alert.code)),
-    alert.situation === "S4"
-      ? h(
-          "ol",
-          { class: "desk-guide" },
-          h("li", null, t("paypal.alert.guide1"), " ", h("a", { attrs: { href: routeHref(app, "send") } }, t("paypal.alert.guideSend"))),
-          h("li", null, t("paypal.alert.guide2")),
-          h("li", null, t("paypal.alert.guide3")),
-        )
-      : h("p", { class: "field-hint" }, t("paypal.alert.handsOffNote")),
-    raised === null ? null : h("p", { class: "field-hint" }, t("paypal.alert.raised", { time: formatDateTime(app.locale, raised) })),
+    { class: "desk-card is-alert", attrs: { "data-kind": "alert", "data-situation": alert.situation, "data-code": alert.code } },
+    h(
+      "div",
+      { attrs: { role: "alert" } },
+      h("div", { class: "desk-card-head" }, lamp("err", alert.situation === "S4" ? t("paypal.alert.paidTwicePill") : t("paypal.alert.handsOffPill"), true), h("span", { class: "view-meta" }, alert.invoiceNumber ?? shortHex(alert.key))),
+      h("h3", { class: "desk-card-title" }, alertText(app, alert.code)),
+      alert.situation === "S4"
+        ? h(
+            "ol",
+            { class: "desk-guide" },
+            h("li", null, t("paypal.alert.guide1"), " ", h("a", { attrs: { href: routeHref(app, "send") } }, t("paypal.alert.guideSend"))),
+            h("li", null, t("paypal.alert.guide2")),
+            h("li", null, t("paypal.alert.guide3")),
+          )
+        : h("p", { class: "field-hint" }, t("paypal.alert.handsOffNote")),
+      raised === null ? null : h("p", { class: "field-hint" }, t("paypal.alert.raised", { time: formatDateTime(app.locale, raised) })),
+    ),
   );
 }
 

@@ -330,7 +330,9 @@ describe("the desk's cards", () => {
 
   it("raises paid twice with the guide and nothing to press, and hands off with its reason", () => {
     const twice = alertCard(paypalApp(), alert());
-    expect(twice.getAttribute("role")).toBe("alert");
+    // A list item (the desk's list holds list items only), whose content is the alert region.
+    expect(twice.getAttribute("role")).toBeNull();
+    expect(twice.querySelector(":scope > [role=alert] > .desk-card-title")?.textContent).toBe("This invoice was paid on PayPal and on the chain.");
     expect(twice.querySelectorAll(".desk-guide li")).toHaveLength(3);
     expect(twice.querySelector(".desk-guide a")?.getAttribute("href")).toBe("/paypal/send/");
     expect(twice.querySelector("button")).toBeNull();
