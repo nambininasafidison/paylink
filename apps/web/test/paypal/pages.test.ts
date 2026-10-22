@@ -131,24 +131,25 @@ describe("tabs", () => {
 });
 
 describe("desk", () => {
-  it("says what is coming, signs and approves nothing, and reads 'not configured' without an API in config.json", async () => {
+  it("needs the edition's API: without one it says so, signs and approves nothing, and calls no one", async () => {
     const calls = stubNetwork();
     await render(deskPage, "/paypal/desk/", "en");
     const view = document.querySelector(".view-desk");
-    expect(view?.hasAttribute("data-coming")).toBe(true);
-    expect(view?.querySelector(".pill")?.textContent).toBe("Coming");
-    expect(view?.querySelectorAll(".note-list li")).toHaveLength(3);
-    expect(view?.textContent).toContain("The assistant never signs and never moves money.");
+    expect(view?.getAttribute("data-desk")).toBe("no-api");
+    expect(view?.querySelector(".empty-state")?.textContent).toContain("The desk needs this edition's API");
     expect(view?.querySelector("button")).toBeNull();
-    expect(view?.querySelector(".vstrip li")?.textContent).toBe("PayLink APINot configured");
+    expect(view?.querySelector(".desk-foot li")?.textContent).toBe("PayLink APINot configured");
     // Same-origin configuration and the ariary rate only: nothing else is called.
     expect(calls.filter((url) => !url.endsWith("/config.json") && !url.endsWith("/fx.json"))).toEqual([]);
   });
 
-  it("reads the API's health when config.json names it for Ethereum Sepolia", async () => {
+  it("asks for the payee's wallet first, and reads the API's health when config.json names it for Ethereum Sepolia", async () => {
     stubNetwork({ api: { url: API, chains: [SEPOLIA] }, health: "ok" });
     await render(deskPage, "/paypal/desk/", "en");
-    const row = document.querySelector(".view-desk .vstrip li");
+    const view = document.querySelector(".view-desk");
+    expect(view?.getAttribute("data-desk")).toBe("no-wallet");
+    expect(view?.querySelector("[data-action=connect]")?.textContent).toBe("Connect wallet");
+    const row = view?.querySelector(".desk-foot li");
     expect(row?.getAttribute("data-lamp")).toBe("ok");
     expect(row?.textContent).toBe("PayLink APIOnline · 0.1.0");
   });
@@ -156,17 +157,34 @@ describe("desk", () => {
   it("says unreachable when the API fails or answers something else, and ignores an API for another chain", async () => {
     stubNetwork({ api: { url: API, chains: [SEPOLIA] }, health: "down" });
     await render(deskPage, "/paypal/desk/", "en");
-    expect(document.querySelector(".view-desk .vstrip li")?.getAttribute("data-lamp")).toBe("err");
+    expect(document.querySelector(".view-desk .desk-foot li")?.getAttribute("data-lamp")).toBe("err");
     document.body.replaceChildren();
     stubNetwork({ api: { url: API, chains: [SEPOLIA] }, health: "unreachable" });
     await render(deskPage, "/paypal/desk/", "fr");
-    expect(document.querySelector(".view-desk .vstrip li")?.textContent).toBe("API PayLinkInjoignable");
+    expect(document.querySelector(".view-desk .desk-foot li")?.textContent).toBe("API PayLinkInjoignable");
     expect(apiUrl({ config: { version: 1, banner: null, relayer: null, indexer: null, api: { url: API, chains: [84532] }, rpc: {} } })).toBeNull();
     expect(apiUrl({ config: { version: 1, banner: null, relayer: null, indexer: null, rpc: {} } })).toBeNull();
   });
 });
 
-describe("create and status", () => {
+describe("create, ledger and status", () => {
+  it("offer the assistant above the create form", async () => {
+    await render(createPage, "/paypal/", "en");
+    expect(document.querySelector(".view-create [data-action=assistant]")?.textContent).toBe("Assistant");
+    expect(document.querySelector(".view-create .assist-row .field-hint")?.textContent).toContain("you check it and sign");
+  });
+
+  it("show the API and PayPal rows on the Status page, from the API's health rows", async () => {
+    stubNetwork({ api: { url: API, chains: [SEPOLIA] }, health: "ok" });
+    await render(statusPage, "/paypal/status/", "en");
+    const rows = [...document.querySelectorAll(".view-status > .vstrip")][0]?.querySelectorAll("li") ?? [];
+    expect([...rows].map((li) => li.querySelector(".vstrip-name")?.textContent)).toEqual(["Relayer", "History service", "PayLink API", "PayPal sandbox", "PayPal webhook", "Assistant", "API store"]);
+    expect(rows[2]?.textContent).toBe("PayLink APIOnline · 0.1.0 · contract 1");
+    expect(rows[3]?.getAttribute("data-lamp")).toBe("wait");
+  });
+});
+
+describe("create and status, without an API", () => {
   it("say plainly that PayLink is not deployed on Ethereum Sepolia until the registry records it", async () => {
     await render(createPage, "/paypal/", "en");
     const bands = [...document.querySelectorAll<HTMLElement>(".band")];
