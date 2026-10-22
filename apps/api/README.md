@@ -50,7 +50,7 @@ Errors are RFC 9457 `application/problem+json` objects `{ type, code, status, ti
 | <a id="problem-stale"></a>`stale` | 409 | The situation changed since the proposal was made: read the desk again (`E_STALE`). |
 | <a id="problem-conflict"></a>`conflict` | 409 | The request conflicts with the twin's current state. |
 | <a id="problem-rate-limited"></a>`rate-limited` | 429 | Too many requests; `retryAfter` says when to try again. |
-| <a id="problem-quota-exhausted"></a>`quota-exhausted` | 429 | The payee's or the day's quota is used up (twins, assistant calls, neurons). |
+| <a id="problem-quota-exhausted"></a>`quota-exhausted` | 429 | The payee's, the request source's or the day's quota is used up (twins, sessions, assistant calls, neurons). |
 | <a id="problem-webhook-rejected"></a>`webhook-rejected` | 400 | The webhook did not verify (P10) or names no known twin. |
 | <a id="problem-paypal-rejected"></a>`paypal-rejected` | 502 | PayPal answered with an error; `rule` carries its `name`. |
 | <a id="problem-paypal-unavailable"></a>`paypal-unavailable` | 503 | PayPal did not answer, or the sandbox credentials are not configured. |
@@ -70,7 +70,7 @@ Errors are RFC 9457 `application/problem+json` objects `{ type, code, status, ti
 | PayPal | `paypal-rejected` carries PayPal's `NAME:ISSUE`; `paypal-unavailable` carries `E_PAYPAL_NOT_CONFIGURED`, `E_PAYPAL_TOKEN`, `E_PAYPAL_NO_ANSWER`, `E_PAYPAL_UNAVAILABLE`, `E_PAYPAL_UNEXPECTED_RESPONSE`; also `E_PAYPAL_INVALID_INPUT`, `E_PAYPAL_REMINDER_LIMIT` |
 | Webhook | `E_WEBHOOK_MALFORMED`, `E_WEBHOOK_SIGNATURE` (400, nothing changes), `E_WEBHOOK_NOT_CONFIGURED`, `E_WEBHOOK_UNVERIFIABLE` (503: PayPal delivers again later) |
 | Desk | `E_STALE`, `E_ALREADY_USED`, `E_BUSY`, `E_APPROVAL_HASH`, `E_APPROVAL_INVALID`, `E_APPROVAL_EXPIRED`, `E_APPROVAL_OTHER_PAYEE`, `E_APPROVAL_KEY_MISSING`, `E_APPROVAL_KEY_INVALID`, `E_PROPOSAL_EXPIRED`, `E_PROPOSAL_CORRUPT`, `E_ALREADY_UNDONE`, `E_UNDO_EXPIRED` |
-| Quotas | `E_QUOTA_PAYEE`, `E_QUOTA_GLOBAL` (`retryAfter` at the next UTC midnight) |
+| Quotas | `E_QUOTA_PAYEE`, `E_QUOTA_SOURCE` (the client IP's daily limit: 30 sessions, 30 assistant calls, 1,500 neurons), `E_QUOTA_GLOBAL` (`retryAfter` at the next UTC midnight); the table of limits, and the demo payees' reserved lane, are in [`src/store/quotas.ts`](src/store/quotas.ts) and [`src/ai/admission.ts`](src/ai/admission.ts) |
 
 ## Layout and ownership
 
@@ -91,7 +91,7 @@ Each workstream adds its tests under `test/<area>/` and its fixtures next to the
 
 ## Configuration and secrets
 
-Configuration is code ([`src/core/config.ts`](src/core/config.ts)): origins, the PayPal sandbox base `https://api-m.sandbox.paypal.com`, the Workers AI models and their daily neuron ceiling ([`src/ai/models.ts`](src/ai/models.ts), sources there), the chain (Ethereum Sepolia, 11155111) and the quotas. [`deploy/wrangler.toml`](deploy/wrangler.toml) has no `[vars]` and no secret; [`test/deploy.test.ts`](test/deploy.test.ts) keeps it so.
+Configuration is code ([`src/core/config.ts`](src/core/config.ts)): origins, the PayPal sandbox base `https://api-m.sandbox.paypal.com`, the Workers AI models and their daily neuron ceiling ([`src/ai/models.ts`](src/ai/models.ts), sources there), the chain (Ethereum Sepolia, 11155111), the quotas, and `demoPayees`: the owner's demo wallet, whose sessions and assistant calls use a reserved lane the public cannot spend (empty until the owner names the wallet, [runbook §10](../../docs/runbooks/paypal.md#10-judge-sandbox-buyers-and-judge-links)). [`deploy/wrangler.toml`](deploy/wrangler.toml) has no `[vars]` and no secret; [`test/deploy.test.ts`](test/deploy.test.ts) keeps it so.
 
 | Secret | Purpose |
 |---|---|

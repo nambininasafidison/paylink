@@ -48,6 +48,8 @@ export interface DeskToolbox {
   readonly payee: Address;
   /** The payee's interface language (the sweep request's `locale`): the assistant explains and drafts in it. */
   readonly locale?: Locale;
+  /** The request's source (its client IP, src/core/http.ts `clientSource`), for the assistant's per-source limits. */
+  readonly source?: string;
   /** The payee's open twins, as of this sweep (identifiers, statuses and amounts only). */
   readonly twins: readonly TwinRecord[];
   allowedActions(key: string): Promise<readonly AllowedAction[]>;
@@ -217,7 +219,7 @@ export async function sweep(
   payee: Address,
   now: number,
   agent: DeskAgent | null,
-  options: { readonly locale?: Locale } = {},
+  options: { readonly locale?: Locale; readonly source?: string } = {},
 ): Promise<DeskResponse & { readonly sweep: { readonly checked: number; readonly remaining: number } }> {
   await chargeQuota(services, payee, "sweeps", now);
   const store: PayeeStore = services.stores.payee(payee);
@@ -239,6 +241,7 @@ export async function sweep(
         {
           payee,
           ...(options.locale === undefined ? {} : { locale: options.locale }),
+          ...(options.source === undefined ? {} : { source: options.source }),
           twins,
           allowedActions: async (key) => await allowedActions(services, payee, key),
           propose: async (proposal) => await proposeFromAssistant(services, payee, proposal, now),

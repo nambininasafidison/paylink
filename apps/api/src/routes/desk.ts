@@ -20,7 +20,7 @@
 import type { Address } from "@paylink/api-contract";
 import * as z from "zod";
 import { deskAgent } from "../ai/desk/agent.ts";
-import { json, parseBody, readJson, readOptionalJson } from "../core/http.ts";
+import { clientSource, json, parseBody, readJson, readOptionalJson } from "../core/http.ts";
 import { ProblemError } from "../core/problem.ts";
 import { assistantState, deskView, sweep } from "../reconciler/desk.ts";
 import type { DeskAgent } from "../reconciler/desk.ts";
@@ -53,7 +53,7 @@ export function createDeskHandlers(agent: DeskAgent | null = null): RouteHandler
     "desk.sweep": async (args) => {
       const payee = payeeOf(args);
       const body = parseBody(SweepRequestSchema, await readOptionalJson(args.c, DEFAULT_BODY_LIMIT));
-      return json(args.c, await sweep(args.services, payee, args.now, agent, body.locale === undefined ? {} : { locale: body.locale }));
+      return json(args.c, await sweep(args.services, payee, args.now, agent, { source: clientSource(args.c), ...(body.locale === undefined ? {} : { locale: body.locale }) }));
     },
     "desk.approve": async (args) => {
       const body = parseBody(ApproveRequestSchema, await readJson(args.c, DEFAULT_BODY_LIMIT));

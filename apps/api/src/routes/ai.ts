@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
- * POST /v1/ai/draft: A1, a client message to an invoice draft (docs/paypal/SPEC.md §9.2), behind the payee's daily
- * assistant quota, the deployment's, and the daily neuron ceiling (src/ai/budget.ts).
+ * POST /v1/ai/draft: A1, a client message to an invoice draft (docs/paypal/SPEC.md §9.2), admitted by
+ * src/ai/admission.ts: the payee's daily assistant quota, its request source's, the public or demo lane's, and the
+ * neurons of each (src/ai/budget.ts keeps the daily ceiling).
  *
  * Every way the assistant cannot help answers 200 `{ outcome: "unavailable", reason }` and the web edition opens the
  * manual form with a notice (U6): `disabled` (no provider), `resting` (a quota or the day's neurons are used up),
@@ -12,10 +13,11 @@
 import { DRAFT_MAX_TEXT } from "@paylink/api-contract";
 import type { DraftResponse } from "@paylink/api-contract";
 import * as z from "zod";
+import { admitAssistant } from "../ai/admission.ts";
+import type { AiProvider } from "../ai/types.ts";
 import { draftInvoice } from "../ai/draft.ts";
-import { json, parseBody, readJson } from "../core/http.ts";
+import { clientSource, json, parseBody, readJson } from "../core/http.ts";
 import { ProblemError } from "../core/problem.ts";
-import { chargeQuota } from "../store/quotas.ts";
 import type { RouteHandlers } from "./types.ts";
 import { BODY_LIMITS } from "./types.ts";
 
@@ -33,8 +35,9 @@ export const aiHandlers: RouteHandlers = {
     if (services.ai.kind === "disabled") {
       return json(c, { outcome: "unavailable", reason: "disabled" } satisfies DraftResponse);
     }
+    let ai: AiProvider;
     try {
-      await chargeQuota(services, payee, "aiCalls", now);
+      ai = await admitAssistant(services, { payee, source: clientSource(c) }, now);
     } catch (error) {
       if (error instanceof ProblemError && error.problem.code === "quota-exhausted") {
         services.runtime.logger.log("info", "a1.resting", { rule: error.problem.rule });
@@ -42,6 +45,6 @@ export const aiHandlers: RouteHandlers = {
       }
       throw error;
     }
-    return json(c, await draftInvoice({ ai: services.ai, logger: services.runtime.logger, now }, body));
+    return json(c, await draftInvoice({ ai, logger: services.runtime.logger, now }, body));
   },
 };

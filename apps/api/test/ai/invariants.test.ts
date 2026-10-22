@@ -80,7 +80,9 @@ describe("AI-1: the model cannot sign or submit any chain transaction", () => {
       ["../../core/services.ts", "type"],
       ["../../reconciler/desk.ts", "type"],
       ["../../core/problem.ts", "any"],
-      ["../../store/quotas.ts", "any"],
+      // The admission of every run (src/ai/admission.ts): the quota counters and the services' type, nothing else.
+      ["../core/services.ts", "type"],
+      ["../store/quotas.ts", "any"],
     ]);
     for (const path of files(join(SRC, "ai"))) {
       for (const i of imports(path)) {
@@ -99,7 +101,7 @@ describe("AI-1: the model cannot sign or submit any chain transaction", () => {
       // The desk agent is handed `services`; it may use the model, the runtime and the quota counter, nothing else.
       expect(/\.(?:paypal|chain|approvals|sessions)\b|\{\s*[^}]*\b(?:paypal|chain|approvals|sessions)\b[^}]*\}\s*=\s*services/u.test(code(path)), `${relative(API, path)} reaches a client`).toBe(false);
     }
-    expect(imports(join(SRC, "routes/ai.ts")).map((i) => i.from)).toEqual(["@paylink/api-contract", "@paylink/api-contract", "zod", "../ai/draft.ts", "../core/http.ts", "../core/problem.ts", "../store/quotas.ts", "./types.ts", "./types.ts"]);
+    expect(imports(join(SRC, "routes/ai.ts")).map((i) => i.from)).toEqual(["@paylink/api-contract", "@paylink/api-contract", "zod", "../ai/admission.ts", "../ai/types.ts", "../ai/draft.ts", "../core/http.ts", "../core/problem.ts", "./types.ts", "./types.ts"]);
   });
 });
 

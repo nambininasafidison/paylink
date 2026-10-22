@@ -24,11 +24,11 @@ import type { DeskResponse, Locale } from "@paylink/api-contract";
 import type { ApiServices } from "../../core/services.ts";
 import { ProblemError } from "../../core/problem.ts";
 import type { DeskAgent, DeskToolbox } from "../../reconciler/desk.ts";
-import { chargeQuota } from "../../store/quotas.ts";
+import { admitAssistant } from "../admission.ts";
 import { antananarivoToday } from "../dates.ts";
 import { DESK_REQUEST, deskInstructions } from "../prompts.ts";
 import type { TwinRecord } from "../../store/types.ts";
-import type { AiMessage, AiToolCall } from "../types.ts";
+import type { AiMessage, AiProvider, AiToolCall } from "../types.ts";
 import { checkMessage, factsOfTwin, NO_FACTS, unionFacts } from "./grounding.ts";
 import { chainView, DESK_TOOLS, findTwin, invoiceView, isDeskTool, paged, TOOL_ARGUMENTS } from "./tools.ts";
 import type { DeskToolName } from "./tools.ts";
@@ -185,7 +185,6 @@ async function runTool(state: RunState, call: AiToolCall, log: ApiServices["runt
 export function createDeskAgent(options: { readonly limits?: DeskLimits; readonly onReport?: (report: DeskRunReport) => void } = {}): DeskAgent {
   const limits = options.limits ?? DESK_LIMITS;
   return async (services: ApiServices, toolbox: DeskToolbox, now: number): Promise<Assistant> => {
-    const { ai } = services;
     const logger = services.runtime.logger;
     const finish = (report: Omit<DeskRunReport, "turns" | "toolCalls" | "proposed" | "refusedByFence" | "messagesDropped"> & Partial<DeskRunReport>, assistant: Assistant): Assistant => {
       const full: DeskRunReport = { turns: 0, toolCalls: 0, proposed: 0, refusedByFence: 0, messagesDropped: 0, ...report };
@@ -193,14 +192,15 @@ export function createDeskAgent(options: { readonly limits?: DeskLimits; readonl
       options.onReport?.(full);
       return assistant;
     };
-    if (ai.kind === "disabled") {
+    if (services.ai.kind === "disabled") {
       return { available: false, reason: "disabled" };
     }
     if (toolbox.twins.length === 0) {
       return finish({ ending: "no-twins" }, { available: true, reason: null });
     }
+    let ai: AiProvider;
     try {
-      await chargeQuota(services, toolbox.payee, "aiCalls", now);
+      ai = await admitAssistant(services, { payee: toolbox.payee, source: toolbox.source ?? "unknown" }, now);
     } catch (error) {
       if (error instanceof ProblemError && error.problem.code === "quota-exhausted") {
         return finish({ ending: "resting" }, { available: false, reason: "resting" });
