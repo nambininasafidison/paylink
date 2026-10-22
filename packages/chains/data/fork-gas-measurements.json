@@ -1,6 +1,6 @@
 {
   "schema": "paylink.fork-gas-measurements/1",
-  "generator": "tools/deploy-page/scripts/mezo-fork.ts",
+  "generator": "tools/deploy-page/scripts/mezo-fork.ts (mezo), tools/deploy-page/scripts/sepolia-fork.ts (sepolia)",
   "tool": "anvil 1.8.5",
   "initCodeHash": "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
   "profiles": {
@@ -70,6 +70,75 @@
         "payWithPermit_first": {
           "estimate": 160549,
           "gasUsed": 135733
+        }
+      }
+    },
+    "sepolia": {
+      "chainId": 11155111,
+      "fork": {
+        "rpc": "https://ethereum-sepolia-rpc.publicnode.com",
+        "block": 11968593,
+        "blockHash": "0x08415e7fc6a9b57a298a883e781abfa23862462199608d5a325df93a40837cb8",
+        "timestamp": 1792660572
+      },
+      "hardfork": "Amsterdam",
+      "network": "ethereum",
+      "appliesTo": [
+        11155111
+      ],
+      "tokens": "Circle USDC 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238 (payWithAuthorization, pay, payWithPermit, cancel, cancelBySig) and native Sepolia ETH (payNative) as Ethereum Sepolia holds them; protocol/test/mocks Wallet1271 (ERC-1271 payee), deployed on the fork",
+      "measurements": {
+        "cancel": {
+          "estimate": 146812,
+          "gasUsed": 134631
+        },
+        "cancelBySig": {
+          "estimate": 156237,
+          "gasUsed": 144062
+        },
+        "cancelBySig_erc1271Payee": {
+          "estimate": 160791,
+          "gasUsed": 148616
+        },
+        "deploy_create": {
+          "estimate": 18937697,
+          "gasUsed": 18937697
+        },
+        "deploy_create2": {
+          "estimate": 19240803,
+          "gasUsed": 18946483
+        },
+        "pay_first": {
+          "estimate": 318605,
+          "gasUsed": 294616
+        },
+        "pay_repeat": {
+          "estimate": 122125,
+          "gasUsed": 98394
+        },
+        "payNative_first": {
+          "estimate": 358461,
+          "gasUsed": 346341
+        },
+        "payNative_repeat": {
+          "estimate": 76535,
+          "gasUsed": 64415
+        },
+        "payWithAuthorization_erc1271Payee": {
+          "estimate": 462289,
+          "gasUsed": 440169
+        },
+        "payWithAuthorization_first": {
+          "estimate": 457705,
+          "gasUsed": 435585
+        },
+        "payWithAuthorization_repeat": {
+          "estimate": 353962,
+          "gasUsed": 239383
+        },
+        "payWithPermit_first": {
+          "estimate": 546259,
+          "gasUsed": 424224
         }
       }
     }

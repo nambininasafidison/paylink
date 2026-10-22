@@ -183,15 +183,19 @@ export interface Fork {
  */
 export const FORK_HARDFORK = "prague";
 
-/** anvil forking Mezo testnet at `block` (default: the latest block). Nothing it executes reaches the network. */
-export async function startFork(options: { readonly rpc?: string; readonly block?: bigint } = {}): Promise<Fork> {
+/**
+ * anvil forking Mezo testnet (or `rpc`) at `block` (default: the latest block). Nothing it executes reaches the network.
+ * `hardfork` pins the EVM rules (default `FORK_HARDFORK`, Mezo's); `null` lets anvil apply the forked chain's own
+ * schedule for that block, as Ethereum Sepolia needs (scripts/sepolia-fork.ts).
+ */
+export async function startFork(options: { readonly rpc?: string; readonly block?: bigint; readonly hardfork?: string | null } = {}): Promise<Fork> {
   const port = await freePort();
   const url = `http://127.0.0.1:${String(port)}`;
+  const hardfork = options.hardfork === undefined ? FORK_HARDFORK : options.hardfork;
   const args = [
     "--fork-url",
     options.rpc ?? MEZO.rpc,
-    "--hardfork",
-    FORK_HARDFORK,
+    ...(hardfork === null ? [] : ["--hardfork", hardfork]),
     "--port",
     String(port),
     "--silent",
@@ -763,33 +767,47 @@ export async function rehearse(options: { readonly block?: bigint; readonly meas
   }
 }
 
-/** packages/chains/data/fork-gas-measurements.json, in the format scripts/generate.ts of @paylink/chains reads. */
-export function measurementsFile(r: Rehearsal, tool: string): string {
+/** The scripts that each write one profile of packages/chains/data/fork-gas-measurements.json. */
+export const FORK_GENERATORS = "tools/deploy-page/scripts/mezo-fork.ts (mezo), tools/deploy-page/scripts/sepolia-fork.ts (sepolia)";
+
+/**
+ * packages/chains/data/fork-gas-measurements.json (the format scripts/generate.ts of @paylink/chains reads) with the
+ * profile `name` set to `profile`: the other profiles of `existing` (the file as it is) are kept, so each fork script
+ * rewrites only its own chain's measurements.
+ */
+export function forkMeasurementsFile(existing: string | null, name: string, profile: Readonly<Record<string, unknown>>, tool: string): string {
+  const before = existing === null ? null : (JSON.parse(existing) as { initCodeHash?: unknown; profiles?: Record<string, unknown> });
+  // Measurements of another build would mix two releases: they are dropped, and their scripts must run again.
+  const kept = before?.initCodeHash === RELEASE.initCodeHash ? (before.profiles ?? {}) : {};
+  const profiles = Object.fromEntries(Object.entries({ ...kept, [name]: profile }).sort(([a], [b]) => a.localeCompare(b)));
+  return `${JSON.stringify({ schema: "paylink.fork-gas-measurements/1", generator: FORK_GENERATORS, tool, initCodeHash: RELEASE.initCodeHash, profiles }, null, 2)}\n`;
+}
+
+/** The file as it is on disk, or null. */
+export function currentMeasurements(): string | null {
+  return existsSync(OUTPUT) ? readFileSync(OUTPUT, "utf8") : null;
+}
+
+/** packages/chains/data/fork-gas-measurements.json with this rehearsal's `mezo` profile (the others kept). */
+export function measurementsFile(r: Rehearsal, tool: string, existing: string | null = currentMeasurements()): string {
   if (r.measurements === null) {
     throw new Error("mezo-fork: run with measure: true");
   }
-  return `${JSON.stringify(
+  return forkMeasurementsFile(
+    existing,
+    "mezo",
     {
-      schema: "paylink.fork-gas-measurements/1",
-      generator: "tools/deploy-page/scripts/mezo-fork.ts",
-      tool,
-      initCodeHash: RELEASE.initCodeHash,
-      profiles: {
-        mezo: {
-          chainId: r.chainId,
-          fork: { rpc: r.fork.rpc, block: Number(r.fork.block), blockHash: r.fork.blockHash, timestamp: Number(r.fork.timestamp) },
-          hardfork: r.fork.hardfork,
-          network: r.fork.network,
-          appliesTo: [MEZO.chainId],
-          tokens:
-            "MUSD 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 (pay, payWithPermit, cancel, cancelBySig) and native BTC (payNative) as Mezo testnet holds them; protocol/test/mocks Mock3009 (payWithAuthorization: Mezo lists no EIP-3009 token) and Wallet1271 (ERC-1271 payee), deployed on the fork",
-          measurements: r.measurements,
-        },
-      },
+      chainId: r.chainId,
+      fork: { rpc: r.fork.rpc, block: Number(r.fork.block), blockHash: r.fork.blockHash, timestamp: Number(r.fork.timestamp) },
+      hardfork: r.fork.hardfork,
+      network: r.fork.network,
+      appliesTo: [MEZO.chainId],
+      tokens:
+        "MUSD 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 (pay, payWithPermit, cancel, cancelBySig) and native BTC (payNative) as Mezo testnet holds them; protocol/test/mocks Mock3009 (payWithAuthorization: Mezo lists no EIP-3009 token) and Wallet1271 (ERC-1271 payee), deployed on the fork",
+      measurements: r.measurements,
     },
-    null,
-    2,
-  )}\n`;
+    tool,
+  );
 }
 
 const bigintJson = (_key: string, value: unknown): unknown => (typeof value === "bigint" ? value.toString() : value);
@@ -812,7 +830,7 @@ function summary(r: Rehearsal): string {
   return `${lines.join("\n")}\n`;
 }
 
-async function anvilVersion(): Promise<string> {
+export async function anvilVersion(): Promise<string> {
   return await new Promise<string>((done) => {
     const child = spawn(anvilBinary(), ["--version"]);
     let text = "";

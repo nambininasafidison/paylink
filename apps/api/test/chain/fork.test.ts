@@ -77,7 +77,9 @@ interface Fork {
 async function startFork(): Promise<Fork> {
   const port = await freePort();
   const url = `http://127.0.0.1:${String(port)}`;
-  const child = spawn(anvilBinary(), ["--fork-url", RPC, "--hardfork", "prague", "--port", String(port), "--silent"], { stdio: "ignore" });
+  // No --hardfork: anvil applies the chain's own rules for the fork block (Amsterdam on Sepolia, whose EIP-8037 state gas
+  // prices the deployment near 19.2 million gas: tools/deploy-page/scripts/sepolia-fork.ts).
+  const child = spawn(anvilBinary(), ["--fork-url", RPC, "--port", String(port), "--silent"], { stdio: "ignore" });
   let id = 0;
   const rpc = async <T>(method: string, params: readonly unknown[] = []): Promise<T> => {
     id += 1;
@@ -116,9 +118,17 @@ describe.skipIf(!enabled)("chain reads on an anvil fork of Ethereum Sepolia", ()
     const wallet = createWalletClient({ account: from, transport: http(fork.url) });
     // Fees well above the fork's base fee: a transaction priced from an estimate can sit in anvil's pool.
     const hash = await wallet.sendTransaction({ account: from, chain: null, to, data, gas, maxFeePerGas: 100_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
-    const receipt = await client.waitForTransactionReceipt({ hash, pollingInterval: 50, timeout: 60_000 });
-    expect(receipt.status).toBe("success");
-    return hash;
+    // Polled directly: with automine no later block comes to wake viem's block-driven waiter if it read the chain
+    // before anvil mined (tools/deploy-page/scripts/mezo-fork.ts `mined`); the 19M-gas deployment takes long enough to hit it.
+    for (let i = 0; i < 1_200; i += 1) {
+      const receipt = await client.getTransactionReceipt({ hash }).catch(() => null);
+      if (receipt !== null) {
+        expect(receipt.status).toBe("success");
+        return hash;
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error(`${hash} was not mined within 60 s`);
   };
 
   beforeAll(async () => {
@@ -133,11 +143,14 @@ describe.skipIf(!enabled)("chain reads on an anvil fork of Ethereum Sepolia", ()
     payer = privateKeyToAccount(labelKey("payer"));
     for (const a of [deployer, payee, payer]) {
       expect(await client.getCode({ address: a.address })).toBeUndefined();
-      await fork.rpc("anvil_setBalance", [a.address, "0x8ac7230489e80000"]);
+      // 10,000 ETH: the deployment reserves its whole limit (about 21M gas) at the 100 gwei cap of `send`.
+      await fork.rpc("anvil_setBalance", [a.address, "0x21e19e0c9bab2400000"]);
     }
     expect(await client.getCode({ address: RELEASE.create2.address })).toBeUndefined();
-    // About 2.72M gas on chain (docs/research/paypal/pyusd.md §4); the kit clamps its own estimate, a fixed bound is enough here.
-    const deployTx = await send(deployer, RELEASE.create2.factory, concat([RELEASE.create2.salt, release.initCode]), 4_000_000n);
+    // Sepolia's own price (about 19.2M gas under Amsterdam, packages/chains/data/fork-gas-measurements.json), plus the kit's 10 %.
+    const deployData = concat([RELEASE.create2.salt, release.initCode]);
+    const deployEstimate = await client.estimateGas({ account: deployer.address, to: RELEASE.create2.factory, data: deployData });
+    const deployTx = await send(deployer, RELEASE.create2.factory, deployData, (deployEstimate * 110n) / 100n);
     expect((await client.getCode({ address: RELEASE.create2.address }))?.length).toBe(2 + 2 * RELEASE.runtimeCodeSize);
     const deployBlock = (await client.getTransactionReceipt({ hash: deployTx })).blockNumber;
     registry = createRegistry([

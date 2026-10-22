@@ -274,22 +274,22 @@
         "reserveBalance": null
       },
       "deployGas": {
-        "profile": "ethereum",
-        "hardfork": "Bpo1",
+        "profile": "sepolia",
+        "hardfork": "Amsterdam",
         "network": "ethereum",
         "provisional": true,
-        "evidence": "anvil profile \"ethereum\" (hardfork Bpo1, network ethereum): packages/chains/data/gas-measurements.json",
+        "evidence": "anvil fork \"sepolia\" of https://ethereum-sepolia-rpc.publicnode.com at block 11968593 (hardfork Amsterdam): packages/chains/data/fork-gas-measurements.json",
         "create": {
-          "estimate": "2673065",
-          "gasUsed": "2673065",
-          "floor": "2674000",
-          "ceiling": "4011000"
+          "estimate": "18937697",
+          "gasUsed": "18937697",
+          "floor": "18938000",
+          "ceiling": "28407000"
         },
         "create2": {
-          "estimate": "2717457",
-          "gasUsed": "2678851",
-          "floor": "2718000",
-          "ceiling": "4077000"
+          "estimate": "19240803",
+          "gasUsed": "18946483",
+          "floor": "19241000",
+          "ceiling": "28862000"
         }
       },
       "deployment": null,

@@ -70,7 +70,7 @@ export const GAS_MEASUREMENTS = {
     chainId: 31337,
     hardfork: "Bpo1",
     network: "ethereum",
-    appliesTo: [421614, 11155111],
+    appliesTo: [421614],
     measurements: {
       cancel: { estimate: 57628, gasUsed: 52647 },
       cancelBySig: { estimate: 66517, gasUsed: 61542 },
@@ -151,6 +151,28 @@ export const GAS_MEASUREMENTS = {
       payWithPermit_first: { estimate: 216098, gasUsed: 213982 },
     },
   },
+  sepolia: {
+    chainId: 11155111,
+    fork: { rpc: "https://ethereum-sepolia-rpc.publicnode.com", block: 11968593, blockHash: "0x08415e7fc6a9b57a298a883e781abfa23862462199608d5a325df93a40837cb8", timestamp: 1792660572 },
+    hardfork: "Amsterdam",
+    network: "ethereum",
+    appliesTo: [11155111],
+    measurements: {
+      cancel: { estimate: 146812, gasUsed: 134631 },
+      cancelBySig: { estimate: 156237, gasUsed: 144062 },
+      cancelBySig_erc1271Payee: { estimate: 160791, gasUsed: 148616 },
+      deploy_create: { estimate: 18937697, gasUsed: 18937697 },
+      deploy_create2: { estimate: 19240803, gasUsed: 18946483 },
+      pay_first: { estimate: 318605, gasUsed: 294616 },
+      pay_repeat: { estimate: 122125, gasUsed: 98394 },
+      payNative_first: { estimate: 358461, gasUsed: 346341 },
+      payNative_repeat: { estimate: 76535, gasUsed: 64415 },
+      payWithAuthorization_erc1271Payee: { estimate: 462289, gasUsed: 440169 },
+      payWithAuthorization_first: { estimate: 457705, gasUsed: 435585 },
+      payWithAuthorization_repeat: { estimate: 353962, gasUsed: 239383 },
+      payWithPermit_first: { estimate: 546259, gasUsed: 424224 },
+    },
+  },
 } as const;
 
 /**
@@ -163,6 +185,7 @@ export const GAS_PROFILE_PROVENANCE = {
   london: { hardfork: "London" },
   mezo: { hardfork: "Prague", forkBlock: 16140641 },
   monad: { hardfork: "MonadTen" },
+  sepolia: { hardfork: "Amsterdam", forkBlock: 11968593 },
 } as const;
 
 /** Gas-limit bounds of the networks whose gas schedule differs from Ethereum's, from their own estimates. */
@@ -187,6 +210,14 @@ export const FORK_GAS_LIMITS = {
     cancel: { floor: 58_000n, ceiling: 87_000n },
     cancelBySig: { floor: 67_000n, ceiling: 101_000n },
   },
+  sepolia: {
+    payWithAuthorization: { floor: 458_000n, ceiling: 687_000n },
+    pay: { floor: 319_000n, ceiling: 479_000n },
+    payWithPermit: { floor: 547_000n, ceiling: 821_000n },
+    payNative: { floor: 359_000n, ceiling: 539_000n },
+    cancel: { floor: 147_000n, ceiling: 221_000n },
+    cancelBySig: { floor: 157_000n, ceiling: 236_000n },
+  },
 } as const satisfies Readonly<Record<string, Readonly<Record<PayLinkFunction, GasBounds>>>>;
 
 /**
@@ -201,7 +232,7 @@ export const DEPLOY_GAS = {
     create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
   },
   ethereum: {
-    appliesTo: [421614, 11155111],
+    appliesTo: [421614],
     create: { estimate: 2_673_065n, gasUsed: 2_673_065n, floor: 2_674_000n, ceiling: 4_011_000n },
     create2: { estimate: 2_717_457n, gasUsed: 2_678_851n, floor: 2_718_000n, ceiling: 4_077_000n },
   },
@@ -219,5 +250,10 @@ export const DEPLOY_GAS = {
     appliesTo: [10143, 143],
     create: { estimate: 2_677_645n, gasUsed: 2_677_645n, floor: 2_678_000n, ceiling: 4_017_000n },
     create2: { estimate: 2_720_773n, gasUsed: 2_682_095n, floor: 2_721_000n, ceiling: 4_082_000n },
+  },
+  sepolia: {
+    appliesTo: [11155111],
+    create: { estimate: 18_937_697n, gasUsed: 18_937_697n, floor: 18_938_000n, ceiling: 28_407_000n },
+    create2: { estimate: 19_240_803n, gasUsed: 18_946_483n, floor: 19_241_000n, ceiling: 28_862_000n },
   },
 } as const satisfies Readonly<Record<string, { readonly appliesTo: readonly number[]; readonly create: DeployGasBounds; readonly create2: DeployGasBounds }>>;

@@ -106,7 +106,7 @@ describe("chain data", () => {
       deployGas: { profile: "mezo" },
     });
     expect(chain(84532).gasModel.minChargedPercentOfLimit).toBeNull();
-    // Ethereum Sepolia (ADR 0018): Sepolia ETH as gas, charged on the gas used, Ethereum's anvil profile, no record yet.
+    // Ethereum Sepolia (ADR 0018): Sepolia ETH as gas, charged on the gas used, measured on a fork of itself (Amsterdam), no record yet.
     expect(chain(11155111)).toMatchObject({
       name: "Ethereum Sepolia",
       label: "ETH",
@@ -114,7 +114,7 @@ describe("chain data", () => {
       rpc: ["https://ethereum-sepolia-rpc.publicnode.com"],
       explorers: [{ name: "Etherscan", url: "https://sepolia.etherscan.io" }],
       gasModel: { chargesGasLimit: false, txGasCap: null, reserveBalance: null, minChargedPercentOfLimit: null },
-      deployGas: { profile: "ethereum" },
+      deployGas: { profile: "sepolia", hardfork: "Amsterdam" },
       deployment: null,
     });
     expect([...chains.values()].filter((c) => c.inconsistentTxIndex).map((c) => c.chainId)).toEqual([31611]);

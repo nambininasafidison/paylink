@@ -82,13 +82,16 @@ PAYLINK_FORK_MEZO=1 NODE_USE_ENV_PROXY=1 pnpm --filter @paylink/deploy-page exec
 
 1. **Facts.** The factory holds the canonical runtime; each token's `DOMAIN_SEPARATOR()` is the registry's stated domain (USDC/2, PayPal USD/1); PayPal USD has no `version()` and no `eip712Domain()`, and `@paylink/sdk` still resolves its domain, proven against the separator.
 2. **Deploy.** As for Mezo: the page plans CREATE2 to `0x448eCce9711860502806A3d5B021a4f9Ba715082`, its verifier passes all ten checks, and `tools/verify-deployment` prints the same record (Etherscan links).
-3. **Pay.** No relayer serves Sepolia, so the router offers a code-less payer `self-authorization` (EIP-3009, the payer submits), then `permit`. USDC and PayPal USD are each paid both ways: exact amounts, PayLinkV2 left empty, no allowance left, receipts verified, a second payment `SoldOut`, and every estimate under the registry's ceilings (the snapshot table). PayPal USD returns silently on an already-used EIP-3009 nonce (USDC reverts): the same authorisation submitted twice on an open-amount link reverts in PayLinkV2 with `ReceivedMismatch`.
+3. **Pay.** No relayer serves Sepolia, so the router offers a code-less payer `self-authorization` (EIP-3009, the payer submits), then `permit`. USDC and PayPal USD are each paid both ways: exact amounts, PayLinkV2 left empty, no allowance left, receipts verified, a second payment `SoldOut`, and every estimate under the registry's ceilings (Sepolia's own table, measured on this fork). PayPal USD returns silently on an already-used EIP-3009 nonce (USDC reverts): the same authorisation submitted twice on an open-amount link reverts in PayLinkV2 with `ReceivedMismatch`.
 
 ```bash
 source ~/.paylink-toolchain/env.sh                     # anvil 1.8.5
 NODE_USE_ENV_PROXY=1 node --conditions=@paylink/source scripts/sepolia-fork.ts                           # the rehearsal
+NODE_USE_ENV_PROXY=1 node --conditions=@paylink/source scripts/sepolia-fork.ts --measure                 # re-measure Sepolia's gas
 PAYLINK_FORK_SEPOLIA=1 NODE_USE_ENV_PROXY=1 pnpm --filter @paylink/deploy-page exec vitest run test/sepolia-fork.test.ts   # as assertions
 ```
+
+The fork runs the chain's own rules (no `--hardfork` pin): Sepolia runs Amsterdam, whose state-creation gas (EIP-8037) makes the deployment cost about 19.2 million gas, seven times Ethereum's schedule before it ([sepolia.md §5](../../docs/research/paypal/sepolia.md)). `--measure` writes the `sepolia` profile of `packages/chains/data/fork-gas-measurements.json` (the `mezo` profile is kept); then `pnpm --filter @paylink/chains run generate` and `pnpm --filter @paylink/deploy-page run generate` derive the registry's gas table and this page's deployment bounds from it.
 
 The fork test is skipped unless `PAYLINK_FORK_SEPOLIA=1`, because it needs egress to `ethereum-sepolia-rpc.publicnode.com`.
 

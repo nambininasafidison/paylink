@@ -43,6 +43,21 @@ export const MEZO_GAS_TABLE: GasTable = {
 };
 
 /**
+ * Gas table of Ethereum Sepolia: eth_estimateGas on an anvil fork of the chain under its own rules (hardfork Amsterdam,
+ * whose state-creation gas, EIP-8037, prices every new storage slot near 98,000 gas and the PayLinkV2 deployment near
+ * 19.2 million), with Circle USDC and native Sepolia ETH as the chain holds them and the repository's Wallet1271 for an
+ * ERC-1271 payee (tools/deploy-page/scripts/sepolia-fork.ts --measure). Ethereum's own schedule before Amsterdam (the
+ * snapshot) priced a first payment at about a third of what Sepolia now charges, so its ceilings would refuse every
+ * payment and cancellation there.
+ */
+export const SEPOLIA_GAS_TABLE: GasTable = {
+  source: "fork",
+  provisional: true,
+  evidence: `anvil fork of Ethereum Sepolia at block ${String(GAS_PROFILE_PROVENANCE.sepolia.forkBlock)} (hardfork ${GAS_PROFILE_PROVENANCE.sepolia.hardfork}), Circle USDC and native ETH: packages/chains/data/fork-gas-measurements.json`,
+  limits: FORK_GAS_LIMITS.sepolia,
+};
+
+/**
  * Relay timing of the v2 chains until inclusion latency is measured on each (invoice spec §13.3, audit finding
  * A-04): 120 s, four times the relayer's 30 s stuck-transaction replacement interval (PAYLINK-V2-SPEC §3.7). That
  * covers the pre-broadcast re-simulation, the broadcast and up to three fee-bump replacements on chains whose

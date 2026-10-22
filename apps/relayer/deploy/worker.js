@@ -23663,7 +23663,11 @@ const GAS_PROFILE_PROVENANCE = {
 		hardfork: "Prague",
 		forkBlock: 16140641
 	},
-	monad: { hardfork: "MonadTen" }
+	monad: { hardfork: "MonadTen" },
+	sepolia: {
+		hardfork: "Amsterdam",
+		forkBlock: 11968593
+	}
 };
 /** Gas-limit bounds of the networks whose gas schedule differs from Ethereum's, from their own estimates. */
 const EMULATED_GAS_LIMITS = { monad: {
@@ -23693,32 +23697,60 @@ const EMULATED_GAS_LIMITS = { monad: {
 	}
 } };
 /** Gas-limit bounds of the networks measured on an anvil fork of themselves, from the fork's estimates. */
-const FORK_GAS_LIMITS = { mezo: {
-	payWithAuthorization: {
-		floor: 167000n,
-		ceiling: 251000n
+const FORK_GAS_LIMITS = {
+	mezo: {
+		payWithAuthorization: {
+			floor: 167000n,
+			ceiling: 251000n
+		},
+		pay: {
+			floor: 112000n,
+			ceiling: 168000n
+		},
+		payWithPermit: {
+			floor: 161000n,
+			ceiling: 242000n
+		},
+		payNative: {
+			floor: 102000n,
+			ceiling: 153000n
+		},
+		cancel: {
+			floor: 58000n,
+			ceiling: 87000n
+		},
+		cancelBySig: {
+			floor: 67000n,
+			ceiling: 101000n
+		}
 	},
-	pay: {
-		floor: 112000n,
-		ceiling: 168000n
-	},
-	payWithPermit: {
-		floor: 161000n,
-		ceiling: 242000n
-	},
-	payNative: {
-		floor: 102000n,
-		ceiling: 153000n
-	},
-	cancel: {
-		floor: 58000n,
-		ceiling: 87000n
-	},
-	cancelBySig: {
-		floor: 67000n,
-		ceiling: 101000n
+	sepolia: {
+		payWithAuthorization: {
+			floor: 458000n,
+			ceiling: 687000n
+		},
+		pay: {
+			floor: 319000n,
+			ceiling: 479000n
+		},
+		payWithPermit: {
+			floor: 547000n,
+			ceiling: 821000n
+		},
+		payNative: {
+			floor: 359000n,
+			ceiling: 539000n
+		},
+		cancel: {
+			floor: 147000n,
+			ceiling: 221000n
+		},
+		cancelBySig: {
+			floor: 157000n,
+			ceiling: 236000n
+		}
 	}
-} };
+};
 
 //#endregion
 //#region packages/chains/src/define.ts
@@ -23754,6 +23786,20 @@ const MEZO_GAS_TABLE = {
 	provisional: true,
 	evidence: `anvil fork of Mezo testnet at block ${String(GAS_PROFILE_PROVENANCE.mezo.forkBlock)} (hardfork ${GAS_PROFILE_PROVENANCE.mezo.hardfork}), MUSD and native BTC: packages/chains/data/fork-gas-measurements.json`,
 	limits: FORK_GAS_LIMITS.mezo
+};
+/**
+* Gas table of Ethereum Sepolia: eth_estimateGas on an anvil fork of the chain under its own rules (hardfork Amsterdam,
+* whose state-creation gas, EIP-8037, prices every new storage slot near 98,000 gas and the PayLinkV2 deployment near
+* 19.2 million), with Circle USDC and native Sepolia ETH as the chain holds them and the repository's Wallet1271 for an
+* ERC-1271 payee (tools/deploy-page/scripts/sepolia-fork.ts --measure). Ethereum's own schedule before Amsterdam (the
+* snapshot) priced a first payment at about a third of what Sepolia now charges, so its ceilings would refuse every
+* payment and cancellation there.
+*/
+const SEPOLIA_GAS_TABLE = {
+	source: "fork",
+	provisional: true,
+	evidence: `anvil fork of Ethereum Sepolia at block ${String(GAS_PROFILE_PROVENANCE.sepolia.forkBlock)} (hardfork ${GAS_PROFILE_PROVENANCE.sepolia.hardfork}), Circle USDC and native ETH: packages/chains/data/fork-gas-measurements.json`,
+	limits: FORK_GAS_LIMITS.sepolia
 };
 /**
 * Relay timing of the v2 chains until inclusion latency is measured on each (invoice spec §13.3, audit finding
@@ -24127,7 +24173,7 @@ const ethereumSepolia = {
 		}
 	},
 	gasModel: { chargesGasLimit: false },
-	gas: SNAPSHOT_GAS_TABLE,
+	gas: SEPOLIA_GAS_TABLE,
 	relay: DEFAULT_RELAY_TIMING,
 	deployment: recordedDeployment(11155111),
 	v1: null,

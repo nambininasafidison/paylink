@@ -51,7 +51,20 @@ The public endpoint is a pool: some backends keep only recent history (about 10,
 
 `tools/deploy-page/test/sepolia-fork.test.ts` (run with `PAYLINK_FORK_SEPOLIA=1`, commit c574923) forks Sepolia with anvil and: deploys PayLinkV2 through the canonical factory exactly as the deploy kit does, at `0x448e…5082`, verified by the kit and by `tools/verify-deployment`; checks that both tokens match the registry and that the SDK resolves PYUSD's domain without `version()`; routes a code-less payer to self-authorisation, then permit, with no relayer; pays USDC and PYUSD by authorisation and by permit (exact amounts, verified receipts, gas within the registry's bounds); and fails closed on PYUSD's silent no-op for a used nonce. Test balances come from `anvil_dealERC20` on the fork only: nothing is sent to Sepolia.
 
-## 5. Not checked here
+## 5. Gas: Sepolia runs Amsterdam (read 2026-10-22)
+
+Ethereum Sepolia's blocks carry `blockAccessListHash` (EIP-7928) and its node answers `reth/v2.8.0`; anvil forking it reports the hardfork **Amsterdam** (`anvil_nodeInfo`, block 11,968,576). Amsterdam includes EIP-8037 (state creation gas: `CPSB` = 1,530 gas per new state byte; a new storage slot costs 64 × 1,530 = 97,920 gas, a new account 120 × 1,530; code deposit 1,530 gas per byte; the EIP-7825 cap of 2^24 applies to execution gas only, and `tx.gas` may reach 2^32 − 1: ethereum/EIPs `EIPS/eip-8037.md`, read 2026-10-22, status Last Call). So, on the chain itself (C, read here):
+
+| What | Sepolia today | Ethereum's schedule before Amsterdam (the registry's first table) |
+|---|---|---|
+| CREATE2 deployment of PayLinkV2, `eth_estimateGas` of `ethereum-sepolia-rpc.publicnode.com` | **19,249,557** (an `eth_call` with 16,777,216 gas reverts; with 19,922,944 it returns the release address) | 2,717,457 |
+| The same on an anvil fork of Sepolia | 19,240,803 | — |
+| `payWithAuthorization`, first payment (USDC, fork) | 457,705 | 166,954 (ceiling 215,000) |
+| `cancel` (fork) | 146,812 | 57,628 (ceiling 81,000) |
+
+The first gas table and the deploy kit's bounds (Ethereum's anvil profile, Bpo1) would therefore have refused the deployment (`E_GAS_ABOVE_CEILING`, ceiling 4,077,000), every payment and every cancellation on the real chain; the first rehearsals pinned the fork to Prague and could not see it. Since 2026-10-22 the registry's Ethereum Sepolia gas table and the kit's deployment bounds come from `tools/deploy-page/scripts/sepolia-fork.ts --measure` on a fork under the chain's own rules (`packages/chains/data/fork-gas-measurements.json`, profile `sepolia`), and every fork test runs unpinned. Fees stay negligible on Sepolia (base fee 14 wei at block 11,968,600), but the owner's wallet must accept a deployment limit near 21 million gas.
+
+## 6. Not checked here
 
 - Whether a payer's wallet (MetaMask and others) shows PYUSD's permit and authorisation readably: owner's capture run (UNVERIFIED).
 - Faucets: which faucet sent the owner's 20 USDC is not recorded here; Circle's faucet lists Ethereum Sepolia (S). PYUSD faucets did not work for the owner (the owner's report, UNVERIFIED elsewhere).

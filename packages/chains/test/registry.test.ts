@@ -23,6 +23,7 @@ import {
   EMULATED_GAS_LIMITS,
   FORK_GAS_LIMITS,
   MEZO_GAS_TABLE,
+  SEPOLIA_GAS_TABLE,
   RELEASE,
   TX_LOOKUP_RETRY_MS,
   txLookupRetryMs,
@@ -234,9 +235,10 @@ describe("spec §3.4 facts", () => {
     ]);
   });
 
-  it("Monad uses the bounds of its own gas schedule, Mezo those of its fork; the other v2 chains the snapshot (all provisional)", () => {
+  it("Monad uses the bounds of its own gas schedule, Mezo and Ethereum Sepolia those of their forks; the other v2 chains the snapshot (all provisional)", () => {
     for (const chain of registry.chains.filter((c) => c.protocol === "v2")) {
-      const expected = chain.key === "monad" || chain.key === "monad-testnet" ? MONAD_GAS_TABLE : chain.key === "mezo-testnet" ? MEZO_GAS_TABLE : SNAPSHOT_GAS_TABLE;
+      const expected =
+        chain.key === "monad" || chain.key === "monad-testnet" ? MONAD_GAS_TABLE : chain.key === "mezo-testnet" ? MEZO_GAS_TABLE : chain.chainId === 11155111 ? SEPOLIA_GAS_TABLE : SNAPSHOT_GAS_TABLE;
       expect(chain.gas).toBe(expected);
       expect(chain.gas?.provisional).toBe(true);
     }
@@ -245,6 +247,11 @@ describe("spec §3.4 facts", () => {
     expect(MEZO_GAS_TABLE).toMatchObject({ source: "fork", limits: FORK_GAS_LIMITS.mezo });
     expect(MEZO_GAS_TABLE.evidence).toContain("anvil fork of Mezo testnet at block");
     expect(SNAPSHOT_GAS_TABLE).toMatchObject({ source: "snapshot", limits: SNAPSHOT_GAS_LIMITS });
+    // Sepolia's first payment and cancellation are priced under Amsterdam (EIP-8037), far above the snapshot's ceilings.
+    expect(SEPOLIA_GAS_TABLE).toMatchObject({ source: "fork", limits: FORK_GAS_LIMITS.sepolia });
+    expect(SEPOLIA_GAS_TABLE.evidence).toContain("anvil fork of Ethereum Sepolia at block");
+    expect(SEPOLIA_GAS_TABLE.limits.payWithAuthorization.floor).toBeGreaterThan(SNAPSHOT_GAS_LIMITS.payWithAuthorization.ceiling);
+    expect(SEPOLIA_GAS_TABLE.limits.cancel.floor).toBeGreaterThan(SNAPSHOT_GAS_LIMITS.cancel.ceiling);
   });
 
   it("every v2 chain is covered by exactly one measured anvil profile", () => {
@@ -258,6 +265,9 @@ describe("spec §3.4 facts", () => {
     // Mezo testnet is measured on a fork of itself, which supersedes the London emulation for it.
     expect(GAS_MEASUREMENTS.mezo).toMatchObject({ chainId: 31611, appliesTo: [31611], fork: { rpc: "https://rpc.test.mezo.org" } });
     expect(GAS_MEASUREMENTS.london.appliesTo).toEqual([]);
+    // So is Ethereum Sepolia, which leaves the Ethereum emulation to Arbitrum Sepolia.
+    expect(GAS_MEASUREMENTS.sepolia).toMatchObject({ chainId: 11155111, appliesTo: [11155111], hardfork: "Amsterdam", fork: { rpc: "https://ethereum-sepolia-rpc.publicnode.com" } });
+    expect(GAS_MEASUREMENTS.ethereum.appliesTo).toEqual([421614]);
   });
 
   it("has a deployment exactly where protocol/deployments records one", () => {

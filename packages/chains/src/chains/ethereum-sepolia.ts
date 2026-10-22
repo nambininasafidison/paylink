@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { DEFAULT_RELAY_TIMING, recordedDeployment, SNAPSHOT_GAS_TABLE } from "../define.ts";
+import { DEFAULT_RELAY_TIMING, recordedDeployment, SEPOLIA_GAS_TABLE } from "../define.ts";
 import type { ChainDefinition } from "../types.ts";
 
 /**
@@ -75,9 +75,9 @@ export const ethereumSepolia: ChainDefinition = {
     multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11", confidence: "C", note: "Code present, checked live." },
   },
   gasModel: { chargesGasLimit: false },
-  // Ethereum's gas schedule, so the snapshot bounds, checked against both tokens on an anvil fork of Sepolia
-  // (tools/deploy-page/scripts/sepolia-fork.ts).
-  gas: SNAPSHOT_GAS_TABLE,
+  // Measured on an anvil fork of Sepolia under its own rules (Amsterdam, EIP-8037 state gas), not Ethereum's schedule
+  // before it: tools/deploy-page/scripts/sepolia-fork.ts --measure, both tokens then rehearsed within these bounds.
+  gas: SEPOLIA_GAS_TABLE,
   relay: DEFAULT_RELAY_TIMING,
   deployment: recordedDeployment(11155111),
   v1: null,

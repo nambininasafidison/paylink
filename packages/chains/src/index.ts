@@ -9,7 +9,7 @@ import { createRegistry } from "./registry.ts";
 import type { Registry } from "./registry.ts";
 
 export { arbitrumSepolia, arc, baseSepolia, CHAIN_DEFINITIONS, ethereumSepolia, mezoTestnet, monad, monadTestnet } from "./chains/index.ts";
-export { DEFAULT_RELAY_TIMING, deploymentFromRecord, MEZO_GAS_TABLE, MONAD_GAS_TABLE, nativeToken, SNAPSHOT_GAS_TABLE } from "./define.ts";
+export { DEFAULT_RELAY_TIMING, deploymentFromRecord, MEZO_GAS_TABLE, MONAD_GAS_TABLE, nativeToken, SEPOLIA_GAS_TABLE, SNAPSHOT_GAS_TABLE } from "./define.ts";
 export { deployGasFor } from "./deploy-gas.ts";
 export { explorerAddressUrl, explorerBlockUrl, explorerTxUrl } from "./explorers.ts";
 export { DEPLOYMENT_RECORDS } from "./generated/deployments.ts";
