@@ -1182,7 +1182,8 @@
     "paypal.till.verified",
     "paypal.till.noTwin",
     "paypal.till.unreachable",
-    "paypal.till.noApi"
+    "paypal.till.noApi",
+    "paypal.banner.sandbox"
   ],
   "pendingFormats": [
     "src/format.ts MG_MONTHS, MG_MONTHS_SHORT, MG_WEEKDAYS: CLDR mg names on fr-MG date patterns, 24-hour clock",

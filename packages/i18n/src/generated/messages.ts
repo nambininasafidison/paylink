@@ -1186,7 +1186,8 @@ export type MessageKey =
   | "paypal.till.verified"
   | "paypal.till.noTwin"
   | "paypal.till.unreachable"
-  | "paypal.till.noApi";
+  | "paypal.till.noApi"
+  | "paypal.banner.sandbox";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -2371,6 +2372,7 @@ export interface MessageParams {
   readonly "paypal.till.noTwin": never;
   readonly "paypal.till.unreachable": never;
   readonly "paypal.till.noApi": never;
+  readonly "paypal.banner.sandbox": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -2886,4 +2888,5 @@ export type EditionKey =
   | "paypal.till.verified"
   | "paypal.till.noTwin"
   | "paypal.till.unreachable"
-  | "paypal.till.noApi";
+  | "paypal.till.noApi"
+  | "paypal.banner.sandbox";

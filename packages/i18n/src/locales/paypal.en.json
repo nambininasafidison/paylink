@@ -323,5 +323,6 @@
   "paypal.till.verified": "Verified with PayPal's own record.",
   "paypal.till.noTwin": "This invoice has no PayPal twin: the till watches the chain.",
   "paypal.till.unreachable": "PayPal can't be read right now; trying again. The chain is still watched.",
-  "paypal.till.noApi": "PayPal is not watched: this edition's API is not configured here. The chain is watched."
+  "paypal.till.noApi": "PayPal is not watched: this edition's API is not configured here. The chain is watched.",
+  "paypal.banner.sandbox": "PayPal sandbox and testnets only. No real money."
 }

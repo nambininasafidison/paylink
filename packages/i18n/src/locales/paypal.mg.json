@@ -323,5 +323,6 @@
   "paypal.till.verified": "Nohamarinina tamin'ny firaketana an'ny PayPal mihitsy.",
   "paypal.till.noTwin": "Tsy manana kambana PayPal ity faktiora ity: ny rojo no arahin'ny kaisy maso.",
   "paypal.till.unreachable": "Tsy azo vakiana amin'izao fotoana izao ny PayPal; andramana indray. Mbola arahi-maso ny rojo.",
-  "paypal.till.noApi": "Tsy arahi-maso ny PayPal: tsy voaomana eto ny API an'ity fanontana ity. Arahi-maso ny rojo."
+  "paypal.till.noApi": "Tsy arahi-maso ny PayPal: tsy voaomana eto ny API an'ity fanontana ity. Arahi-maso ny rojo.",
+  "paypal.banner.sandbox": "Sandbox PayPal sy tambajotra fitsapana ihany. Tsy misy vola tena izy."
 }
