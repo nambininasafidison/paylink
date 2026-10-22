@@ -43,13 +43,8 @@ export const DESK_LIMITS: DeskLimits = { turns: 6, toolCalls: 12, proposals: 5, 
 
 type Assistant = DeskResponse["assistant"];
 
-const isLocale = (value: unknown): value is Locale => value === "en" || value === "fr" || value === "mg";
-
-/** The payee's language, when the sweep passes one (a later field of the toolbox; English otherwise). */
-function localeOf(toolbox: DeskToolbox): Locale {
-  const value = (toolbox as unknown as Readonly<Record<string, unknown>>)["locale"];
-  return isLocale(value) ? value : "en";
-}
+/** The payee's language, as the sweep request named it (English otherwise). */
+const localeOf = (toolbox: DeskToolbox): Locale => toolbox.locale ?? "en";
 
 /** What one run did, for the log line and the tests. */
 export interface DeskRunReport {

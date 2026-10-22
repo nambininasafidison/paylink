@@ -14,7 +14,7 @@
  *
  * Owner: reconciler workstream.
  */
-import type { Address, AlertView, AutoRecordView, DeskResponse, ExactValue, InvoiceKey, ProposalView, Rail } from "@paylink/api-contract";
+import type { Address, AlertView, AutoRecordView, DeskResponse, ExactValue, InvoiceKey, Locale, ProposalView, Rail } from "@paylink/api-contract";
 import { PROPOSAL_KINDS } from "@paylink/api-contract";
 import { APPROVAL_TTL_MS } from "../approvals/types.ts";
 import type { ApiServices } from "../core/services.ts";
@@ -45,6 +45,8 @@ export type ProposeOutcome =
 /** The tools the desk assistant gets from code: read the fence, propose inside it. Nothing else reaches an effect. */
 export interface DeskToolbox {
   readonly payee: Address;
+  /** The payee's interface language (the sweep request's `locale`): the assistant explains and drafts in it. */
+  readonly locale?: Locale;
   /** The payee's open twins, as of this sweep (identifiers, statuses and amounts only). */
   readonly twins: readonly TwinRecord[];
   allowedActions(key: string): Promise<readonly AllowedAction[]>;
@@ -204,7 +206,13 @@ export async function deskView(services: ApiServices, payee: Address, now: numbe
  * "Check my invoices" (`POST /v1/desk/sweep`): the payee's open twins, least recently checked first, at most 20 (the
  * Free plan's subrequest budget, §7.5), read with one chain multicall and one P5 each; then the assistant once.
  */
-export async function sweep(services: ApiServices, payee: Address, now: number, agent: DeskAgent | null): Promise<DeskResponse & { readonly sweep: { readonly checked: number; readonly remaining: number } }> {
+export async function sweep(
+  services: ApiServices,
+  payee: Address,
+  now: number,
+  agent: DeskAgent | null,
+  options: { readonly locale?: Locale } = {},
+): Promise<DeskResponse & { readonly sweep: { readonly checked: number; readonly remaining: number } }> {
   await chargeQuota(services, payee, "sweeps", now);
   const store: PayeeStore = services.stores.payee(payee);
   const open = [...(await store.listTwins({ open: true }))].sort((a, b) => a.checkedAt - b.checkedAt);
@@ -224,6 +232,7 @@ export async function sweep(services: ApiServices, payee: Address, now: number, 
         services,
         {
           payee,
+          ...(options.locale === undefined ? {} : { locale: options.locale }),
           twins,
           allowedActions: async (key) => await allowedActions(services, payee, key),
           propose: async (proposal) => await proposeFromAssistant(services, payee, proposal, now),

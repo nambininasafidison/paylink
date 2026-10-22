@@ -156,7 +156,7 @@ async function loadDesk(app: App, ui: PageUi, section: HTMLElement, foot: HTMLEl
   const session = async <T>(work: (token: string) => Promise<T>): Promise<T> => await withSession(app, api, account, work);
   let desk: DeskResponse | DeskSweepResponse;
   try {
-    desk = await session(async (token) => (sweep ? await postSweep(api, token) : await getDesk(api, token)));
+    desk = await session(async (token) => (sweep ? await postSweep(api, token, app.locale) : await getDesk(api, token)));
   } catch (error) {
     ui.plate(t("paypal.desk.plate"), "err");
     section.setAttribute("data-desk", "error");

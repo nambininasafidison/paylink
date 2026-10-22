@@ -9,8 +9,10 @@ import type { ApiProblem, ApproveResponse, CheckResponse, DeskResponse, DeskSwee
 import { privateKeyToAccount } from "viem/accounts";
 import type { PrivateKeyAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../../src/core/app.ts";
+import { createApp, HANDLER_MAPS } from "../../src/core/app.ts";
+import type { DeskToolbox } from "../../src/reconciler/desk.ts";
 import { registerTwin } from "../../src/reconciler/engine.ts";
+import { createDeskHandlers, deskHandlers } from "../../src/routes/desk.ts";
 import { T0, TEST_ORIGIN } from "../helpers.ts";
 import { KEY, TX } from "./fixtures.ts";
 import { world } from "./world.ts";
@@ -98,5 +100,25 @@ describe("POST /v1/check", () => {
     expect((await app.request("/v1/check", post({ text: "" }, auth))).status).toBe(400);
     expect((await app.request("/v1/check", post({ text: "x".repeat(4001) }, auth))).status).toBe(400);
     expect((await app.request("/v1/check", post({ text: "x" }, {}))).status).toBe(401);
+  });
+});
+
+describe("POST /v1/desk/sweep: the payee's language", () => {
+  it("reaches the assistant from the body; an empty body means English; any other value is 400", async () => {
+    const { w, auth } = await setup();
+    const seen: (DeskToolbox["locale"] | "none")[] = [];
+    const spy = createDeskHandlers((_services, toolbox) => {
+      seen.push(toolbox.locale ?? "none");
+      return Promise.resolve({ available: true, reason: null });
+    });
+    const app = createApp(w.services, HANDLER_MAPS.map((map) => (map === deskHandlers ? spy : map)));
+    expect((await app.request("/v1/desk/sweep", post({ locale: "fr" }, auth))).status).toBe(200);
+    expect((await app.request("/v1/desk/sweep", { method: "POST", headers: auth })).status).toBe(200);
+    expect((await app.request("/v1/desk/sweep", post({}, auth))).status).toBe(200);
+    expect(seen).toEqual(["fr", "none", "none"]);
+    const bad = await app.request("/v1/desk/sweep", post({ locale: "de" }, auth));
+    expect(bad.status).toBe(400);
+    expect(((await bad.json()) as ApiProblem).code).toBe("invalid-request");
+    expect((await app.request("/v1/desk/sweep", { method: "POST", headers: { ...auth, "content-type": "text/plain" }, body: "fr" })).status).toBe(415);
   });
 });

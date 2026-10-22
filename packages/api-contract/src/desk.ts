@@ -131,6 +131,14 @@ export interface DeskResponse {
   readonly assistant: { readonly available: boolean; readonly reason: "disabled" | "resting" | "error" | null };
 }
 
+/**
+ * `POST /v1/desk/sweep` ("Check my invoices"): the payee's interface language, in which the assistant explains and
+ * drafts (English when absent). The body may be empty.
+ */
+export interface DeskSweepRequest {
+  readonly locale?: Locale;
+}
+
 /** `POST /v1/desk/sweep` ("Check my invoices"): the desk after every open twin was read again (at most 20 per sweep). */
 export type DeskSweepResponse = DeskResponse & {
   readonly sweep: { readonly checked: number; readonly remaining: number };

@@ -7,7 +7,7 @@
  * | Route | Does |
  * |---|---|
  * | GET /v1/desk | `deskView`: open and recent proposals with a fresh approval token each, auto-records, alerts |
- * | POST /v1/desk/sweep | `sweep`: reconcile the open twins (≤ 20), then the desk assistant once, if one is wired |
+ * | POST /v1/desk/sweep | `sweep`: reconcile the open twins (≤ 20), then the desk assistant once, in the body's `locale` |
  * | POST /v1/desk/:id/approve | `approveProposal`: hash and token, single use, fresh read, fence, effect |
  * | POST /v1/desk/:id/reject | `rejectProposal` |
  * | POST /v1/desk/:id/undo | `undoRecord`: P7 within 24 hours of an automatic record (`id` = `r_<payment id>`) |
@@ -20,13 +20,16 @@
 import type { Address } from "@paylink/api-contract";
 import * as z from "zod";
 import { deskAgent } from "../ai/desk/agent.ts";
-import { json, parseBody, readJson } from "../core/http.ts";
+import { json, parseBody, readJson, readOptionalJson } from "../core/http.ts";
 import { ProblemError } from "../core/problem.ts";
 import { assistantState, deskView, sweep } from "../reconciler/desk.ts";
 import type { DeskAgent } from "../reconciler/desk.ts";
 import { approveProposal, rejectProposal, undoRecord } from "../reconciler/executor.ts";
 import type { HandlerArgs, RouteHandlers } from "./types.ts";
 import { DEFAULT_BODY_LIMIT } from "./types.ts";
+
+/** `POST /v1/desk/sweep`'s body: the payee's interface language; an empty body is the same as `{}`. */
+export const SweepRequestSchema = z.strictObject({ locale: z.enum(["en", "fr", "mg"]).optional() });
 
 export const ApproveRequestSchema = z.strictObject({
   hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/u, "a 32-byte hash"),
@@ -47,7 +50,11 @@ const idOf = (args: HandlerArgs): string => args.c.req.param("id") ?? "";
 export function createDeskHandlers(agent: DeskAgent | null = null): RouteHandlers {
   return {
     "desk.get": async (args) => json(args.c, await deskView(args.services, payeeOf(args), args.now, assistantState(args.services, agent))),
-    "desk.sweep": async (args) => json(args.c, await sweep(args.services, payeeOf(args), args.now, agent)),
+    "desk.sweep": async (args) => {
+      const payee = payeeOf(args);
+      const body = parseBody(SweepRequestSchema, await readOptionalJson(args.c, DEFAULT_BODY_LIMIT));
+      return json(args.c, await sweep(args.services, payee, args.now, agent, body.locale === undefined ? {} : { locale: body.locale }));
+    },
     "desk.approve": async (args) => {
       const body = parseBody(ApproveRequestSchema, await readJson(args.c, DEFAULT_BODY_LIMIT));
       return json(args.c, await approveProposal(args.services, payeeOf(args), idOf(args), body, args.now));

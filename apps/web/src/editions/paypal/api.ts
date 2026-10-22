@@ -21,6 +21,7 @@ import type {
   CheckRequest,
   CheckResponse,
   DeskResponse,
+  DeskSweepRequest,
   DeskSweepResponse,
   DraftRequest,
   DraftResponse,
@@ -344,8 +345,10 @@ export async function getDesk(api: PaypalApi, token: string): Promise<DeskRespon
   return checked(deskShape(), body, status) as DeskResponse;
 }
 
-export async function postSweep(api: PaypalApi, token: string): Promise<DeskSweepResponse> {
-  const { status, body } = await api.call({ route: "desk.sweep", token, timeoutMs: WRITE_TIMEOUT_MS });
+/** `POST /v1/desk/sweep` in the payee's interface `locale`: the assistant explains and drafts in it. */
+export async function postSweep(api: PaypalApi, token: string, locale: DeskSweepRequest["locale"]): Promise<DeskSweepResponse> {
+  const request: DeskSweepRequest = locale === undefined ? {} : { locale };
+  const { status, body } = await api.call({ route: "desk.sweep", token, body: request, timeoutMs: WRITE_TIMEOUT_MS });
   return checked(sweepShape(), body, status) as DeskSweepResponse;
 }
 

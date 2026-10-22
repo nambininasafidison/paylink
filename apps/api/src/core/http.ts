@@ -61,6 +61,23 @@ export async function readJson(c: Context, limit: number): Promise<unknown> {
   }
 }
 
+/** Like `readJson`, but an empty body (none, or zero bytes) reads as `{}` whatever its media type. */
+export async function readOptionalJson(c: Context, limit: number): Promise<unknown> {
+  const text = await readText(c, limit);
+  if (text === "") {
+    return {};
+  }
+  const type = c.req.header("content-type") ?? "";
+  if (!/^application\/json(?:\s*;|$)/iu.test(type)) {
+    throw new ProblemError("unsupported-media-type", "send the body as application/json");
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new ProblemError("invalid-json", "the body is not valid JSON");
+  }
+}
+
 /** Validates `value` with `schema`; the first five issues are reported as JSON paths. */
 export function parseBody<S extends z.ZodType>(schema: S, value: unknown): z.output<S> {
   const result = schema.safeParse(value);
