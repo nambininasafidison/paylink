@@ -70,10 +70,11 @@ describe("GET /v1/health", () => {
     expect(doc).toMatchObject({ service: "paylink-api", version: PACKAGE.version, contract: API_CONTRACT_VERSION, paypalEnvironment: "sandbox", time: new Date(T0).toISOString() });
     expect(API_VERSION).toBe(PACKAGE.version);
     expect(doc.rows.map((r) => r.id)).toEqual(["paypal", "webhook", "assistant", "chain", "store"]);
-    // The scaffold: nothing is implemented, and the chain has no PayLinkV2 deployment yet.
+    // The chain has no PayLinkV2 deployment yet (decision D-CHAIN), so the document is degraded; the in-memory stores
+    // answer, so the store row is readable.
     expect(doc.status).toBe("degraded");
     expect(doc.rows.find((r) => r.id === "chain")).toMatchObject({ state: "degraded", code: "not-deployed", values: { chainId: 11155111 } });
-    expect(doc.rows.find((r) => r.id === "store")).toMatchObject({ state: "unknown", code: "unreadable" });
+    expect(doc.rows.find((r) => r.id === "store")).toMatchObject({ state: "ok", code: "readable" });
   });
 
   it("reports missing PayPal credentials and webhook id without revealing anything", async () => {

@@ -407,7 +407,8 @@ describe("an approval interrupted between the tap and the effect", () => {
     w.cancelOnChain(KEY);
     await reconcileNow(w);
     const cancel = await openOf(w, "cancel_paypal");
-    (w.services.paypal as { cancelInvoice: () => Promise<void> }).cancelInvoice = () => Promise.reject(new Error("runtime fault"));
+    const faulty: Pick<typeof w.services.paypal, "cancelInvoice"> = { cancelInvoice: () => Promise.reject(new Error("runtime fault")) };
+    Object.assign(w.services.paypal, faulty);
     await expect(approve(w, cancel)).rejects.toThrow();
     expect((await store(w).getProposal(cancel.id))?.state).toBe("open");
     // A crash after the compare-and-set leaves it approving: the reconciler releases it later.
