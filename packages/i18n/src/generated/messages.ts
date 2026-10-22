@@ -870,17 +870,310 @@ export type MessageKey =
   | "paypal.desk.lede"
   | "paypal.desk.plate"
   | "paypal.desk.head"
-  | "paypal.desk.coming"
-  | "paypal.desk.twin"
-  | "paypal.desk.check"
-  | "paypal.desk.approve"
   | "paypal.desk.api"
   | "paypal.desk.apiOk"
   | "paypal.desk.apiNone"
   | "paypal.desk.apiDown"
-  | "paypal.notes.sandbox"
+  | "paypal.desk.noApi"
+  | "paypal.desk.connect"
+  | "paypal.desk.reading"
+  | "paypal.desk.sweeping"
+  | "paypal.desk.retry"
+  | "paypal.desk.sweep"
+  | "paypal.desk.checked"
+  | "paypal.desk.neverChecked"
+  | "paypal.desk.swept.one"
+  | "paypal.desk.swept.other"
+  | "paypal.desk.alerts"
+  | "paypal.desk.proposals"
+  | "paypal.desk.noProposals"
+  | "paypal.desk.records"
   | "paypal.notes.title"
-  | "paypal.notes.sandboxHead";
+  | "paypal.notes.sandboxHead"
+  | "paypal.notes.sandbox"
+  | "paypal.notes.fenceHead"
+  | "paypal.notes.fence"
+  | "paypal.notes.truthHead"
+  | "paypal.notes.truth"
+  | "paypal.session.open"
+  | "paypal.session.why"
+  | "paypal.session.signing"
+  | "paypal.session.needWallet"
+  | "paypal.session.forget"
+  | "paypal.state.open"
+  | "paypal.state.approving"
+  | "paypal.state.done"
+  | "paypal.state.stale"
+  | "paypal.state.rejected"
+  | "paypal.state.expired"
+  | "paypal.origin.assistant"
+  | "paypal.origin.reconciler"
+  | "paypal.exact.title"
+  | "paypal.exact.invoice"
+  | "paypal.exact.amount"
+  | "paypal.exact.action"
+  | "paypal.exact.effect"
+  | "paypal.exact.rail"
+  | "paypal.exact.client"
+  | "paypal.exact.due"
+  | "paypal.exact.transaction"
+  | "paypal.kind.sendReminder"
+  | "paypal.kind.shareReminder"
+  | "paypal.kind.cancelPaylink"
+  | "paypal.kind.cancelPaypal"
+  | "paypal.kind.record"
+  | "paypal.effect.reminder"
+  | "paypal.effect.share"
+  | "paypal.effect.closeToken"
+  | "paypal.effect.closePaypal"
+  | "paypal.effect.record"
+  | "paypal.approve.sendReminder"
+  | "paypal.approve.share"
+  | "paypal.approve.cancelPaylink"
+  | "paypal.approve.cancelPaypal"
+  | "paypal.approve.record"
+  | "paypal.reject"
+  | "paypal.readAgain"
+  | "paypal.approving"
+  | "paypal.approved"
+  | "paypal.rejected"
+  | "paypal.reminder.standard"
+  | "paypal.cancel.signing"
+  | "paypal.cancel.notHere"
+  | "paypal.cancel.done"
+  | "paypal.cancel.waiting"
+  | "paypal.share.ready"
+  | "paypal.share.open"
+  | "paypal.share.copy"
+  | "paypal.share.copied"
+  | "paypal.share.reminder"
+  | "paypal.share.reminderLink"
+  | "paypal.assistant.pill"
+  | "paypal.assistant.written"
+  | "paypal.assistant.grounded"
+  | "paypal.assistant.template"
+  | "paypal.assistant.on"
+  | "paypal.assistant.off"
+  | "paypal.assistant.resting"
+  | "paypal.assistant.error"
+  | "paypal.assistant.restingNote"
+  | "paypal.assistant.offNote"
+  | "paypal.reason.handsOff"
+  | "paypal.reason.open"
+  | "paypal.reason.reminderDue"
+  | "paypal.reason.reminder3Days"
+  | "paypal.reason.shareReminder"
+  | "paypal.reason.paidOnPaypal"
+  | "paypal.reason.markedPaid"
+  | "paypal.reason.paidOnChain"
+  | "paypal.reason.stillOpen"
+  | "paypal.reason.undone"
+  | "paypal.reason.paidTwice"
+  | "paypal.reason.inFlight"
+  | "paypal.reason.confirming"
+  | "paypal.reason.paypalCancelled"
+  | "paypal.reason.chainCancelled"
+  | "paypal.reason.chainExpired"
+  | "paypal.reason.closedPaypal"
+  | "paypal.reason.closedChain"
+  | "paypal.reason.closedCancelled"
+  | "paypal.reason.refunded"
+  | "paypal.reason.other"
+  | "paypal.alert.paidTwicePill"
+  | "paypal.alert.handsOffPill"
+  | "paypal.alert.paidTwice"
+  | "paypal.alert.guide1"
+  | "paypal.alert.guideSend"
+  | "paypal.alert.guide2"
+  | "paypal.alert.guide3"
+  | "paypal.alert.handsOffNote"
+  | "paypal.alert.raised"
+  | "paypal.alert.paypalUnreadable"
+  | "paypal.alert.chainUnreadable"
+  | "paypal.alert.notDeployed"
+  | "paypal.alert.reference"
+  | "paypal.alert.currency"
+  | "paypal.alert.amount"
+  | "paypal.alert.paidAmount"
+  | "paypal.alert.statusUnknown"
+  | "paypal.alert.scheduled"
+  | "paypal.alert.draft"
+  | "paypal.alert.noTransactions"
+  | "paypal.alert.openWithPayments"
+  | "paypal.alert.unverified"
+  | "paypal.alert.chainMismatch"
+  | "paypal.alert.other"
+  | "paypal.record.pill"
+  | "paypal.record.undonePill"
+  | "paypal.record.title"
+  | "paypal.record.payment"
+  | "paypal.record.when"
+  | "paypal.record.note"
+  | "paypal.record.undoLeft.one"
+  | "paypal.record.undoLeft.other"
+  | "paypal.record.undone"
+  | "paypal.record.undoneNote"
+  | "paypal.record.closedNote"
+  | "paypal.check.head"
+  | "paypal.check.hint"
+  | "paypal.check.label"
+  | "paypal.check.placeholder"
+  | "paypal.check.key"
+  | "paypal.check.empty"
+  | "paypal.check.checking"
+  | "paypal.check.cannot"
+  | "paypal.check.kicker"
+  | "paypal.check.sourcePaypal"
+  | "paypal.check.sourceChain"
+  | "paypal.check.sourceChecked"
+  | "paypal.check.sourceDown"
+  | "paypal.check.notPaid"
+  | "paypal.check.paidOn"
+  | "paypal.check.link"
+  | "paypal.check.linkKnown"
+  | "paypal.check.linkUnknown"
+  | "paypal.check.received"
+  | "paypal.check.receivedText"
+  | "paypal.check.notReceived"
+  | "paypal.check.notReceivedText"
+  | "paypal.check.partly"
+  | "paypal.check.partlyText"
+  | "paypal.check.unavailable"
+  | "paypal.check.unavailableText"
+  | "paypal.check.basis"
+  | "paypal.ai.key"
+  | "paypal.ai.keyHint"
+  | "paypal.ai.sheetTitle"
+  | "paypal.ai.close"
+  | "paypal.ai.sheetLede"
+  | "paypal.ai.label"
+  | "paypal.ai.placeholder"
+  | "paypal.ai.count"
+  | "paypal.ai.privacy"
+  | "paypal.ai.draft"
+  | "paypal.ai.manual"
+  | "paypal.ai.empty"
+  | "paypal.ai.drafting"
+  | "paypal.ai.pill"
+  | "paypal.ai.model"
+  | "paypal.ai.draftTitle"
+  | "paypal.ai.amount"
+  | "paypal.ai.asWritten"
+  | "paypal.ai.what"
+  | "paypal.ai.client"
+  | "paypal.ai.due"
+  | "paypal.ai.language"
+  | "paypal.ai.none"
+  | "paypal.ai.questions"
+  | "paypal.ai.q.amountMissing"
+  | "paypal.ai.q.amountAmbiguous"
+  | "paypal.ai.q.severalAmounts"
+  | "paypal.ai.q.currency"
+  | "paypal.ai.q.dueUnclear"
+  | "paypal.ai.q.duePast"
+  | "paypal.ai.q.dueFar"
+  | "paypal.ai.q.payeeIgnored"
+  | "paypal.ai.q.other"
+  | "paypal.ai.checkNote"
+  | "paypal.ai.lowConfidence"
+  | "paypal.ai.use"
+  | "paypal.ai.resting"
+  | "paypal.ai.restingText"
+  | "paypal.ai.unavailable"
+  | "paypal.ai.unavailableText"
+  | "paypal.ai.filled"
+  | "paypal.ai.filledNoAmount"
+  | "paypal.twin.head"
+  | "paypal.twin.lede"
+  | "paypal.twin.name"
+  | "paypal.twin.email"
+  | "paypal.twin.emailHint"
+  | "paypal.twin.emailInvalid"
+  | "paypal.twin.due"
+  | "paypal.twin.make"
+  | "paypal.twin.retry"
+  | "paypal.twin.creating"
+  | "paypal.twin.created"
+  | "paypal.twin.createdNote"
+  | "paypal.twin.unavailable"
+  | "paypal.twin.handsOff"
+  | "paypal.twin.noApi"
+  | "paypal.twin.readoutKicker"
+  | "paypal.twin.status"
+  | "paypal.twin.amount"
+  | "paypal.twin.checked"
+  | "paypal.twin.ineligible.chain"
+  | "paypal.twin.ineligible.open"
+  | "paypal.twin.ineligible.several"
+  | "paypal.twin.ineligible.cents"
+  | "paypal.twin.ineligible.token"
+  | "paypal.rails.head"
+  | "paypal.rails.payPaypal"
+  | "paypal.rails.paypalNote"
+  | "paypal.rails.or"
+  | "paypal.rails.withheldHead"
+  | "paypal.rails.withheld"
+  | "paypal.rails.pendingHead"
+  | "paypal.rails.pending"
+  | "paypal.rails.paidHead"
+  | "paypal.rails.paid"
+  | "paypal.rails.paidConfirm"
+  | "paypal.rails.pausedHead"
+  | "paypal.rails.paused"
+  | "paypal.rails.frozenHead"
+  | "paypal.rails.frozen"
+  | "paypal.ledger.paidOn"
+  | "paypal.ledger.twin"
+  | "paypal.status.api"
+  | "paypal.status.apiOk"
+  | "paypal.status.paypal"
+  | "paypal.status.webhook"
+  | "paypal.status.assistant"
+  | "paypal.status.store"
+  | "paypal.status.notConfigured"
+  | "paypal.status.fake"
+  | "paypal.status.notReadYet"
+  | "paypal.status.lastGet"
+  | "paypal.status.noWebhookYet"
+  | "paypal.status.lastWebhook"
+  | "paypal.status.assistantOff"
+  | "paypal.status.model"
+  | "paypal.status.deployed"
+  | "paypal.status.notDeployed"
+  | "paypal.status.storeOk"
+  | "paypal.status.storeCron"
+  | "paypal.status.storeDown"
+  | "paypal.status.state.ok"
+  | "paypal.status.state.degraded"
+  | "paypal.status.state.down"
+  | "paypal.status.state.unknown"
+  | "paypal.status.state.notConfigured"
+  | "paypal.error.network"
+  | "paypal.error.invalid"
+  | "paypal.error.refused"
+  | "paypal.error.tooLong"
+  | "paypal.error.session"
+  | "paypal.error.forbidden"
+  | "paypal.error.origin"
+  | "paypal.error.notFound"
+  | "paypal.error.stale"
+  | "paypal.error.conflict"
+  | "paypal.error.answered"
+  | "paypal.error.undone"
+  | "paypal.error.undoExpired"
+  | "paypal.error.busy"
+  | "paypal.error.scheduled"
+  | "paypal.error.twinExpired"
+  | "paypal.error.dueDate"
+  | "paypal.error.clock"
+  | "paypal.error.rate"
+  | "paypal.error.quota"
+  | "paypal.error.paypalRejected"
+  | "paypal.error.paypalDown"
+  | "paypal.error.chainDown"
+  | "paypal.error.assistant"
+  | "paypal.error.notYet"
+  | "paypal.error.internal";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1748,17 +2041,310 @@ export interface MessageParams {
   readonly "paypal.desk.lede": never;
   readonly "paypal.desk.plate": never;
   readonly "paypal.desk.head": never;
-  readonly "paypal.desk.coming": never;
-  readonly "paypal.desk.twin": never;
-  readonly "paypal.desk.check": never;
-  readonly "paypal.desk.approve": never;
   readonly "paypal.desk.api": never;
   readonly "paypal.desk.apiOk": never;
   readonly "paypal.desk.apiNone": never;
   readonly "paypal.desk.apiDown": never;
-  readonly "paypal.notes.sandbox": never;
+  readonly "paypal.desk.noApi": never;
+  readonly "paypal.desk.connect": never;
+  readonly "paypal.desk.reading": never;
+  readonly "paypal.desk.sweeping": never;
+  readonly "paypal.desk.retry": never;
+  readonly "paypal.desk.sweep": never;
+  readonly "paypal.desk.checked": { readonly time: ParamValue };
+  readonly "paypal.desk.neverChecked": never;
+  readonly "paypal.desk.swept.one": { readonly count: ParamValue; readonly remaining: ParamValue };
+  readonly "paypal.desk.swept.other": { readonly count: ParamValue; readonly remaining: ParamValue };
+  readonly "paypal.desk.alerts": never;
+  readonly "paypal.desk.proposals": never;
+  readonly "paypal.desk.noProposals": never;
+  readonly "paypal.desk.records": never;
   readonly "paypal.notes.title": never;
   readonly "paypal.notes.sandboxHead": never;
+  readonly "paypal.notes.sandbox": never;
+  readonly "paypal.notes.fenceHead": never;
+  readonly "paypal.notes.fence": never;
+  readonly "paypal.notes.truthHead": never;
+  readonly "paypal.notes.truth": never;
+  readonly "paypal.session.open": never;
+  readonly "paypal.session.why": never;
+  readonly "paypal.session.signing": never;
+  readonly "paypal.session.needWallet": never;
+  readonly "paypal.session.forget": never;
+  readonly "paypal.state.open": never;
+  readonly "paypal.state.approving": never;
+  readonly "paypal.state.done": never;
+  readonly "paypal.state.stale": never;
+  readonly "paypal.state.rejected": never;
+  readonly "paypal.state.expired": never;
+  readonly "paypal.origin.assistant": never;
+  readonly "paypal.origin.reconciler": never;
+  readonly "paypal.exact.title": never;
+  readonly "paypal.exact.invoice": never;
+  readonly "paypal.exact.amount": never;
+  readonly "paypal.exact.action": never;
+  readonly "paypal.exact.effect": never;
+  readonly "paypal.exact.rail": never;
+  readonly "paypal.exact.client": never;
+  readonly "paypal.exact.due": never;
+  readonly "paypal.exact.transaction": never;
+  readonly "paypal.kind.sendReminder": never;
+  readonly "paypal.kind.shareReminder": never;
+  readonly "paypal.kind.cancelPaylink": never;
+  readonly "paypal.kind.cancelPaypal": never;
+  readonly "paypal.kind.record": never;
+  readonly "paypal.effect.reminder": never;
+  readonly "paypal.effect.share": never;
+  readonly "paypal.effect.closeToken": never;
+  readonly "paypal.effect.closePaypal": never;
+  readonly "paypal.effect.record": never;
+  readonly "paypal.approve.sendReminder": never;
+  readonly "paypal.approve.share": never;
+  readonly "paypal.approve.cancelPaylink": never;
+  readonly "paypal.approve.cancelPaypal": never;
+  readonly "paypal.approve.record": never;
+  readonly "paypal.reject": never;
+  readonly "paypal.readAgain": never;
+  readonly "paypal.approving": never;
+  readonly "paypal.approved": never;
+  readonly "paypal.rejected": never;
+  readonly "paypal.reminder.standard": never;
+  readonly "paypal.cancel.signing": never;
+  readonly "paypal.cancel.notHere": never;
+  readonly "paypal.cancel.done": never;
+  readonly "paypal.cancel.waiting": never;
+  readonly "paypal.share.ready": never;
+  readonly "paypal.share.open": never;
+  readonly "paypal.share.copy": never;
+  readonly "paypal.share.copied": never;
+  readonly "paypal.share.reminder": { readonly amount: ParamValue; readonly number: ParamValue };
+  readonly "paypal.share.reminderLink": { readonly amount: ParamValue; readonly number: ParamValue; readonly url: ParamValue };
+  readonly "paypal.assistant.pill": never;
+  readonly "paypal.assistant.written": never;
+  readonly "paypal.assistant.grounded": never;
+  readonly "paypal.assistant.template": never;
+  readonly "paypal.assistant.on": never;
+  readonly "paypal.assistant.off": never;
+  readonly "paypal.assistant.resting": never;
+  readonly "paypal.assistant.error": never;
+  readonly "paypal.assistant.restingNote": never;
+  readonly "paypal.assistant.offNote": never;
+  readonly "paypal.reason.handsOff": never;
+  readonly "paypal.reason.open": never;
+  readonly "paypal.reason.reminderDue": never;
+  readonly "paypal.reason.reminder3Days": never;
+  readonly "paypal.reason.shareReminder": never;
+  readonly "paypal.reason.paidOnPaypal": never;
+  readonly "paypal.reason.markedPaid": never;
+  readonly "paypal.reason.paidOnChain": never;
+  readonly "paypal.reason.stillOpen": never;
+  readonly "paypal.reason.undone": never;
+  readonly "paypal.reason.paidTwice": never;
+  readonly "paypal.reason.inFlight": never;
+  readonly "paypal.reason.confirming": never;
+  readonly "paypal.reason.paypalCancelled": never;
+  readonly "paypal.reason.chainCancelled": never;
+  readonly "paypal.reason.chainExpired": never;
+  readonly "paypal.reason.closedPaypal": never;
+  readonly "paypal.reason.closedChain": never;
+  readonly "paypal.reason.closedCancelled": never;
+  readonly "paypal.reason.refunded": never;
+  readonly "paypal.reason.other": never;
+  readonly "paypal.alert.paidTwicePill": never;
+  readonly "paypal.alert.handsOffPill": never;
+  readonly "paypal.alert.paidTwice": never;
+  readonly "paypal.alert.guide1": never;
+  readonly "paypal.alert.guideSend": never;
+  readonly "paypal.alert.guide2": never;
+  readonly "paypal.alert.guide3": never;
+  readonly "paypal.alert.handsOffNote": never;
+  readonly "paypal.alert.raised": { readonly time: ParamValue };
+  readonly "paypal.alert.paypalUnreadable": never;
+  readonly "paypal.alert.chainUnreadable": never;
+  readonly "paypal.alert.notDeployed": never;
+  readonly "paypal.alert.reference": never;
+  readonly "paypal.alert.currency": never;
+  readonly "paypal.alert.amount": never;
+  readonly "paypal.alert.paidAmount": never;
+  readonly "paypal.alert.statusUnknown": never;
+  readonly "paypal.alert.scheduled": never;
+  readonly "paypal.alert.draft": never;
+  readonly "paypal.alert.noTransactions": never;
+  readonly "paypal.alert.openWithPayments": never;
+  readonly "paypal.alert.unverified": never;
+  readonly "paypal.alert.chainMismatch": never;
+  readonly "paypal.alert.other": never;
+  readonly "paypal.record.pill": never;
+  readonly "paypal.record.undonePill": never;
+  readonly "paypal.record.title": { readonly number: ParamValue };
+  readonly "paypal.record.payment": never;
+  readonly "paypal.record.when": never;
+  readonly "paypal.record.note": never;
+  readonly "paypal.record.undoLeft.one": { readonly count: ParamValue };
+  readonly "paypal.record.undoLeft.other": { readonly count: ParamValue };
+  readonly "paypal.record.undone": never;
+  readonly "paypal.record.undoneNote": never;
+  readonly "paypal.record.closedNote": never;
+  readonly "paypal.check.head": never;
+  readonly "paypal.check.hint": never;
+  readonly "paypal.check.label": never;
+  readonly "paypal.check.placeholder": never;
+  readonly "paypal.check.key": never;
+  readonly "paypal.check.empty": never;
+  readonly "paypal.check.checking": never;
+  readonly "paypal.check.cannot": never;
+  readonly "paypal.check.kicker": never;
+  readonly "paypal.check.sourcePaypal": never;
+  readonly "paypal.check.sourceChain": never;
+  readonly "paypal.check.sourceChecked": never;
+  readonly "paypal.check.sourceDown": never;
+  readonly "paypal.check.notPaid": never;
+  readonly "paypal.check.paidOn": { readonly rails: ParamValue };
+  readonly "paypal.check.link": never;
+  readonly "paypal.check.linkKnown": never;
+  readonly "paypal.check.linkUnknown": never;
+  readonly "paypal.check.received": never;
+  readonly "paypal.check.receivedText": never;
+  readonly "paypal.check.notReceived": never;
+  readonly "paypal.check.notReceivedText": never;
+  readonly "paypal.check.partly": never;
+  readonly "paypal.check.partlyText": never;
+  readonly "paypal.check.unavailable": never;
+  readonly "paypal.check.unavailableText": never;
+  readonly "paypal.check.basis": never;
+  readonly "paypal.ai.key": never;
+  readonly "paypal.ai.keyHint": never;
+  readonly "paypal.ai.sheetTitle": never;
+  readonly "paypal.ai.close": never;
+  readonly "paypal.ai.sheetLede": never;
+  readonly "paypal.ai.label": never;
+  readonly "paypal.ai.placeholder": never;
+  readonly "paypal.ai.count": { readonly max: ParamValue; readonly used: ParamValue };
+  readonly "paypal.ai.privacy": never;
+  readonly "paypal.ai.draft": never;
+  readonly "paypal.ai.manual": never;
+  readonly "paypal.ai.empty": never;
+  readonly "paypal.ai.drafting": never;
+  readonly "paypal.ai.pill": never;
+  readonly "paypal.ai.model": { readonly model: ParamValue };
+  readonly "paypal.ai.draftTitle": never;
+  readonly "paypal.ai.amount": never;
+  readonly "paypal.ai.asWritten": { readonly text: ParamValue };
+  readonly "paypal.ai.what": never;
+  readonly "paypal.ai.client": never;
+  readonly "paypal.ai.due": never;
+  readonly "paypal.ai.language": never;
+  readonly "paypal.ai.none": never;
+  readonly "paypal.ai.questions": never;
+  readonly "paypal.ai.q.amountMissing": never;
+  readonly "paypal.ai.q.amountAmbiguous": never;
+  readonly "paypal.ai.q.severalAmounts": never;
+  readonly "paypal.ai.q.currency": never;
+  readonly "paypal.ai.q.dueUnclear": never;
+  readonly "paypal.ai.q.duePast": never;
+  readonly "paypal.ai.q.dueFar": never;
+  readonly "paypal.ai.q.payeeIgnored": never;
+  readonly "paypal.ai.q.other": never;
+  readonly "paypal.ai.checkNote": never;
+  readonly "paypal.ai.lowConfidence": never;
+  readonly "paypal.ai.use": never;
+  readonly "paypal.ai.resting": never;
+  readonly "paypal.ai.restingText": never;
+  readonly "paypal.ai.unavailable": never;
+  readonly "paypal.ai.unavailableText": never;
+  readonly "paypal.ai.filled": never;
+  readonly "paypal.ai.filledNoAmount": never;
+  readonly "paypal.twin.head": never;
+  readonly "paypal.twin.lede": never;
+  readonly "paypal.twin.name": never;
+  readonly "paypal.twin.email": never;
+  readonly "paypal.twin.emailHint": never;
+  readonly "paypal.twin.emailInvalid": never;
+  readonly "paypal.twin.due": never;
+  readonly "paypal.twin.make": { readonly amount: ParamValue };
+  readonly "paypal.twin.retry": never;
+  readonly "paypal.twin.creating": never;
+  readonly "paypal.twin.created": { readonly number: ParamValue };
+  readonly "paypal.twin.createdNote": never;
+  readonly "paypal.twin.unavailable": never;
+  readonly "paypal.twin.handsOff": never;
+  readonly "paypal.twin.noApi": never;
+  readonly "paypal.twin.readoutKicker": never;
+  readonly "paypal.twin.status": never;
+  readonly "paypal.twin.amount": never;
+  readonly "paypal.twin.checked": never;
+  readonly "paypal.twin.ineligible.chain": never;
+  readonly "paypal.twin.ineligible.open": never;
+  readonly "paypal.twin.ineligible.several": never;
+  readonly "paypal.twin.ineligible.cents": never;
+  readonly "paypal.twin.ineligible.token": never;
+  readonly "paypal.rails.head": never;
+  readonly "paypal.rails.payPaypal": never;
+  readonly "paypal.rails.paypalNote": { readonly amount: ParamValue; readonly time: ParamValue };
+  readonly "paypal.rails.or": { readonly symbol: ParamValue };
+  readonly "paypal.rails.withheldHead": never;
+  readonly "paypal.rails.withheld": never;
+  readonly "paypal.rails.pendingHead": never;
+  readonly "paypal.rails.pending": never;
+  readonly "paypal.rails.paidHead": never;
+  readonly "paypal.rails.paid": { readonly time: ParamValue };
+  readonly "paypal.rails.paidConfirm": never;
+  readonly "paypal.rails.pausedHead": { readonly symbol: ParamValue };
+  readonly "paypal.rails.paused": { readonly symbol: ParamValue };
+  readonly "paypal.rails.frozenHead": never;
+  readonly "paypal.rails.frozen": { readonly symbol: ParamValue };
+  readonly "paypal.ledger.paidOn": { readonly rail: ParamValue };
+  readonly "paypal.ledger.twin": never;
+  readonly "paypal.status.api": never;
+  readonly "paypal.status.apiOk": { readonly contract: ParamValue; readonly version: ParamValue };
+  readonly "paypal.status.paypal": never;
+  readonly "paypal.status.webhook": never;
+  readonly "paypal.status.assistant": never;
+  readonly "paypal.status.store": never;
+  readonly "paypal.status.notConfigured": never;
+  readonly "paypal.status.fake": never;
+  readonly "paypal.status.notReadYet": never;
+  readonly "paypal.status.lastGet": { readonly time: ParamValue };
+  readonly "paypal.status.noWebhookYet": never;
+  readonly "paypal.status.lastWebhook": { readonly age: ParamValue; readonly time: ParamValue };
+  readonly "paypal.status.assistantOff": never;
+  readonly "paypal.status.model": { readonly budget: ParamValue; readonly model: ParamValue };
+  readonly "paypal.status.deployed": never;
+  readonly "paypal.status.notDeployed": never;
+  readonly "paypal.status.storeOk": never;
+  readonly "paypal.status.storeCron": { readonly time: ParamValue };
+  readonly "paypal.status.storeDown": never;
+  readonly "paypal.status.state.ok": never;
+  readonly "paypal.status.state.degraded": never;
+  readonly "paypal.status.state.down": never;
+  readonly "paypal.status.state.unknown": never;
+  readonly "paypal.status.state.notConfigured": never;
+  readonly "paypal.error.network": never;
+  readonly "paypal.error.invalid": never;
+  readonly "paypal.error.refused": never;
+  readonly "paypal.error.tooLong": never;
+  readonly "paypal.error.session": never;
+  readonly "paypal.error.forbidden": never;
+  readonly "paypal.error.origin": never;
+  readonly "paypal.error.notFound": never;
+  readonly "paypal.error.stale": never;
+  readonly "paypal.error.conflict": never;
+  readonly "paypal.error.answered": never;
+  readonly "paypal.error.undone": never;
+  readonly "paypal.error.undoExpired": never;
+  readonly "paypal.error.busy": never;
+  readonly "paypal.error.scheduled": never;
+  readonly "paypal.error.twinExpired": never;
+  readonly "paypal.error.dueDate": never;
+  readonly "paypal.error.clock": never;
+  readonly "paypal.error.rate": never;
+  readonly "paypal.error.quota": never;
+  readonly "paypal.error.paypalRejected": never;
+  readonly "paypal.error.paypalDown": never;
+  readonly "paypal.error.chainDown": never;
+  readonly "paypal.error.assistant": never;
+  readonly "paypal.error.notYet": never;
+  readonly "paypal.error.internal": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1779,7 +2365,12 @@ export type PluralBase =
   | "history.duration.seconds"
   | "history.duration.minutes"
   | "history.duration.hours"
-  | "history.duration.days";
+  | "history.duration.days"
+  | "paypal.desk.swept"
+  | "paypal.reason"
+  | "paypal.alert"
+  | "paypal.record.undoLeft"
+  | "paypal.ai.q";
 
 /** The placeholders of a plural family (the union over its variants, `count` included). */
 export interface PluralParams {
@@ -1800,6 +2391,11 @@ export interface PluralParams {
   readonly "history.duration.minutes": { readonly count: ParamValue };
   readonly "history.duration.hours": { readonly count: ParamValue };
   readonly "history.duration.days": { readonly count: ParamValue };
+  readonly "paypal.desk.swept": { readonly count: ParamValue; readonly remaining: ParamValue };
+  readonly "paypal.reason": { readonly count: ParamValue };
+  readonly "paypal.alert": { readonly count: ParamValue };
+  readonly "paypal.record.undoLeft": { readonly count: ParamValue };
+  readonly "paypal.ai.q": { readonly count: ParamValue };
 }
 
 /** Feature catalogues, loaded on demand by the pages that use them (`loadFeature`). */
@@ -1948,14 +2544,307 @@ export type EditionKey =
   | "paypal.desk.lede"
   | "paypal.desk.plate"
   | "paypal.desk.head"
-  | "paypal.desk.coming"
-  | "paypal.desk.twin"
-  | "paypal.desk.check"
-  | "paypal.desk.approve"
   | "paypal.desk.api"
   | "paypal.desk.apiOk"
   | "paypal.desk.apiNone"
   | "paypal.desk.apiDown"
-  | "paypal.notes.sandbox"
+  | "paypal.desk.noApi"
+  | "paypal.desk.connect"
+  | "paypal.desk.reading"
+  | "paypal.desk.sweeping"
+  | "paypal.desk.retry"
+  | "paypal.desk.sweep"
+  | "paypal.desk.checked"
+  | "paypal.desk.neverChecked"
+  | "paypal.desk.swept.one"
+  | "paypal.desk.swept.other"
+  | "paypal.desk.alerts"
+  | "paypal.desk.proposals"
+  | "paypal.desk.noProposals"
+  | "paypal.desk.records"
   | "paypal.notes.title"
-  | "paypal.notes.sandboxHead";
+  | "paypal.notes.sandboxHead"
+  | "paypal.notes.sandbox"
+  | "paypal.notes.fenceHead"
+  | "paypal.notes.fence"
+  | "paypal.notes.truthHead"
+  | "paypal.notes.truth"
+  | "paypal.session.open"
+  | "paypal.session.why"
+  | "paypal.session.signing"
+  | "paypal.session.needWallet"
+  | "paypal.session.forget"
+  | "paypal.state.open"
+  | "paypal.state.approving"
+  | "paypal.state.done"
+  | "paypal.state.stale"
+  | "paypal.state.rejected"
+  | "paypal.state.expired"
+  | "paypal.origin.assistant"
+  | "paypal.origin.reconciler"
+  | "paypal.exact.title"
+  | "paypal.exact.invoice"
+  | "paypal.exact.amount"
+  | "paypal.exact.action"
+  | "paypal.exact.effect"
+  | "paypal.exact.rail"
+  | "paypal.exact.client"
+  | "paypal.exact.due"
+  | "paypal.exact.transaction"
+  | "paypal.kind.sendReminder"
+  | "paypal.kind.shareReminder"
+  | "paypal.kind.cancelPaylink"
+  | "paypal.kind.cancelPaypal"
+  | "paypal.kind.record"
+  | "paypal.effect.reminder"
+  | "paypal.effect.share"
+  | "paypal.effect.closeToken"
+  | "paypal.effect.closePaypal"
+  | "paypal.effect.record"
+  | "paypal.approve.sendReminder"
+  | "paypal.approve.share"
+  | "paypal.approve.cancelPaylink"
+  | "paypal.approve.cancelPaypal"
+  | "paypal.approve.record"
+  | "paypal.reject"
+  | "paypal.readAgain"
+  | "paypal.approving"
+  | "paypal.approved"
+  | "paypal.rejected"
+  | "paypal.reminder.standard"
+  | "paypal.cancel.signing"
+  | "paypal.cancel.notHere"
+  | "paypal.cancel.done"
+  | "paypal.cancel.waiting"
+  | "paypal.share.ready"
+  | "paypal.share.open"
+  | "paypal.share.copy"
+  | "paypal.share.copied"
+  | "paypal.share.reminder"
+  | "paypal.share.reminderLink"
+  | "paypal.assistant.pill"
+  | "paypal.assistant.written"
+  | "paypal.assistant.grounded"
+  | "paypal.assistant.template"
+  | "paypal.assistant.on"
+  | "paypal.assistant.off"
+  | "paypal.assistant.resting"
+  | "paypal.assistant.error"
+  | "paypal.assistant.restingNote"
+  | "paypal.assistant.offNote"
+  | "paypal.reason.handsOff"
+  | "paypal.reason.open"
+  | "paypal.reason.reminderDue"
+  | "paypal.reason.reminder3Days"
+  | "paypal.reason.shareReminder"
+  | "paypal.reason.paidOnPaypal"
+  | "paypal.reason.markedPaid"
+  | "paypal.reason.paidOnChain"
+  | "paypal.reason.stillOpen"
+  | "paypal.reason.undone"
+  | "paypal.reason.paidTwice"
+  | "paypal.reason.inFlight"
+  | "paypal.reason.confirming"
+  | "paypal.reason.paypalCancelled"
+  | "paypal.reason.chainCancelled"
+  | "paypal.reason.chainExpired"
+  | "paypal.reason.closedPaypal"
+  | "paypal.reason.closedChain"
+  | "paypal.reason.closedCancelled"
+  | "paypal.reason.refunded"
+  | "paypal.reason.other"
+  | "paypal.alert.paidTwicePill"
+  | "paypal.alert.handsOffPill"
+  | "paypal.alert.paidTwice"
+  | "paypal.alert.guide1"
+  | "paypal.alert.guideSend"
+  | "paypal.alert.guide2"
+  | "paypal.alert.guide3"
+  | "paypal.alert.handsOffNote"
+  | "paypal.alert.raised"
+  | "paypal.alert.paypalUnreadable"
+  | "paypal.alert.chainUnreadable"
+  | "paypal.alert.notDeployed"
+  | "paypal.alert.reference"
+  | "paypal.alert.currency"
+  | "paypal.alert.amount"
+  | "paypal.alert.paidAmount"
+  | "paypal.alert.statusUnknown"
+  | "paypal.alert.scheduled"
+  | "paypal.alert.draft"
+  | "paypal.alert.noTransactions"
+  | "paypal.alert.openWithPayments"
+  | "paypal.alert.unverified"
+  | "paypal.alert.chainMismatch"
+  | "paypal.alert.other"
+  | "paypal.record.pill"
+  | "paypal.record.undonePill"
+  | "paypal.record.title"
+  | "paypal.record.payment"
+  | "paypal.record.when"
+  | "paypal.record.note"
+  | "paypal.record.undoLeft.one"
+  | "paypal.record.undoLeft.other"
+  | "paypal.record.undone"
+  | "paypal.record.undoneNote"
+  | "paypal.record.closedNote"
+  | "paypal.check.head"
+  | "paypal.check.hint"
+  | "paypal.check.label"
+  | "paypal.check.placeholder"
+  | "paypal.check.key"
+  | "paypal.check.empty"
+  | "paypal.check.checking"
+  | "paypal.check.cannot"
+  | "paypal.check.kicker"
+  | "paypal.check.sourcePaypal"
+  | "paypal.check.sourceChain"
+  | "paypal.check.sourceChecked"
+  | "paypal.check.sourceDown"
+  | "paypal.check.notPaid"
+  | "paypal.check.paidOn"
+  | "paypal.check.link"
+  | "paypal.check.linkKnown"
+  | "paypal.check.linkUnknown"
+  | "paypal.check.received"
+  | "paypal.check.receivedText"
+  | "paypal.check.notReceived"
+  | "paypal.check.notReceivedText"
+  | "paypal.check.partly"
+  | "paypal.check.partlyText"
+  | "paypal.check.unavailable"
+  | "paypal.check.unavailableText"
+  | "paypal.check.basis"
+  | "paypal.ai.key"
+  | "paypal.ai.keyHint"
+  | "paypal.ai.sheetTitle"
+  | "paypal.ai.close"
+  | "paypal.ai.sheetLede"
+  | "paypal.ai.label"
+  | "paypal.ai.placeholder"
+  | "paypal.ai.count"
+  | "paypal.ai.privacy"
+  | "paypal.ai.draft"
+  | "paypal.ai.manual"
+  | "paypal.ai.empty"
+  | "paypal.ai.drafting"
+  | "paypal.ai.pill"
+  | "paypal.ai.model"
+  | "paypal.ai.draftTitle"
+  | "paypal.ai.amount"
+  | "paypal.ai.asWritten"
+  | "paypal.ai.what"
+  | "paypal.ai.client"
+  | "paypal.ai.due"
+  | "paypal.ai.language"
+  | "paypal.ai.none"
+  | "paypal.ai.questions"
+  | "paypal.ai.q.amountMissing"
+  | "paypal.ai.q.amountAmbiguous"
+  | "paypal.ai.q.severalAmounts"
+  | "paypal.ai.q.currency"
+  | "paypal.ai.q.dueUnclear"
+  | "paypal.ai.q.duePast"
+  | "paypal.ai.q.dueFar"
+  | "paypal.ai.q.payeeIgnored"
+  | "paypal.ai.q.other"
+  | "paypal.ai.checkNote"
+  | "paypal.ai.lowConfidence"
+  | "paypal.ai.use"
+  | "paypal.ai.resting"
+  | "paypal.ai.restingText"
+  | "paypal.ai.unavailable"
+  | "paypal.ai.unavailableText"
+  | "paypal.ai.filled"
+  | "paypal.ai.filledNoAmount"
+  | "paypal.twin.head"
+  | "paypal.twin.lede"
+  | "paypal.twin.name"
+  | "paypal.twin.email"
+  | "paypal.twin.emailHint"
+  | "paypal.twin.emailInvalid"
+  | "paypal.twin.due"
+  | "paypal.twin.make"
+  | "paypal.twin.retry"
+  | "paypal.twin.creating"
+  | "paypal.twin.created"
+  | "paypal.twin.createdNote"
+  | "paypal.twin.unavailable"
+  | "paypal.twin.handsOff"
+  | "paypal.twin.noApi"
+  | "paypal.twin.readoutKicker"
+  | "paypal.twin.status"
+  | "paypal.twin.amount"
+  | "paypal.twin.checked"
+  | "paypal.twin.ineligible.chain"
+  | "paypal.twin.ineligible.open"
+  | "paypal.twin.ineligible.several"
+  | "paypal.twin.ineligible.cents"
+  | "paypal.twin.ineligible.token"
+  | "paypal.rails.head"
+  | "paypal.rails.payPaypal"
+  | "paypal.rails.paypalNote"
+  | "paypal.rails.or"
+  | "paypal.rails.withheldHead"
+  | "paypal.rails.withheld"
+  | "paypal.rails.pendingHead"
+  | "paypal.rails.pending"
+  | "paypal.rails.paidHead"
+  | "paypal.rails.paid"
+  | "paypal.rails.paidConfirm"
+  | "paypal.rails.pausedHead"
+  | "paypal.rails.paused"
+  | "paypal.rails.frozenHead"
+  | "paypal.rails.frozen"
+  | "paypal.ledger.paidOn"
+  | "paypal.ledger.twin"
+  | "paypal.status.api"
+  | "paypal.status.apiOk"
+  | "paypal.status.paypal"
+  | "paypal.status.webhook"
+  | "paypal.status.assistant"
+  | "paypal.status.store"
+  | "paypal.status.notConfigured"
+  | "paypal.status.fake"
+  | "paypal.status.notReadYet"
+  | "paypal.status.lastGet"
+  | "paypal.status.noWebhookYet"
+  | "paypal.status.lastWebhook"
+  | "paypal.status.assistantOff"
+  | "paypal.status.model"
+  | "paypal.status.deployed"
+  | "paypal.status.notDeployed"
+  | "paypal.status.storeOk"
+  | "paypal.status.storeCron"
+  | "paypal.status.storeDown"
+  | "paypal.status.state.ok"
+  | "paypal.status.state.degraded"
+  | "paypal.status.state.down"
+  | "paypal.status.state.unknown"
+  | "paypal.status.state.notConfigured"
+  | "paypal.error.network"
+  | "paypal.error.invalid"
+  | "paypal.error.refused"
+  | "paypal.error.tooLong"
+  | "paypal.error.session"
+  | "paypal.error.forbidden"
+  | "paypal.error.origin"
+  | "paypal.error.notFound"
+  | "paypal.error.stale"
+  | "paypal.error.conflict"
+  | "paypal.error.answered"
+  | "paypal.error.undone"
+  | "paypal.error.undoExpired"
+  | "paypal.error.busy"
+  | "paypal.error.scheduled"
+  | "paypal.error.twinExpired"
+  | "paypal.error.dueDate"
+  | "paypal.error.clock"
+  | "paypal.error.rate"
+  | "paypal.error.quota"
+  | "paypal.error.paypalRejected"
+  | "paypal.error.paypalDown"
+  | "paypal.error.chainDown"
+  | "paypal.error.assistant"
+  | "paypal.error.notYet"
+  | "paypal.error.internal";

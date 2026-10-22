@@ -45,6 +45,8 @@ export async function boot(page: PageDefinition): Promise<void> {
   const mezoCopy = __PAYLINK_EDITION__ === "mezo" ? loadMezoCopy(locale) : null;
   // The PayPal edition's words (its desk, ADR 0018) likewise; the build drops this elsewhere.
   const paypalCopy = __PAYLINK_EDITION__ === "paypal" ? loadPaypalCopy(locale) : null;
+  // And its stylesheet (a chunk with no script of its own), in place before the page renders.
+  const paypalStyle = __PAYLINK_EDITION__ === "paypal" ? import("../editions/paypal/style.ts").catch(() => undefined) : null;
   const [messages, configLoad, store, fx] = await Promise.all([loadMessages(locale), loadConfig("/"), openDeviceStore(), profile.fx === null ? Promise.resolve(null) : loadFx()]);
   const i18n =
     __PAYLINK_EDITION__ === "mezo" && mezoCopy !== null
@@ -77,6 +79,9 @@ export async function boot(page: PageDefinition): Promise<void> {
     relayer: relayerClient(configLoad.config),
     fx,
   };
+  if (__PAYLINK_EDITION__ === "paypal") {
+    await paypalStyle;
+  }
   const ui = renderShell(app, page.route, page.payer);
   try {
     await page.render(app, ui);

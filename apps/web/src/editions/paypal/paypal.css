@@ -1,0 +1,91 @@
+/* The PayPal edition's pieces (docs/paypal/SPEC.md §14.1), in the Precision Terminal's grammar: tokens only, no colour
+   literal, no brand colour (rails are engraved labels: PAYPAL, USDC, PYUSD). Loaded only by the PayPal edition's
+   modules, so no other edition carries a byte of it.
+
+   - .ai-box: model output. A paper box with a dashed rule and an engraved "AI DRAFT" or "ASSISTANT" pill, never a dark
+     display window: money screens (signing display, lamps, till, receipt, verdicts) are display windows, and model text
+     never sits in one (AI-4).
+   - .rail-tag: an engraved rail label.
+   - .twin, .rails, .desk-*: the twin panel, the pay page's rail chooser and the desk's cards. */
+@layer components {
+  .ai-box { position: relative; margin-top: 16px; padding: 14px 16px 16px; border: 1.5px dashed var(--rule-2); border-radius: 10px; background: var(--panel); }
+  .ai-box > .ai-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+  .ai-box > .ai-head .pill { color: var(--ink-2); }
+  .ai-box .ai-model { font: 400 10.5px/1.4 var(--mono); letter-spacing: .04em; color: var(--muted); word-spacing: 0; overflow-wrap: anywhere; }
+  .ai-box .facts { margin-top: 8px; }
+  .ai-box .facts > div:last-child { border-bottom: 0; }
+  .ai-box .ai-text { margin-top: 10px; font-size: 15px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ai-box .ai-note { margin-top: 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .ai-box .key-row { margin-top: 14px; }
+  .ai-questions { margin: 12px 0 0; padding: 10px 0 0 0; list-style: none; border-top: 1px solid var(--rule); display: grid; gap: 6px; }
+  .ai-questions li { position: relative; padding-left: 18px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+  .ai-questions li::before { content: "?"; position: absolute; left: 0; top: 0; font: 600 12px/1.6 var(--mono); color: var(--warn); }
+  /* Drafting: three bars where the readings will be, still under reduced motion. */
+  .ai-skeleton { display: grid; gap: 10px; margin-top: 14px; }
+  .ai-skeleton i { display: block; height: 12px; border-radius: 3px; background: var(--sunk); animation: breathe 2.4s ease-in-out infinite; }
+  .ai-skeleton i:nth-child(1) { width: 46%; }
+  .ai-skeleton i:nth-child(2) { width: 78%; }
+  .ai-skeleton i:nth-child(3) { width: 62%; }
+
+  .rail-tag { display: inline-flex; align-items: center; min-height: 20px; padding: 2px 7px; border: 1px solid var(--rule-2); border-radius: 4px; font: 600 10px/1.2 var(--mono); letter-spacing: .12em; color: var(--ink-2); text-transform: uppercase; word-spacing: 0; white-space: nowrap; }
+  .rail-tag.is-on { border-color: var(--ink); color: var(--ink); box-shadow: inset 3px 0 0 var(--signal); padding-left: 9px; }
+  .rail-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+  /* The assistant key above the form, and the note the form keeps once a draft filled it. */
+  .assist-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; }
+  .assist-row .field-hint { margin: 0; flex: 1 1 180px; }
+  .assist-sheet .field { margin-top: 12px; }
+  .assist-sheet .field > textarea { min-height: 140px; }
+  .assist-sheet .privacy { margin-top: 10px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .assist-sheet .key-row { margin-top: 14px; }
+  .drafted-note { margin-top: 12px; }
+
+  /* The twin panel under an issued invoice. */
+  .twin { margin-top: 22px; }
+  .twin .field-hint { margin-top: 8px; }
+  .twin .twin-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 14px; }
+  .twin .screen { margin-top: 16px; }
+  .twin .twin-number { margin-top: 10px; font: 470 clamp(22px, 9cqw, 34px)/1.05 var(--mono); letter-spacing: .02em; color: var(--screen-ink); overflow-wrap: anywhere; }
+  .twin .key-row { margin-top: 14px; }
+
+  /* The pay page's rail chooser: one row per rail, each an engraved label and its key. */
+  .rails { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  .rails-head { font: 400 10.5px/1.4 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); word-spacing: 0; }
+  .rail-row { display: grid; gap: 8px; margin-top: 12px; }
+  .rail-row .key { width: 100%; justify-content: space-between; min-height: 52px; }
+  .rail-row .route-note { margin-top: 0; }
+  .rails .warn-note { margin-top: 10px; }
+  .rails-or { display: flex; align-items: center; gap: 10px; margin-top: 14px; font: 400 10.5px/1 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); word-spacing: 0; }
+  .rails-or::before, .rails-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+  /* The desk. */
+  .desk-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 16px; }
+  .desk-tools .key { flex: 0 1 auto; }
+  .desk-tools .view-meta { flex: 1 1 200px; }
+  .desk-cards { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; }
+  .desk-card { padding: 14px 16px 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); min-width: 0; }
+  .desk-card.is-alert { border-color: var(--led-err); border-left-width: 4px; }
+  .desk-card.is-done, .desk-card.is-rejected { opacity: .78; }
+  .desk-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+  .desk-card-title { margin-top: 8px; font-size: 16px; font-weight: 620; line-height: 1.35; color: var(--ink); }
+  .desk-card .screen { margin-top: 12px; }
+  .desk-card .readings > div { grid-template-columns: 84px minmax(0, 1fr); }
+  .desk-card .key-row { margin-top: 14px; }
+  .desk-card .status:empty { display: none; }
+  .desk-card .field-hint { margin-top: 8px; }
+  .desk-card .ai-box { margin-top: 12px; }
+  .desk-guide { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+  .desk-empty { margin-top: 14px; color: var(--muted); }
+
+  /* "Was I really paid?": the verdict readout and its two source lamps. */
+  .check-form .field > textarea { min-height: 96px; }
+  .check-verdict { margin-top: 14px; }
+  .check-verdict .vstrip { margin-top: 12px; border-top-color: var(--screen-rule); }
+  .check-verdict .vstrip li { border-bottom-color: var(--screen-rule); }
+  .check-verdict .vstrip-name { color: var(--screen-ink); }
+  .check-verdict .vstrip-detail { color: var(--screen-dim); }
+
+  /* The ledger's rail column. */
+  .row-rail { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 6px; vertical-align: middle; }
+  .row-rail .twin-no { font: 400 10.5px/1.4 var(--mono); letter-spacing: .04em; color: var(--muted); word-spacing: 0; }
+}
