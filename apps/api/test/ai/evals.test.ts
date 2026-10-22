@@ -24,7 +24,7 @@ describe("A1 extraction set", () => {
   it("replaying the scripted answers meets every bar", async () => {
     const outcomes = [];
     for (const c of set.cases) {
-      outcomes.push(await runA1Case(c, scriptedA1(c), T0));
+      outcomes.push(await runA1Case(c, await scriptedA1(c, T0), T0));
     }
     const score = scoreA1(outcomes);
     expect(score.failed).toEqual([]);

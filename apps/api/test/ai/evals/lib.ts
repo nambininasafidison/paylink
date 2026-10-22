@@ -14,7 +14,7 @@ import type { DeskRunReport } from "../../../src/ai/desk/agent.ts";
 import { checkMessage, groundSet } from "../../../src/ai/desk/grounding.ts";
 import { invoiceView } from "../../../src/ai/desk/tools.ts";
 import { draftInvoice, draftRequest } from "../../../src/ai/draft.ts";
-import { scriptedProvider } from "../../../src/ai/replay.ts";
+import { cassetteProvider, scriptedProvider, structuredFingerprint } from "../../../src/ai/replay.ts";
 import type { AiProvider, AiToolCall, StructuredResult, ToolTurnRequest, ToolTurnResult } from "../../../src/ai/types.ts";
 import type { AiBinding } from "../../../src/core/runtime.ts";
 import { createApp } from "../../../src/core/app.ts";
@@ -138,8 +138,18 @@ export function scoreA1(outcomes: readonly A1Outcome[]): A1Score {
   };
 }
 
-/** The scripted provider of an A1 case (CI): the hand-written answer. */
-export const scriptedA1 = (c: A1Case): AiProvider => scriptedProvider({ structured: [okAnswer(c.scripted)] });
+/**
+ * The provider of a scripted A1 answer (CI): a cassette holding the answer under the fingerprint of the exact request
+ * A1 sends for this message, language and day, replayed strictly (a request that differs throws). A case thereby also
+ * pins the request: instructions, tokenised message and schema.
+ */
+export async function cassetteA1(text: string, locale: Locale, scripted: unknown, now: number): Promise<AiProvider> {
+  const { request } = draftRequest(text, locale, now);
+  return cassetteProvider([{ version: 1, provenance: "scripted", model: "scripted", recordedAt: null, entries: [{ fingerprint: await structuredFingerprint(request), kind: "structured", result: okAnswer(scripted) }] }], { onMiss: "throw" });
+}
+
+/** The scripted provider of an A1 eval case. */
+export const scriptedA1 = async (c: A1Case, now: number): Promise<AiProvider> => await cassetteA1(c.text, c.locale, c.scripted, now);
 
 // ------------------------------------------------------------------------------------------ the desk
 
@@ -523,7 +533,7 @@ export async function runInjectionWebhook(c: Extract<InjectionCase, { feature: "
 export async function runInjectionCase(c: InjectionCase, now: number, live: AiProvider | null = null): Promise<InjectionOutcome> {
   switch (c.feature) {
     case "a1":
-      return await runInjectionA1(c, live ?? scriptedProvider({ structured: [okAnswer(c.scripted)] }), now);
+      return await runInjectionA1(c, live ?? (await cassetteA1(c.text, c.locale, c.scripted, now)), now);
     case "a2":
       return await runInjectionA2(c, live !== null && c.vector === "paypal-note" ? live : scriptedTurns(c.turns));
     case "webhook":

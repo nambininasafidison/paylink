@@ -18,7 +18,7 @@ The expected desk sets are the spec's situation table (docs/paypal/SPEC.md §10.
 
 | Run | Answers | What it measures | How |
 |---|---|---|---|
-| CI, every test run | **scripted**: the hand-written answer of each A1 case; for the desk, a reference model that proposes every tap action of every fence; for the injection suite, a model that obeys the attack | code's half: parsing, date resolution, PII tokens, the fence, numeric grounding, limits. Never a model's quality | `pnpm --filter @paylink/api test` ([`test/ai/evals.test.ts`](../test/ai/evals.test.ts), [`test/ai/injection.test.ts`](../test/ai/injection.test.ts)) |
+| CI, every test run | **scripted**: the hand-written answer of each A1 case, replayed from a cassette under the fingerprint of the exact request A1 sends; for the desk, a reference model that proposes every tap action of every fence; for the injection suite, a model that obeys the attack | code's half: parsing, date resolution, PII tokens, the fence, numeric grounding, limits. Never a model's quality | `pnpm --filter @paylink/api test` ([`test/ai/evals.test.ts`](../test/ai/evals.test.ts), [`test/ai/injection.test.ts`](../test/ai/injection.test.ts)) |
 | The owner, live | **recorded** from Workers AI | the model: the scores above, the neurons spent, which model answered | [`test/ai/evals/run.ts`](../test/ai/evals/run.ts) `--live` |
 
 A scripted answer is never presented as a measured score. The live runner writes a dated scoreboard and the cassette of every exchange to `results/` (the owner commits them); the cassette can be replayed with `cassetteProvider` (`src/ai/replay.ts`).

@@ -84,7 +84,7 @@ async function main(): Promise<void> {
         let all = true;
         for (let k = 0; k < repeat; k += 1) {
           label = `a1:${c.id}:${String(k)}`;
-          last = await runA1Case(c, live ?? scriptedA1(c), now);
+          last = await runA1Case(c, live ?? (await scriptedA1(c, now)), now);
           all &&= last.pass;
         }
         if (last !== null) {
