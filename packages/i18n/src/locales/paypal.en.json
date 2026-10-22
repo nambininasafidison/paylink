@@ -310,5 +310,18 @@
   "paypal.error.chainDown": "The chain could not be read. Try again in a moment.",
   "paypal.error.assistant": "The assistant is not available.",
   "paypal.error.notYet": "Not available on this server yet.",
-  "paypal.error.internal": "PayLink's API failed. Nothing was done."
+  "paypal.error.internal": "PayLink's API failed. Nothing was done.",
+  "paypal.till.viaChain": "via {rail} · on the chain",
+  "paypal.till.viaPaypal": "via PAYPAL · verified with PayPal {time}",
+  "paypal.till.received": "Received {amount} USD on PayPal, as PayPal's own record says.",
+  "paypal.till.receivedSaid": "Paid on PayPal: {amount} US dollars.",
+  "paypal.till.watch": "Also watch PayPal",
+  "paypal.till.notWatched": "PayPal is not watched on this device yet: open your desk session (one signature, no fee) and the till lights for a PayPal payment too. The chain is watched either way.",
+  "paypal.till.payeeOnly": "Only the invoice's payee can watch its PayPal twin: connect the wallet that signed it.",
+  "paypal.till.ready": "PayPal is watched once the till starts. It lights only when PayPal's own record says paid, at this exact amount.",
+  "paypal.till.watching": "Watching PayPal too. The till lights only when PayPal's own record says paid, at this exact amount.",
+  "paypal.till.verified": "Verified with PayPal's own record.",
+  "paypal.till.noTwin": "This invoice has no PayPal twin: the till watches the chain.",
+  "paypal.till.unreachable": "PayPal can't be read right now; trying again. The chain is still watched.",
+  "paypal.till.noApi": "PayPal is not watched: this edition's API is not configured here. The chain is watched."
 }

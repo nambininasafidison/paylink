@@ -310,5 +310,18 @@
   "paypal.error.chainDown": "La chaîne n'a pas pu être lue. Réessayez dans un instant.",
   "paypal.error.assistant": "L'assistant n'est pas disponible.",
   "paypal.error.notYet": "Pas encore disponible sur ce serveur.",
-  "paypal.error.internal": "L'API de PayLink a échoué. Rien n'a été fait."
+  "paypal.error.internal": "L'API de PayLink a échoué. Rien n'a été fait.",
+  "paypal.till.viaChain": "via {rail} · sur la chaîne",
+  "paypal.till.viaPaypal": "via PAYPAL · vérifié auprès de PayPal à {time}",
+  "paypal.till.received": "{amount} USD reçus sur PayPal, selon la fiche de PayPal elle-même.",
+  "paypal.till.receivedSaid": "Payé sur PayPal : {amount} dollars américains.",
+  "paypal.till.watch": "Surveiller aussi PayPal",
+  "paypal.till.notWatched": "PayPal n'est pas encore surveillé sur cet appareil : ouvrez votre session de bureau (une signature, sans frais) et la caisse s'allumera aussi pour un paiement PayPal. La chaîne est surveillée dans tous les cas.",
+  "paypal.till.payeeOnly": "Seul le bénéficiaire de la facture peut surveiller son jumeau PayPal : connectez le portefeuille qui l'a signée.",
+  "paypal.till.ready": "PayPal sera surveillé dès que la caisse démarre. Elle ne s'allume que si la fiche de PayPal elle-même indique « payé », à ce montant exact.",
+  "paypal.till.watching": "PayPal est aussi surveillé. La caisse ne s'allume que si la fiche de PayPal elle-même indique « payé », à ce montant exact.",
+  "paypal.till.verified": "Vérifié sur la fiche de PayPal elle-même.",
+  "paypal.till.noTwin": "Cette facture n'a pas de jumeau PayPal : la caisse surveille la chaîne.",
+  "paypal.till.unreachable": "PayPal ne peut pas être lu pour l'instant ; nouvel essai en cours. La chaîne reste surveillée.",
+  "paypal.till.noApi": "PayPal n'est pas surveillé : l'API de cette édition n'est pas configurée ici. La chaîne est surveillée."
 }

@@ -1169,7 +1169,20 @@
     "paypal.error.chainDown",
     "paypal.error.assistant",
     "paypal.error.notYet",
-    "paypal.error.internal"
+    "paypal.error.internal",
+    "paypal.till.viaChain",
+    "paypal.till.viaPaypal",
+    "paypal.till.received",
+    "paypal.till.receivedSaid",
+    "paypal.till.watch",
+    "paypal.till.notWatched",
+    "paypal.till.payeeOnly",
+    "paypal.till.ready",
+    "paypal.till.watching",
+    "paypal.till.verified",
+    "paypal.till.noTwin",
+    "paypal.till.unreachable",
+    "paypal.till.noApi"
   ],
   "pendingFormats": [
     "src/format.ts MG_MONTHS, MG_MONTHS_SHORT, MG_WEEKDAYS: CLDR mg names on fr-MG date patterns, 24-hour clock",

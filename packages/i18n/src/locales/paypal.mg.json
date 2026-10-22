@@ -310,5 +310,18 @@
   "paypal.error.chainDown": "Tsy azo novakiana ny rojo. Andramo indray afaka kelikely.",
   "paypal.error.assistant": "Tsy azo ampiasaina ny mpanampy.",
   "paypal.error.notYet": "Mbola tsy misy amin'ity mpizara ity.",
-  "paypal.error.internal": "Tsy nahomby ny API PayLink. Tsy nisy natao."
+  "paypal.error.internal": "Tsy nahomby ny API PayLink. Tsy nisy natao.",
+  "paypal.till.viaChain": "amin'ny {rail} · amin'ny rojo",
+  "paypal.till.viaPaypal": "amin'ny PAYPAL · nohamarinina tamin'ny PayPal {time}",
+  "paypal.till.received": "Voaray tamin'ny PayPal ny {amount} USD, araka ny firaketana an'ny PayPal mihitsy.",
+  "paypal.till.receivedSaid": "Voaloa tamin'ny PayPal: {amount} dolara amerikana.",
+  "paypal.till.watch": "Arahi-maso koa ny PayPal",
+  "paypal.till.notWatched": "Mbola tsy arahi-maso amin'ity fitaovana ity ny PayPal: sokafy ny fidiranao amin'ny birao (sonia iray, tsy misy sarany) dia hirehitra koa ny kaisy raha misy fandoavana amin'ny PayPal. Arahi-maso foana ny rojo.",
+  "paypal.till.payeeOnly": "Ny tompon'ny faktiora ihany no afaka manara-maso ny kambana PayPal-ny: ampifandraiso ny kitapom-bola nanao sonia azy.",
+  "paypal.till.ready": "Arahi-maso ny PayPal rehefa alefa ny kaisy. Tsy mirehitra izy raha tsy milaza hoe voaloa ny firaketana an'ny PayPal mihitsy, amin'ity vola marina ity.",
+  "paypal.till.watching": "Arahi-maso koa ny PayPal. Tsy mirehitra ny kaisy raha tsy milaza hoe voaloa ny firaketana an'ny PayPal mihitsy, amin'ity vola marina ity.",
+  "paypal.till.verified": "Nohamarinina tamin'ny firaketana an'ny PayPal mihitsy.",
+  "paypal.till.noTwin": "Tsy manana kambana PayPal ity faktiora ity: ny rojo no arahin'ny kaisy maso.",
+  "paypal.till.unreachable": "Tsy azo vakiana amin'izao fotoana izao ny PayPal; andramana indray. Mbola arahi-maso ny rojo.",
+  "paypal.till.noApi": "Tsy arahi-maso ny PayPal: tsy voaomana eto ny API an'ity fanontana ity. Arahi-maso ny rojo."
 }

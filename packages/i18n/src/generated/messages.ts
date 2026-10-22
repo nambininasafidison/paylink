@@ -1173,7 +1173,20 @@ export type MessageKey =
   | "paypal.error.chainDown"
   | "paypal.error.assistant"
   | "paypal.error.notYet"
-  | "paypal.error.internal";
+  | "paypal.error.internal"
+  | "paypal.till.viaChain"
+  | "paypal.till.viaPaypal"
+  | "paypal.till.received"
+  | "paypal.till.receivedSaid"
+  | "paypal.till.watch"
+  | "paypal.till.notWatched"
+  | "paypal.till.payeeOnly"
+  | "paypal.till.ready"
+  | "paypal.till.watching"
+  | "paypal.till.verified"
+  | "paypal.till.noTwin"
+  | "paypal.till.unreachable"
+  | "paypal.till.noApi";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -2345,6 +2358,19 @@ export interface MessageParams {
   readonly "paypal.error.assistant": never;
   readonly "paypal.error.notYet": never;
   readonly "paypal.error.internal": never;
+  readonly "paypal.till.viaChain": { readonly rail: ParamValue };
+  readonly "paypal.till.viaPaypal": { readonly time: ParamValue };
+  readonly "paypal.till.received": { readonly amount: ParamValue };
+  readonly "paypal.till.receivedSaid": { readonly amount: ParamValue };
+  readonly "paypal.till.watch": never;
+  readonly "paypal.till.notWatched": never;
+  readonly "paypal.till.payeeOnly": never;
+  readonly "paypal.till.ready": never;
+  readonly "paypal.till.watching": never;
+  readonly "paypal.till.verified": never;
+  readonly "paypal.till.noTwin": never;
+  readonly "paypal.till.unreachable": never;
+  readonly "paypal.till.noApi": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -2847,4 +2873,17 @@ export type EditionKey =
   | "paypal.error.chainDown"
   | "paypal.error.assistant"
   | "paypal.error.notYet"
-  | "paypal.error.internal";
+  | "paypal.error.internal"
+  | "paypal.till.viaChain"
+  | "paypal.till.viaPaypal"
+  | "paypal.till.received"
+  | "paypal.till.receivedSaid"
+  | "paypal.till.watch"
+  | "paypal.till.notWatched"
+  | "paypal.till.payeeOnly"
+  | "paypal.till.ready"
+  | "paypal.till.watching"
+  | "paypal.till.verified"
+  | "paypal.till.noTwin"
+  | "paypal.till.unreachable"
+  | "paypal.till.noApi";
