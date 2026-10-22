@@ -154,9 +154,20 @@ export function openSheet(app: App, onUse: (prefill: DraftPrefill) => void, onMa
   const status = statusLine();
   const result = h("div", { class: "assist-result" });
   let modal: Modal | null = null;
+  /**
+   * Closes the sheet, then runs `next` once the dialog has handed focus back to the Assistant key (its `close` event),
+   * so a callback that moves focus (Write it myself: into the amount) is not undone by that hand-back.
+   */
+  const closeThen = (next: () => void): void => {
+    if (modal?.element.open !== true) {
+      next();
+      return;
+    }
+    modal.element.addEventListener("close", next, { once: true });
+    modal.close();
+  };
   const manual = (): void => {
-    modal?.close();
-    onManual();
+    closeThen(onManual);
   };
   const refreshCount = (): void => {
     count.textContent = t("paypal.ai.count", { used: input.value.length, max: DRAFT_MAX_TEXT });
@@ -204,8 +215,9 @@ export function openSheet(app: App, onUse: (prefill: DraftPrefill) => void, onMa
         result,
         draftCard(app, response, {
           use: () => {
-            modal?.close();
-            onUse(prefillOf(response.draft));
+            closeThen(() => {
+              onUse(prefillOf(response.draft));
+            });
           },
           manual,
         }),
