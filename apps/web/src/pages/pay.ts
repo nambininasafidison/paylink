@@ -55,10 +55,11 @@ import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { receiptUrl } from "../core/links.ts";
 import { btcFundsRow, mezoNotes, showFee } from "../editions/mezo/ui.ts";
+import type { RailChooser } from "../editions/paypal/rails.ts";
 import { recoverConsumedPayment, RelayFallbackError } from "../rails/authorization.ts";
 import { PaymentUnconfirmedError } from "../rails/types.ts";
 import type { PaymentOutcome, PaymentStep } from "../rails/types.ts";
-import { checkLink } from "../read/checks.ts";
+import { checkLink, checksAllow } from "../read/checks.ts";
 import type { LinkChecks } from "../read/checks.ts";
 import { parseStoredContact, parseStoredReceipt, receiptId } from "../store/db.ts";
 import { addr, ext, fact, hexGroups, lamp, num, setStatus, statusLine, unit } from "../ui/atoms.ts";
@@ -275,6 +276,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
   const signSlot = h("div", { class: "sign-slot" });
   const fundsSlot = h("div", { class: "funds-slot" });
   const fallbackSlot = h("div", { class: "fallback-slot" });
+  /** PayPal edition: the rail chooser (Pay with PayPal, beside this key), loaded after the page (ADR 0018). */
+  const railSlot = __PAYLINK_EDITION__ === "paypal" ? h("div", { class: "rail-slot" }) : null;
   const status = statusLine();
   const slot = h("div", { class: "receipt-slot" });
   const payform = h(
@@ -289,6 +292,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
           amountInput,
           typedFx,
         ),
+    railSlot,
     signSlot,
     key,
     routeNote,
@@ -314,6 +318,8 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
    * transactions, ADR 0017): the key reads it again, and never pays twice. Other editions fold this away.
    */
   let unconfirmed: PaymentUnconfirmedError | null = null;
+  /** PayPal edition: the rail chooser once its module has loaded; it may hold this key (a PayPal payment in flight, …). */
+  let paypalRails: RailChooser | null = null;
 
   void payeeIdentity(app, invoice.payee).then((who) => {
     payeeLabel = who.label;
@@ -478,6 +484,13 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       key.dataset["action"] = "recheck";
       return;
     }
+    if (__PAYLINK_EDITION__ === "paypal" && paypalRails?.holds() === true) {
+      // A PayPal payment in flight, the token paused or an address frozen by its issuer, or PayPal saying "paid" that
+      // the payer has not answered: the chooser says which; this key waits (docs/paypal/SPEC.md §14.3).
+      net.set("off", t("verify.network.notNeeded"));
+      lockKey(t("pay.locked"));
+      return;
+    }
     if (account === null) {
       feeCopy(null);
       net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
@@ -526,6 +539,10 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     const result = await checkLink(link, client);
     checks = result;
     paintChecks(app, link, result, { sig, genuine, payable }, pill, due, progress, stateNote, ui);
+    if (__PAYLINK_EDITION__ === "paypal") {
+      // PayPal is offered only beside four green lamps, and never in a frame.
+      paypalRails?.checked(!paid && !app.framed && checksAllow(result));
+    }
     void refresh();
   };
 
@@ -720,6 +737,9 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
 
   const done = (outcome: Settled): void => {
     paid = true;
+    if (__PAYLINK_EDITION__ === "paypal") {
+      paypalRails?.checked(false);
+    }
     replace(signSlot);
     replace(fundsSlot);
     replace(fallbackSlot);
@@ -779,6 +799,23 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       showSigning(account, choice.path);
     }
   });
+  if (__PAYLINK_EDITION__ === "paypal" && railSlot !== null) {
+    // Loaded after the page, outside the pay route's first load (PAYLINK-V2-SPEC §4.4 budget).
+    void import("../editions/paypal/rails.ts")
+      .then(({ railChooser }) => {
+        const format = { amount: (value: bigint): string => displayAmount(value, token, app.locale), time: (at: number): string => formatDateTime(app.locale, at, { timeStyle: "short" }) };
+        const chooser = railChooser(app, link, format, () => {
+          void refresh();
+        });
+        paypalRails = chooser;
+        replace(railSlot, chooser.element);
+        if (checks !== null) {
+          chooser.checked(!paid && !app.framed && checksAllow(checks));
+        }
+        void refresh();
+      })
+      .catch(() => undefined);
+  }
   void runChecks();
   return billEl;
 }
