@@ -23,11 +23,15 @@ import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { payUrl, tillUrl, whatsappUrl } from "../core/links.ts";
 import { mezoNotes, mezoTestSteps } from "../editions/mezo/ui.ts";
+import { assistantRow } from "../editions/paypal/assistant.ts";
+import type { DraftPrefill } from "../editions/paypal/assistant.ts";
+import { twinPanel } from "../editions/paypal/twin.ts";
+import type { TwinHints } from "../editions/paypal/twin.ts";
 import { invoiceId } from "../store/db.ts";
 import { addr, fact, setStatus, statusLine } from "../ui/atoms.ts";
 import { bandSelector, confirmBox, segmented } from "../ui/controls.ts";
 import { h, replace } from "../ui/h.ts";
-import { copyText, printElement } from "../ui/live.ts";
+import { announce, copyText, printElement } from "../ui/live.ts";
 import { ticket } from "../ui/ticket.ts";
 
 declare const __PAYLINK_EDITION__: Edition;
@@ -98,6 +102,8 @@ function renderTerminal(app: App, ui: PageUi): void {
   let payments: PaymentsChoice = preset === "card" ? "unlimited" : "one";
   let expiry: ExpiryChoice = preset === "card" ? "never" : "7d";
   let issued: IssuedInvoice | null = null;
+  /** PayPal edition: the client's details from an AI draft, offered to the twin panel once the invoice is signed. */
+  let twinHints: TwinHints | null = null;
 
   const meta = h("span", { class: "view-meta" });
   const notDeployed = h("div");
@@ -322,6 +328,12 @@ function renderTerminal(app: App, ui: PageUi): void {
     key.hidden = false;
     setStatus(status, "ok", t("create.status.done"));
     renderIssued(app, out, result, draft);
+    if (__PAYLINK_EDITION__ === "paypal") {
+      // The PayPal twin of the invoice just signed (ADR 0018): one key, after the link already works on its own. A
+      // draft's client details serve the invoice made from it, not the next one.
+      out.querySelector(".issued")?.append(twinPanel(app, result, payUrl(app.site, result.fragment), twinHints));
+      twinHints = null;
+    }
   };
 
   const review = (draft: Draft, account: AccountProvider): void => {
@@ -403,11 +415,44 @@ function renderTerminal(app: App, ui: PageUi): void {
   refreshMemo();
   refreshKey();
 
+  /**
+   * PayPal edition: the Assistant row above the form. An AI draft fills the form; the payee checks every value, then
+   * reviews and signs as always. Built only in that edition's branch.
+   */
+  const paypalAssistant = (): HTMLElement[] => {
+    const drafted = h("p", { class: "field-hint drafted-note", attrs: { hidden: true, "data-drafted": "" } });
+    const useDraft = (prefill: DraftPrefill): void => {
+      amountInput.value = prefill.amount ?? "";
+      memoInput.value = prefill.memo;
+      twinHints = { clientName: prefill.clientName, clientEmail: prefill.clientEmail, dueDate: prefill.dueDate };
+      // A twin is a one-off invoice; its link stays open past a due date within 30 days.
+      const days = prefill.dueDate === null ? 0 : (Date.parse(`${prefill.dueDate}T23:59:59Z`) - Date.now()) / 86_400_000;
+      const pick = (name: string, value: string): void => {
+        const radio = ui.views.querySelector<HTMLInputElement>(`input[name="${name}"][value="${value}"]`);
+        if (radio !== null && !radio.checked) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      };
+      pick("payments", "one");
+      pick("expiry", days > 7 ? "30d" : "7d");
+      refreshFx();
+      refreshMemo();
+      clearOutput();
+      drafted.hidden = false;
+      drafted.textContent = prefill.amount === null ? t("paypal.ai.filledNoAmount") : t("paypal.ai.filled");
+      announce(drafted.textContent);
+    };
+    return [assistantRow(app, useDraft, () => { amountInput.focus(); }), drafted];
+  };
+  const assistant = __PAYLINK_EDITION__ === "paypal" ? paypalAssistant() : null;
+
   ui.views.append(
     h(
       "section",
       { class: "view view-create", attrs: { "aria-labelledby": "create-head" } },
       h("div", { class: "view-head" }, h("h2", { attrs: { id: "create-head" } }, t("create.head")), meta),
+      assistant,
       h("div", { class: "field" }, h("span", { class: "label" }, t("create.network")), bands.element),
       notDeployed,
       h(
