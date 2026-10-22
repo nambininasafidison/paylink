@@ -124,6 +124,7 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     await expect(paypal).toHaveAttribute("href", new RegExp(`^${PAYER_ORIGIN}/invoice/p/${twin?.id ?? "-"}$`));
     await snap(payer, "a-rails-both");
     await clean(payer);
+    const linesBefore = api.lines.length;
     await paypal.click();
     await payer.page.waitForURL(`${PAYER_ORIGIN}/invoice/p/${twin?.id ?? "-"}`);
     await expect(payer.page.locator("[data-amount]")).toHaveText("120.00 USD");
@@ -131,8 +132,9 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     await expect(payer.page.locator("[data-status]")).toHaveText("PAID");
 
     // The webhook was verified by P10 and the truth read by P5 (the cron is off: nothing else could have told the API).
-    expect(api.lines.some((l) => l["event"] === "webhook.received" && l["outcome"] === "processed")).toBe(true);
-    expect(api.lines.some((l) => l["event"] === "reconcile.done" && l["source"] === "webhook" && l["situation"] === "S2")).toBe(true);
+    const sincePayment = (): readonly Readonly<Record<string, unknown>>[] => api.lines.slice(linesBefore);
+    expect(sincePayment().some((l) => l["event"] === "webhook.received" && l["outcome"] === "processed" && l["invoiceId"] === twin?.id)).toBe(true);
+    expect(sincePayment().some((l) => l["event"] === "reconcile.done" && l["source"] === "webhook" && l["situation"] === "S2")).toBe(true);
     await expect(payee.page.locator(".till")).toHaveAttribute("data-state", "paid", { timeout: 30_000 });
     await expect(payee.page.locator(".till-source")).toHaveAttribute("data-source", "PAYPAL");
     await expect(payee.page.locator(".till-source")).toContainText("via PAYPAL · verified with PayPal");
@@ -159,9 +161,10 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     await snap(payee, "a-desk-cancel-done", cancel);
 
     // Check my invoices: the chain shows the link cancelled and PayPal paid: closed, nothing left to do.
+    const linesBeforeSweep = api.lines.length;
     await sweep(view);
     await expect(view.locator(`li.desk-card[data-state=open]`).filter({ hasText: number })).toHaveCount(0);
-    expect(api.lines.some((l) => l["event"] === "reconcile.done" && l["situation"] === "S8")).toBe(true);
+    expect(api.lines.slice(linesBeforeSweep).some((l) => l["event"] === "reconcile.done" && l["source"] === "sweep" && l["situation"] === "S8")).toBe(true);
     await clean(payee);
 
     // The pay page: the chain closed the link, so no rail is offered, whatever PayPal says.
@@ -200,6 +203,7 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
 
     // Check my invoices: the reconciler sees the verified Paid event and records it on the twin by itself (P6).
     const view = await openDesk(payee, server.origin);
+    const linesBeforeSweep = api.lines.length;
     await sweep(view);
     const record = view.locator("li.desk-card[data-kind=auto-record]").filter({ hasText: number });
     await expect(record).toHaveAttribute("data-state", "undo-open");
@@ -218,7 +222,7 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     expect(onChain?.to.toLowerCase()).toBe(PAYLINK.toLowerCase());
     await snap(payee, "b-desk-auto-record", record);
     // The echo filter: PayLink's own record closes the twin, it is never "paid twice".
-    expect(api.lines.some((l) => l["event"] === "reconcile.done" && l["situation"] === "S8")).toBe(true);
+    expect(api.lines.slice(linesBeforeSweep).some((l) => l["event"] === "reconcile.done" && l["situation"] === "S8" && l["recorded"] === true)).toBe(true);
     await expect(view.locator("li.desk-card[data-kind=alert]")).toHaveCount(0);
 
     // Undo: PayPal deletes the record (P7); recording it again now waits for the payee's tap.
@@ -239,11 +243,12 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
 test.describe("an injection in a memo and a PayPal note, with a model that obeys it", () => {
   let api: RailsApi;
 
-  test.beforeAll(async () => {
+  // A fresh API (and so a fresh desk and model log) for each run of the test.
+  test.beforeEach(async () => {
     api = await startRailsApi(server.origin, fork, { obedient: true });
   });
 
-  test.afterAll(async () => {
+  test.afterEach(async () => {
     await (api as RailsApi | undefined)?.stop();
   });
 
