@@ -12,10 +12,14 @@
  * | POST /v1/desk/:id/reject | `rejectProposal` |
  * | POST /v1/desk/:id/undo | `undoRecord`: P7 within 24 hours of an automatic record (`id` = `r_<payment id>`) |
  *
+ * The assistant is wired here (`createDeskHandlers(deskAgent)`): it reads through its tools and proposes through the
+ * fence only; with the provider switched off or resting, the sweep says so and the reconciler's proposals stand (U6).
+ *
  * Routes: desk.get, desk.sweep, desk.approve, desk.reject, desk.undo. Owner: reconciler workstream.
  */
 import type { Address } from "@paylink/api-contract";
 import * as z from "zod";
+import { deskAgent } from "../ai/desk/agent.ts";
 import { json, parseBody, readJson } from "../core/http.ts";
 import { ProblemError } from "../core/problem.ts";
 import { assistantState, deskView, sweep } from "../reconciler/desk.ts";
@@ -53,4 +57,5 @@ export function createDeskHandlers(agent: DeskAgent | null = null): RouteHandler
   };
 }
 
-export const deskHandlers: RouteHandlers = createDeskHandlers();
+/** The deployed desk: "Check my invoices" runs the AI workstream's desk assistant (A2) once after the sweep. */
+export const deskHandlers: RouteHandlers = createDeskHandlers(deskAgent);
