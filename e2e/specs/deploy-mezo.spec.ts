@@ -94,7 +94,7 @@ async function deployOnMezo(page: Page, context: BrowserContext, rpc: (method: s
 
   await page.goto(`${server.origin}/v2/deploy/?chain=mezo`);
   await expect(page.getByRole("radio", { name: /Mezo testnet/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.locator("[data-bind=chain-count]")).toHaveText("4");
+  await expect(page.locator("[data-bind=chain-count]")).toHaveText("5");
   await page.getByRole("button", { name: /PayLink Test Wallet/ }).click();
   await page.getByRole("button", { name: "Switch wallet to Mezo testnet" }).click();
   await expect(page.locator("#network-status")).toContainText("Mezo testnet added to the wallet and selected.");
