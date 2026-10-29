@@ -12,7 +12,10 @@
  *
  * Where an invoicing event carries the invoice is not in the file (`resource` has `additionalProperties: true`):
  * `invoiceIdOf` accepts `resource.invoice.id`, then `resource.id`, then an invoice link in `resource.links` or the
- * event's `links` (UNVERIFIED until the capture run records a real event's shape; the id is only ever used for P5).
+ * event's `links` (UNVERIFIED: the owner's capture of 2026-10-29 found no event in PayPal's event list right after the
+ * payment, so it recorded no event's shape; the id is only ever used for P5). The same day the deployed Worker logged five
+ * real sandbox deliveries `processed`, each after P10 answered `SUCCESS` and P5 read the invoice it named: one of those
+ * places carries it, and nothing depends on knowing which.
  *
  * Owner: PayPal spine workstream.
  */

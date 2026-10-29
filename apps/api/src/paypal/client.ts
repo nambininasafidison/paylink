@@ -151,7 +151,7 @@ export function isPayPalError(error: unknown): error is PayPalError {
 export interface PayPalClient {
   /** P1: a fresh token (`grant_type=client_credentials`). Callers normally rely on the client's own cache. */
   token(): Promise<OAuthTokenResponse>;
-  /** P2: invoices whose `reference` matches. Callers keep only `detail.reference === key` (exactness UNVERIFIED). */
+  /** P2: invoices whose `reference` matches, partly (C, the owner's capture of 2026-10-29): callers keep only `detail.reference === key`. */
   searchInvoices(body: SearchInvoicesRequest, page?: PageQuery): Promise<InvoicePage>;
   /**
    * P3: creates a `DRAFT` (201), sent with `Prefer: return=representation` so the answer is the invoice (the 201's
@@ -164,7 +164,7 @@ export interface PayPalClient {
   getInvoice(invoiceId: string): Promise<Invoice>;
   /** P6: records an external payment (`method: "OTHER"`, the echo note of §7.3); returns the id kept for Undo. */
   recordPayment(invoiceId: string, payment: PaymentDetail, options?: WriteOptions): Promise<PaymentReference>;
-  /** P7: deletes a recorded external payment (Undo, 24 h); 204. Whether `transactionId` is P6's `payment_id` is UNVERIFIED. */
+  /** P7: deletes a recorded external payment (Undo, 24 h); 204. `transactionId` is P6's `payment_id` (C, the owner's capture of 2026-10-29). */
   deletePayment(invoiceId: string, transactionId: string, options?: WriteOptions): Promise<void>;
   /** P8: cancels a sent invoice; 204. */
   cancelInvoice(invoiceId: string, notification: Notification, options?: WriteOptions): Promise<void>;

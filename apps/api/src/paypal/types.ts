@@ -13,10 +13,11 @@
  * (`/v1/oauth2/token`, V), but its request and response are in neither: they are the PayPal Agent Toolkit's
  * (`typescript/src/shared/client.ts` and the section "Generating an Access Token" of its `README.md`, lines 207–248, at `a3aa963`).
  *
- * Behaviours the files do not state are tagged UNVERIFIED and decided by the owner's sandbox capture run
- * (apps/api/scripts/capture/, docs/runbooks/paypal.md): which open status `send` leaves (`SENT` or `SHARED`), the status
- * after a recorded payment, whether P7's `transaction_id` equals P6's `payment_id`, whether `reference` search is
- * exact, and where an invoicing webhook event carries the invoice.
+ * Behaviours the files do not state were tagged UNVERIFIED until the owner's sandbox capture run of 2026-10-29
+ * (apps/api/scripts/capture/, docs/research/paypal/capture-2026-10-29.md), which decided them (C): `send` leaves
+ * `UNPAID` after a share link, a recorded payment leaves `MARKED_AS_PAID`, P7's `transaction_id` is P6's `payment_id`,
+ * `reference` search is partial. Where an invoicing webhook event carries the invoice stays UNVERIFIED (the run's event
+ * list was empty), and nothing depends on it (src/paypal/webhook.ts).
  *
  * Owner: PayPal spine workstream.
  */
@@ -73,7 +74,9 @@ export interface PayPalErrorBody {
 /**
  * `POST /v1/oauth2/token` with HTTP Basic `client_id:client_secret` and the form body `grant_type=client_credentials`
  * (Agent Toolkit `client.ts`). Response as in the toolkit README (`scope`, `access_token`, `token_type: "Bearer"`,
- * `app_id`, `expires_in: 32400`, `nonce`); "Sandbox Tokens: Valid for 3-8 hours" (toolkit README, line 248).
+ * `app_id`, `expires_in: 32400`, `nonce`); "Sandbox Tokens: Valid for 3-8 hours" (toolkit README, line 248). The
+ * sandbox's token answered `expires_in` 32,326 (C, the owner's capture of 2026-10-29), a little more than 8 hours: the
+ * cache honours whatever PayPal gives (src/paypal/token.ts).
  */
 export interface OAuthTokenResponse {
   readonly access_token: string;
@@ -117,7 +120,10 @@ export interface InvoiceMetadata {
   readonly cancel_time?: DateTime;
   readonly first_sent_time?: DateTime;
   readonly last_sent_time?: DateTime;
-  /** "The URL for the invoice payer view hosted on paypal.com." Its host is pinned after the capture run (§12.3). */
+  /**
+   * "The URL for the invoice payer view hosted on paypal.com." In the sandbox `https://www.sandbox.paypal.com/invoice/p/#<id>`
+   * (C, the owner's capture of 2026-10-29): the rule `PAYPAL_PAYER_PAGES` of `@paylink/api-contract` pins (§12.3).
+   */
   readonly recipient_view_url?: string;
   /** "The URL for the invoice merchant view hosted on paypal.com." */
   readonly invoicer_view_url?: string;
@@ -341,7 +347,7 @@ export interface WebhookEvent {
   readonly event_type?: string;
   readonly summary?: string;
   readonly resource_version?: string;
-  /** `resource`: "additionalProperties": true. Its shape for invoicing events is not in the file (UNVERIFIED). */
+  /** `resource`: "additionalProperties": true. Its shape for invoicing events is not in the file (UNVERIFIED; src/paypal/webhook.ts reads three places). */
   readonly resource?: Readonly<Record<string, unknown>>;
   readonly links?: readonly LinkDescription[];
 }

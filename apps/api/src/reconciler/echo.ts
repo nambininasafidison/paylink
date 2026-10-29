@@ -12,9 +12,10 @@
  * A stored `payment_id` from P6 is a cache, never proof (a payee or anyone with the merchant's PayPal access could copy a
  * note; only the chain proves the payment). Echo-only twins are closed (S8), never S2 or S4.
  *
- * The note's separators are matched loosely (any run of non-word characters): PayPal's handling of `·` (U+00B7) in a
- * note is UNVERIFIED until the owner's capture run, and a mangled separator must not turn PayLink's own record into a
- * "paid twice" alarm. The fields themselves (chain id, 32-byte hash, 32-byte key) are matched exactly.
+ * The note's separators are matched loosely (any run of non-word characters): the sandbox kept PayLink's note exactly,
+ * `·` (U+00B7) included (C, the owner's capture of 2026-10-29), and a separator mangled anywhere else (PayPal live, the
+ * dashboard) must still not turn PayLink's own record into a "paid twice" alarm. The fields themselves (chain id,
+ * 32-byte hash, 32-byte key) are matched exactly.
  *
  * Owner: reconciler workstream.
  */

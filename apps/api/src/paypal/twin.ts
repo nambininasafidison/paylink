@@ -5,7 +5,8 @@
  * found before it is made, and every write whose outcome is unknown is settled by reading:
  *
  * 1. P2: search by `reference`, keeping only invoices whose `detail.reference` is exactly K (PayPal's matching is
- *    UNVERIFIED: it may be partial). Several matches (left by an earlier failure) → the oldest is the twin.
+ *    partial: a part of a reference finds the invoice, C, the owner's capture of 2026-10-29). Several matches (left by an
+ *    earlier failure) → the oldest is the twin.
  * 2. None: P3 with the §7.2 body. A P3 that failed ambiguously (no answer, 5xx) or was refused as a conflict is followed
  *    by P2 again: the invoice it may have made is found, never made twice.
  * 3. A `DRAFT` twin: P4 as a share link. 202 means scheduled (`E_PAYPAL_SCHEDULED`, situation S0). A P4 that failed

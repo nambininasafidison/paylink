@@ -12,9 +12,9 @@
  * | `detail.invoice_number` | `PL-<chainId>-<first 12 hex of K>` (≤ 25: 24 on Ethereum Sepolia) | readable, unique per K |
  * | `detail.memo` | `PayLink twin · payee 0x… · eip155:<chainId>` (≤ 500, private to the merchant) | a verified webhook finds the payee's records from P5 alone (E, decision of the spine) |
  * | `detail.note` | the PayLink link, when given (≤ 4000) | the payer may prefer the token rail |
- * | `detail.payment_term` | `{ due_date }` alone, when there is one | "either but not both `term_type` or `due_date`" (V); accepted form UNVERIFIED until the capture run |
+ * | `detail.payment_term` | `{ due_date }` alone, when there is one | "either but not both `term_type` or `due_date`" (V); the sandbox accepted it, and `DUE_ON_DATE_SPECIFIED` with it too (C, the owner's capture of 2026-10-29) |
  * | `detail.invoice_date` | omitted | PayPal's own current date: a future date makes `send` answer 202 (§7.2) |
- * | `primary_recipients` | the client's given name and email, only as the payee typed them | sent to PayPal only, never to the model (§9.4); whether PayPal accepts a twin without an email is UNVERIFIED |
+ * | `primary_recipients` | the client's given name and email, only as the payee typed them | sent to PayPal only, never to the model (§9.4); a twin without an email is created and shared (C, the capture of 2026-10-29), but PayPal's reminder (P9) refuses it |
  * | `items` | one item: the memo (≤ 200) × 1 at the signed amount | the amount comes from the signed invoice, by code (AI-5) |
  * | `configuration` | no partial payment, no tip | the amount paid must equal the signed amount |
  *

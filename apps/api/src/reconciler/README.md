@@ -58,11 +58,15 @@ PAYLINK_WORKERD=1 pnpm --filter @paylink/api exec vitest run test/store/workerd.
 
 Read for this work: PayPal's `invoicing_v2.json` at `90e8041` (vendored in `apps/api/test/openapi/`: statuses, `payment_detail` with read-only `type`, `notification` ignoring `subject` and `note`); the PayLinkV2 release ABI and constants in `packages/sdk` (`statesOf`, `Paid`, `InvoiceCancelled`, `Cancel(bytes32,uint256)`, `decodePaidLog`); the registry's Sepolia entry (`packages/chains`, Multicall3 and the 50,000-block log range read on chain on 2026-10-21) and [docs/research/paypal/sepolia.md](../../../../docs/research/paypal/sepolia.md) (pruned history); `@cloudflare/workers-types` 5.20261006.1 (`SyncKvStorage`, `transactionSync`). The fork test deploys PayLinkV2 from `web/v2/deploy/data/release.json` (its init code hashes to the release's `initCodeHash`) at the release CREATE2 address on a fork of Sepolia and pays real Circle USDC by the payer's own EIP-3009 authorisation.
 
-UNVERIFIED until the owner's capture run or the first deployment:
+Decided by the owner's sandbox capture of 2026-10-29 ([report and note](../../../../docs/research/paypal/capture-2026-10-29.md)), **C**:
 
-- the PayPal status after P6 (`PAID`, `MARKED_AS_PAID` or `PAID_EXTERNAL`; the reconciler accepts each, and an invoice left open after the record is proposed for `cancel_paypal`), after P7 (back to open is assumed), and whether P7's transaction id is P6's `payment_id`;
-- whether PayPal keeps the `·` of PayLink's note (the echo parser accepts any separator);
-- PayPal's reminder limit and whether P9 needs a recipient email (one reminder per 24 h, and only with an email, here);
-- the sandbox payer host of `recipient_view_url` (only PayPal's own hosts and the configured one count as trusted links in "Was I really paid?");
-- the Workers Free plan's subrequest limit (50, seen in a search snippet: the cron's worst case is 34) and the Durable Objects on Cloudflare itself (exercised in local workerd only);
+- the status after P6 is `MARKED_AS_PAID`, after P7 (sent with P6's `payment_id` as its transaction id) `UNPAID` again, after P8 `CANCELLED`; the reconciler still accepts `PAID` and `PAID_EXTERNAL` after a record, and proposes `cancel_paypal` for an invoice left open after one (risk K4 of the specification, whose payer-page half is checked at the rehearsal);
+- PayPal keeps PayLink's note exactly, `·` included (the echo parser still accepts any separator);
+- P9 refuses an invoice without a billing email (400 `INVALID_REQUEST`, `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`): `send_reminder` is offered only with an email, the share card says why (`share-reminder-no-email`), and the executor names the refusal `E_PAYPAL_REMINDER_NEEDS_EMAIL` should it come anyway;
+- the sandbox payer page is `https://www.sandbox.paypal.com/invoice/p/#{id}`: `config.paypal.payerHost` pins its host, which "Was I really paid?" trusts with PayPal's own hosts and the edition's origins.
+
+UNVERIFIED until the first deployment's own evidence or a later run:
+
+- PayPal's reminder limit (one reminder per 24 h here);
+- the Workers Free plan's subrequest limit (50, seen in a search snippet: the cron's worst case is 34), and how the Durable Objects behave on Cloudflare beyond the deployed Worker's health row `store`, which reads ok since 2026-10-29 (the suites exercise them in local workerd);
 - the confirmation depth (2 blocks) and the 15-minute wait for an unverified chain payment, which are design choices (E).
