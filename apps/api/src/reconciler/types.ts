@@ -43,7 +43,7 @@ export type PayPalObservation =
       /** `payments.paid_amount.value`. */
       readonly paidAmount: string | null;
       readonly transactions: readonly PayPalTransaction[];
-      /** A primary recipient has an email address (PayPal's reminder, P9, may need one: UNVERIFIED). */
+      /** A primary recipient has an email address (PayPal's reminder, P9, needs one: C, the capture of 2026-10-29). */
       readonly hasRecipientEmail: boolean;
     }
   | { readonly read: "failed"; readonly retryable: boolean };

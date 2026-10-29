@@ -127,6 +127,11 @@ describe("routes and problems", () => {
     expect(failureText(app, new ApiError(400, "invalid-request", "E_TWIN_PRECISION")).message).toBe("This amount has a fraction of a cent, which PayPal cannot invoice.");
     expect(failureText(app, new ApiError(0, "network")).code).toBe("Error code network");
     expect(failureText(paypalApp("fr"), new ApiError(503, "paypal-unavailable")).message).toBe("PayPal n'a pas répondu. Réessayez dans une minute.");
+    // PayPal's refusal of a reminder without the client's email (the capture of 2026-10-29) says why, not just "refused".
+    expect(failureText(app, new ApiError(502, "paypal-rejected", "E_PAYPAL_REMINDER_NEEDS_EMAIL"))).toMatchObject({
+      message: "PayPal's own reminder is not offered for this invoice: it has no client email on PayPal, and PayPal refuses to send a reminder without one.",
+      code: "Error code E_PAYPAL_REMINDER_NEEDS_EMAIL",
+    });
   });
 });
 

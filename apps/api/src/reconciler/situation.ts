@@ -9,7 +9,7 @@
  * | Situation | PayPal (class of §7.4)                          | Chain                     | Fence                                      |
  * |-----------|-------------------------------------------------|---------------------------|--------------------------------------------|
  * | S0        | unreadable, unknown, SCHEDULED, DRAFT, a mismatch | unreadable, not deployed, a mismatch | nothing (hands off), alert        |
- * | S1        | open                                            | payable                   | share_reminder_text; send_reminder if due  |
+ * | S1        | open                                            | payable                   | share_reminder_text; send_reminder if due and PayPal's invoice has the client's email |
  * | S2        | paid (≥ 1 non-echo), or marked paid by the merchant | payable               | cancel_paylink (tap + signature)           |
  * | S3        | open                                            | paid, verified            | record_external_payment (automatic), or cancel_paypal once recorded, or a tap record after an Undo; after a record vanished from PayPal (`record-missing`, alert): a tap record or cancel_paypal |
  * | S4        | paid (≥ 1 non-echo transaction)                 | paid                      | nothing, alert `paid-twice`                |
@@ -230,11 +230,15 @@ function decide(input: ReconcileInput, verified: readonly ChainPayment[], listed
   }
 }
 
-/** S1: sharing the reminder text is always allowed; PayPal's own reminder only when due, emailed and not sent today. */
+/**
+ * S1: sharing the reminder text is always allowed; PayPal's own reminder only when due, emailed and not sent today.
+ * Without a client email on PayPal's invoice, PayPal refuses its reminder (400 `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`,
+ * the owner's capture of 2026-10-29), so it is never offered, and the share action's reason says why.
+ */
 function openActions(input: ReconcileInput): AllowedAction[] {
   const { twin, paypal, now } = input;
-  const allowed = [action("share_reminder_text", fenceArgs.shareReminderText(twin), "share-reminder")];
   const emailed = paypal.read === "ok" && paypal.hasRecipientEmail;
+  const allowed = [action("share_reminder_text", fenceArgs.shareReminderText(twin), emailed ? "share-reminder" : "share-reminder-no-email")];
   const rested = twin.lastReminderAt === null || now - twin.lastReminderAt >= REMINDER_INTERVAL_MS;
   const due = isDue(twin.dueDate, now);
   const waited = twin.sentAt !== null && now - twin.sentAt >= REMINDER_AFTER_SENT_MS;

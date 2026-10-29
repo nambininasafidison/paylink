@@ -269,6 +269,15 @@ describe("the desk's cards", () => {
     expect(card.querySelector(".desk-card-title")?.textContent).toBe("A reminder in your client's language, for you to send.");
   });
 
+  it("says why PayPal's own reminder is missing for an invoice without the client's email, and only then", () => {
+    const share = (reasonCode: ProposalView["reasonCode"], locale: "en" | "fr" = "en"): HTMLElement => proposalCard(paypalApp(locale), proposal({ kind: "share_reminder_text", reasonCode }), actions());
+    const noEmail = share("share-reminder-no-email");
+    expect(noEmail.querySelector(".desk-card-title")?.textContent).toBe("A reminder in your client's language, for you to send.");
+    expect(noEmail.querySelector("[data-hint=no-email]")?.textContent).toBe("PayPal's own reminder is not offered for this invoice: it has no client email on PayPal, and PayPal refuses to send a reminder without one.");
+    expect(share("share-reminder-no-email", "fr").querySelector("[data-hint=no-email]")?.textContent).toContain("PayPal refuse d'envoyer une relance sans lui");
+    expect(share("share-reminder").querySelector("[data-hint=no-email]")).toBeNull();
+  });
+
   it("approves with the proposal's own hash and token, then reads done", async () => {
     const act = actions();
     const card = proposalCard(paypalApp(), proposal({ kind: "cancel_paypal", rail: "PAYPAL" }), act);

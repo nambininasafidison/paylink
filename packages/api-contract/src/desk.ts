@@ -16,6 +16,8 @@ export type DeskReasonCode =
   | "reminder-due"
   | "reminder-after-3-days"
   | "share-reminder"
+  /** The same, for a twin without a client email: PayPal refuses its own reminder then, so it is never offered. */
+  | "share-reminder-no-email"
   | "paid-on-paypal"
   | "marked-paid-by-you"
   | "paid-on-chain"

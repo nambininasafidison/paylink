@@ -939,6 +939,7 @@ export type MessageKey =
   | "paypal.approved"
   | "paypal.rejected"
   | "paypal.reminder.standard"
+  | "paypal.reminder.noEmail"
   | "paypal.cancel.signing"
   | "paypal.cancel.notHere"
   | "paypal.cancel.done"
@@ -2152,6 +2153,7 @@ export interface MessageParams {
   readonly "paypal.approved": never;
   readonly "paypal.rejected": never;
   readonly "paypal.reminder.standard": never;
+  readonly "paypal.reminder.noEmail": never;
   readonly "paypal.cancel.signing": never;
   readonly "paypal.cancel.notHere": never;
   readonly "paypal.cancel.done": never;
@@ -2697,6 +2699,7 @@ export type EditionKey =
   | "paypal.approved"
   | "paypal.rejected"
   | "paypal.reminder.standard"
+  | "paypal.reminder.noEmail"
   | "paypal.cancel.signing"
   | "paypal.cancel.notHere"
   | "paypal.cancel.done"

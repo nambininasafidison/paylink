@@ -18,6 +18,7 @@ export const REASON_CODES = [
   "reminder-due",
   "reminder-after-3-days",
   "share-reminder",
+  "share-reminder-no-email",
   // S2
   "paid-on-paypal",
   "marked-paid-by-you",

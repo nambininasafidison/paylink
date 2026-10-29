@@ -52,7 +52,7 @@ const problemOf = async (promise: Promise<unknown>): Promise<Partial<ApiProblem>
 describe("registration", () => {
   it("records, indexes and reconciles a new twin: S1 with the share proposal, checked again in a minute", async () => {
     const w = await registered();
-    expect(await twinOf(w)).toMatchObject({ situation: "S1", lastStatus: "SHARED", lastChainState: "payable", closedAt: null });
+    expect(await twinOf(w)).toMatchObject({ situation: "S1", lastStatus: "UNPAID", lastChainState: "payable", closedAt: null });
     expect(await w.services.stores.global().findTwinByPayPalId(ID)).toEqual({ paypalId: ID, payee: PAYEE, key: KEY });
     expect((await desk(w)).map((p) => [p.kind, p.state, p.origin])).toEqual([["share_reminder_text", "open", "reconciler"]]);
     expect((await w.services.stores.global().dueChecks(T0 + 60_000, 20)).map((c) => c.key)).toEqual([KEY]);
@@ -429,11 +429,24 @@ describe("reminders (P9)", () => {
     expect((await twinOf(other))?.lastReminderAt).toBeNull();
   });
 
-  it("offers no PayPal reminder for a twin without a recipient email", async () => {
+  it("offers no PayPal reminder for a twin without a recipient email, and the desk says why", async () => {
     const w = world();
     w.paypal.add(ID, KEY, { email: false });
     await registerTwin(w.services, w.twin(KEY, ID, { dueDate: "2026-10-20", hasRecipientEmail: false }), w.clock.now);
-    expect((await desk(w)).map((p) => p.kind)).toEqual(["share_reminder_text"]);
+    expect((await desk(w)).map((p) => [p.kind, p.reasonCode])).toEqual([["share_reminder_text", "share-reminder-no-email"]]);
+    w.advance(DAY);
+    await reconcileNow(w);
+    expect((await desk(w)).filter((p) => p.kind === "send_reminder")).toEqual([]);
+    expect(w.paypal.writes().filter((c) => c.op === "remind")).toEqual([]);
+  });
+
+  it("names PayPal's refusal of a reminder without a billing email (400 CANNOT_REMIND_AS_BILLING_INFO_ABSENT), should it come", async () => {
+    const w = await registered(world(), KEY, ID, { dueDate: "2026-10-20" });
+    const remind = await openOf(w, "send_reminder");
+    w.paypal.failNext.remind = 400;
+    w.paypal.failIssue.remind = "CANNOT_REMIND_AS_BILLING_INFO_ABSENT";
+    expect(await problemOf(approve(w, remind))).toMatchObject({ code: "paypal-rejected", rule: "E_PAYPAL_REMINDER_NEEDS_EMAIL" });
+    expect((await twinOf(w))?.lastReminderAt).toBeNull();
   });
 });
 

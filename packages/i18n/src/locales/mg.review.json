@@ -934,6 +934,7 @@
     "paypal.approved",
     "paypal.rejected",
     "paypal.reminder.standard",
+    "paypal.reminder.noEmail",
     "paypal.cancel.signing",
     "paypal.cancel.notHere",
     "paypal.cancel.done",

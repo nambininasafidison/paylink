@@ -76,6 +76,7 @@
   "paypal.approved": "Done. PayPal and the chain were read again first.",
   "paypal.rejected": "Rejected. Nothing was done.",
   "paypal.reminder.standard": "PayPal sends its own standard wording: custom text cannot go through PayPal's reminder.",
+  "paypal.reminder.noEmail": "PayPal's own reminder is not offered for this invoice: it has no client email on PayPal, and PayPal refuses to send a reminder without one.",
   "paypal.cancel.signing": "Approved. Now cancel the link in your wallet: one transaction, its Sepolia gas paid by you.",
   "paypal.cancel.notHere": "This invoice was not created on this device: cancel it from the device that signed it.",
   "paypal.cancel.done": "The link is cancelled on the chain. The desk closes this at its next check.",

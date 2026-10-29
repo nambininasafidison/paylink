@@ -76,6 +76,7 @@
   "paypal.approved": "Vita. Novakiana indray aloha ny PayPal sy ny rojo.",
   "paypal.rejected": "Nolavina. Tsy nisy natao.",
   "paypal.reminder.standard": "Ny teny mahazatra ataony ihany no alefan'ny PayPal: tsy mandalo amin'ny fampahatsiahivan'ny PayPal ny lahatsoratra manokana.",
+  "paypal.reminder.noEmail": "Tsy atolotra ho an'ity faktiora ity ny fampahatsiahivan'ny PayPal: tsy misy ny mailakan'ny mpanjifa ao amin'ny PayPal, ary tsy mandefa fampahatsiahivana raha tsy misy izany ny PayPal.",
   "paypal.cancel.signing": "Nankatoavina. Foano izao ny rohy ao amin'ny kitapom-bolanao: fifanakalozana iray, ianao no mandoa ny sarany Sepolia.",
   "paypal.cancel.notHere": "Tsy teto amin'ity fitaovana ity no namoronana ity faktiora ity: foano avy amin'ny fitaovana nanao sonia azy.",
   "paypal.cancel.done": "Voafoana amin'ny rojo ny rohy. Hakatonin'ny birao izany amin'ny fanamarinana manaraka.",

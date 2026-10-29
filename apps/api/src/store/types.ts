@@ -47,7 +47,7 @@ export interface NewTwin {
   /** The signed invoice's `validUntil`, unix seconds (0: no expiry). Expiry is judged on chain time. */
   readonly validUntil: number;
   readonly recipientViewUrl: string | null;
-  /** The twin has a recipient email, which PayPal's reminder (P9) may need (UNVERIFIED). The email itself is never stored. */
+  /** The twin has a recipient email, which PayPal's reminder (P9) needs (C, the capture of 2026-10-29). The email itself is never stored. */
   readonly hasRecipientEmail: boolean;
   /** `payment_term.due_date`, if the payee set one. */
   readonly dueDate: string | null;

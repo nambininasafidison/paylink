@@ -44,6 +44,7 @@ const REASON_TEXT: Readonly<Record<DeskReasonCode, PlainMessageKey>> = {
   "reminder-due": "paypal.reason.reminderDue",
   "reminder-after-3-days": "paypal.reason.reminder3Days",
   "share-reminder": "paypal.reason.shareReminder",
+  "share-reminder-no-email": "paypal.reason.shareReminder",
   "paid-on-paypal": "paypal.reason.paidOnPaypal",
   "marked-paid-by-you": "paypal.reason.markedPaid",
   "paid-on-chain": "paypal.reason.paidOnChain",
@@ -343,6 +344,8 @@ export function proposalCard(app: App, proposal: ProposalView, actions: DeskActi
     h("h3", { class: "desk-card-title" }, reasonText(app, proposal.reasonCode)),
     exactGrid(app, proposal),
     proposal.kind === "send_reminder" ? h("p", { class: "field-hint" }, t("paypal.reminder.standard")) : null,
+    // Why PayPal's own reminder is missing: PayPal refuses one for an invoice without the client's email (P9).
+    proposal.reasonCode === "share-reminder-no-email" ? h("p", { class: "field-hint", attrs: { "data-hint": "no-email" } }, t("paypal.reminder.noEmail")) : null,
     proposal.message === null ? null : assistantNote(app, proposal.message),
     keys,
     status,

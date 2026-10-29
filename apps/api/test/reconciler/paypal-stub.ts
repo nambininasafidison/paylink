@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 /**
  * A PayPal stand-in for the reconciler's tests: one sandbox merchant's invoices in memory with the status changes the
- * reconciler depends on (shape of `invoicing_v2.json` at 90e8041). What PayPal does after a recorded payment (P6), an
- * Undo (P7) and a cancel (P8) is UNVERIFIED until the owner's capture run, so each is a switch here and the tests run
- * every plausible answer. The PayPal spine's own fake (src/paypal/fake/) serves the e2e suite; this one only needs the
- * five calls the reconciler makes, and records each.
+ * reconciler depends on (shape of `invoicing_v2.json` at 90e8041). By default it answers as the sandbox did in the
+ * owner's capture of 2026-10-29 (docs/research/paypal/capture-2026-10-29.md): `UNPAID` once shared, `MARKED_AS_PAID`
+ * after a recorded payment (P6), `UNPAID` again after its Undo (P7). What P6 leaves stays a switch, so the tests also run
+ * the other plausible answers (K4's payer page after a record is still open). The PayPal spine's own fake
+ * (src/paypal/fake/) serves the e2e suite; this one only needs the five calls the reconciler makes, and records each.
  */
 import type { InvoiceKey, PayPalInvoiceStatus } from "@paylink/api-contract";
 import { PayPalError } from "../../src/paypal/client.ts";
@@ -27,10 +28,12 @@ export interface PayPalStub {
   add(id: string, key: InvoiceKey, options?: { readonly amount?: string; readonly status?: PayPalInvoiceStatus; readonly email?: boolean }): void;
   /** A buyer pays on PayPal's hosted page. */
   payOnPayPal(id: string): void;
-  /** What P6 leaves (UNVERIFIED: `PAID`, `MARKED_AS_PAID`, `PAID_EXTERNAL`, or still open). */
+  /** What P6 leaves: `MARKED_AS_PAID` (the sandbox's, C), or `PAID`, `PAID_EXTERNAL`, or still open. */
   afterRecord: PayPalInvoiceStatus;
   /** The next call of `op` fails with this HTTP status (0: no answer). */
   failNext: Partial<Record<StubCall["op"], number>>;
+  /** The issue (`details[0].issue`) of that failure, as PayPal names it. */
+  failIssue: Partial<Record<StubCall["op"], string>>;
   /** Every `get` fails with this status while set. */
   failGets: number | null;
   /** The next call of `op` is carried out, then its answer is lost (no answer, `ambiguous`), as a timeout would. */
@@ -52,11 +55,12 @@ export function paypalStub(): PayPalStub {
     invoices,
     afterRecord: "MARKED_AS_PAID",
     failNext: {},
+    failIssue: {},
     failGets: null,
     add(id, key, options = {}) {
       invoices.set(id, {
         id,
-        status: options.status ?? "SHARED",
+        status: options.status ?? "UNPAID",
         detail: { reference: key, currency_code: "USD", invoice_number: `PL-11155111-${key.slice(2, 14)}`, metadata: { recipient_view_url: `https://www.sandbox.paypal.com/invoice/p/#${id}` } },
         primary_recipients: options.email === false ? [{ billing_info: { name: { given_name: "Sarah" } } }] : [{ billing_info: { name: { given_name: "Sarah" }, email_address: "sarah@example.com" } }],
         amount: { currency_code: "USD", value: options.amount ?? "120.00" },
@@ -89,13 +93,15 @@ export function paypalStub(): PayPalStub {
   function removePayment(id: string, transactionId: string): void {
     const inv = find(id);
     const transactions = (inv.payments?.transactions ?? []).filter((t) => t.payment_id !== transactionId);
-    invoices.set(id, { ...inv, status: transactions.length === 0 ? "SHARED" : (inv.status ?? "SHARED"), payments: { paid_amount: { currency_code: "USD", value: "0.00" }, transactions } });
+    invoices.set(id, { ...inv, status: transactions.length === 0 ? "UNPAID" : (inv.status ?? "UNPAID"), payments: { paid_amount: { currency_code: "USD", value: "0.00" }, transactions } });
   }
   const fail = (op: StubCall["op"]): void => {
     const status = stub.failNext[op];
     if (status !== undefined) {
       stub.failNext = Object.fromEntries(Object.entries(stub.failNext).filter(([k]) => k !== op));
-      throw new PayPalError(op === "get" ? "P5" : op === "record" ? "P6" : op === "delete" ? "P7" : op === "cancel" ? "P8" : "P9", status, { name: status === 429 ? "RATE_LIMIT_REACHED" : status === 422 ? "UNPROCESSABLE_ENTITY" : null });
+      const issue = stub.failIssue[op] ?? null;
+      stub.failIssue = Object.fromEntries(Object.entries(stub.failIssue).filter(([k]) => k !== op));
+      throw new PayPalError(op === "get" ? "P5" : op === "record" ? "P6" : op === "delete" ? "P7" : op === "cancel" ? "P8" : "P9", status, { name: status === 429 ? "RATE_LIMIT_REACHED" : status === 422 ? "UNPROCESSABLE_ENTITY" : status === 400 ? "INVALID_REQUEST" : null, issue });
     }
   };
   const find = (id: string): Invoice => {

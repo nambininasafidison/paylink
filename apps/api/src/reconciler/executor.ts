@@ -14,6 +14,11 @@
  *    `Cancel(key, deadline)` to sign (deadline: one hour, invoice spec §9.2) and the proposal closes when the chain shows
  *    the key cancelled (src/reconciler/engine.ts).
  *
+ * PayPal's reminder is never sent for a twin without a client email: the fence holds `send_reminder` only when the
+ * fresh P5 shows a billing email (src/reconciler/situation.ts), because the sandbox refuses a reminder without one
+ * (400 `INVALID_REQUEST`, issue `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`, the owner's capture of 2026-10-29). Should PayPal
+ * answer that refusal anyway, the problem's rule says why: `E_PAYPAL_REMINDER_NEEDS_EMAIL`.
+ *
  * A write whose answer is lost is settled by reading, never repeated blind (src/paypal/client.ts): each carries a
  * deterministic `PayPal-Request-Id` (src/paypal/idempotency.ts); a lost P8 or P6 reopens the proposal, and the next
  * approval's fresh read finds whether it happened (the fence then no longer holds it); a lost P9 cannot be read back
@@ -43,9 +48,23 @@ import { admits, reconcile } from "./situation.ts";
 const REMIND = { send_to_recipient: true, send_to_invoicer: false } as const;
 const CANCEL = { send_to_recipient: false, send_to_invoicer: false } as const;
 
+/** PayPal's refusal of a reminder for an invoice without a billing email (400, C: the owner's capture of 2026-10-29). */
+export const REMINDER_WITHOUT_EMAIL_ISSUE = "CANNOT_REMIND_AS_BILLING_INFO_ABSENT";
+
+/** The rule of a refused effect: a reminder needs the client's email on PayPal's invoice, or hit PayPal's limit. */
+function refusalRule(error: { readonly status: number; readonly issue: string | null; readonly paypalName: string | null }, kind: string): string {
+  if (kind === "send_reminder" && error.issue === REMINDER_WITHOUT_EMAIL_ISSUE) {
+    return "E_PAYPAL_REMINDER_NEEDS_EMAIL";
+  }
+  if (kind === "send_reminder" && (error.status === 429 || error.status === 422)) {
+    return "E_PAYPAL_REMINDER_LIMIT";
+  }
+  return error.paypalName ?? `HTTP_${String(error.status)}`;
+}
+
 function paypalProblem(error: unknown, kind: string): ProblemError {
   if (isPayPalError(error)) {
-    const rule = kind === "send_reminder" && (error.status === 429 || error.status === 422) ? "E_PAYPAL_REMINDER_LIMIT" : (error.paypalName ?? `HTTP_${String(error.status)}`);
+    const rule = refusalRule(error, kind);
     return error.retryable ? new ProblemError("paypal-unavailable", "PayPal did not carry out the action; try again later", { rule, retryAfter: 60 }) : new ProblemError("paypal-rejected", "PayPal refused the action", { rule });
   }
   return new ProblemError("paypal-unavailable", "PayPal did not carry out the action", { rule: "E_PAYPAL_UNAVAILABLE", retryAfter: 60 });

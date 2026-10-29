@@ -38,6 +38,9 @@ const RULE_TEXT: Readonly<Record<string, MessageKey>> = {
   E_UNDO_EXPIRED: "paypal.error.undoExpired",
   E_BUSY: "paypal.error.busy",
   E_PAYPAL_SCHEDULED: "paypal.error.scheduled",
+  // PayPal refuses its reminder for an invoice without the client's email (the capture of 2026-10-29); the desk never
+  // offers one then, and says why the same way should PayPal refuse anyway.
+  E_PAYPAL_REMINDER_NEEDS_EMAIL: "paypal.reminder.noEmail",
   E_TWIN_PRECISION: "paypal.twin.ineligible.cents",
   E_TWIN_OPEN_AMOUNT: "paypal.twin.ineligible.open",
   E_TWIN_MULTI_PAYMENT: "paypal.twin.ineligible.several",

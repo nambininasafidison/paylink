@@ -76,6 +76,7 @@
   "paypal.approved": "Fait. PayPal et la chaîne ont d'abord été relus.",
   "paypal.rejected": "Refusé. Rien n'a été fait.",
   "paypal.reminder.standard": "PayPal envoie sa propre formulation standard : un texte personnalisé ne passe pas par la relance de PayPal.",
+  "paypal.reminder.noEmail": "La relance de PayPal n'est pas proposée pour cette facture : elle n'a pas l'e-mail du client chez PayPal, et PayPal refuse d'envoyer une relance sans lui.",
   "paypal.cancel.signing": "Approuvé. Annulez maintenant le lien dans votre portefeuille : une transaction, ses frais Sepolia à votre charge.",
   "paypal.cancel.notHere": "Cette facture n'a pas été créée sur cet appareil : annulez-la depuis l'appareil qui l'a signée.",
   "paypal.cancel.done": "Le lien est annulé sur la chaîne. Le bureau clôt ceci à sa prochaine vérification.",

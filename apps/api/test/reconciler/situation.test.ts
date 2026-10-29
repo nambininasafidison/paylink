@@ -240,6 +240,13 @@ describe("S1 reminders (§7.1 P9, §10.2)", () => {
     expect(next[1]?.args["round"]).toBe(new Date(T0 - REMINDER_INTERVAL_MS).toISOString());
     expect(s1({ dueDate: "2026-10-01" }, { email: false }).map((a) => a.kind)).toEqual(["share_reminder_text"]);
   });
+
+  it("never offers PayPal's reminder without a client email, and says why (the sandbox refuses it, capture of 2026-10-29)", () => {
+    for (const twin of [{}, { dueDate: "2026-10-01" }, { sentAt: T0 - REMINDER_AFTER_SENT_MS }, { dueDate: "2026-10-01", lastReminderAt: T0 - 2 * REMINDER_INTERVAL_MS }]) {
+      expect(s1(twin, { email: false }).map((a) => [a.kind, a.reasonCode])).toEqual([["share_reminder_text", "share-reminder-no-email"]]);
+      expect(s1(twin).map((a) => a.reasonCode)[0]).toBe("share-reminder");
+    }
+  });
 });
 
 describe("chain payments not verified yet", () => {
