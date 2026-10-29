@@ -70,7 +70,7 @@ What it does (`apps/api/scripts/capture/run.ts`): four invoices of $1.00 with ra
 While it runs, do the three manual checks it prints and write the answers next to the report:
 
 1. **K4**: when it prints "manual check (K4)", open that link before the next step runs: does PayPal's payer page still accept a payment after the external payment was recorded? (Not checked on 2026-10-29: the rehearsal checks it, [§11](#11-rehearsal).)
-2. **P9**: where did the sandbox reminder appear (Developer Dashboard → Testing tools → Sandbox notifications, or nowhere)? Only a reminder to a sandbox account can be listed there; the run's goes to `payer@example.com`, which is not one.
+2. **P9**: where did the sandbox reminder appear (Developer Dashboard → Testing tools → Sandbox notifications, or nowhere)? Only a reminder to a sandbox account can be listed there; the run's goes to its synthetic client above, which is not one.
 3. **P10**: once the webhook is subscribed (§4) and the Worker deployed, pay one invoice as a sandbox buyer; the Worker's logs (Workers & Pages → paylink-api → Logs) show `webhook.received` with `outcome: processed`.
 
 The report keeps statuses, methods, error names and issues and the run's own amounts; every other string is reduced to its length, URLs to scheme, host and an id-free path (`apps/api/scripts/capture/report.ts`). It holds no secret, no token, no email, no name and no invoice id, so it can be committed or pasted to Claude as it is.
