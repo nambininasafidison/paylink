@@ -12,7 +12,7 @@ Why Sepolia and not Arbitrum Sepolia (the specification's first choice, [pyusd.m
 | RPC | `https://ethereum-sepolia-rpc.publicnode.com` answers from the build machine; other public Sepolia RPCs tried did not (UNVERIFIED for browsers elsewhere) | C |
 | CREATE2 factory `0x4e59b44847b379578588920cA78FbF26c0B4956C` | 69 bytes of code, the canonical runtime | C |
 | Multicall3 `0xcA11bde05977b3631167028862bE2a173976CA11` | 3,808 bytes of code | C |
-| PayLinkV2 `0x448eCce9711860502806A3d5B021a4f9Ba715082` | **no code**: not deployed. The owner deploys it with the deploy kit (`/deploy/?chain=eth`) at that CREATE2 address; until its record `protocol/deployments/11155111.json` exists (*planned (T1: the owner's deployment)*) the edition reads "Not deployed" | C |
+| PayLinkV2 `0x448eCce9711860502806A3d5B021a4f9Ba715082` | **no code** on 2026-10-21: not deployed then. The owner deployed it with the deploy kit at that CREATE2 address on 2026-10-29 (transaction `0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3`, block 12,017,054); its record `protocol/deployments/11155111.json` was re-verified on chain by `tools/verify-deployment` the same day | C |
 | Explorer | `https://sepolia.etherscan.io` | C |
 
 ## 2. Tokens
@@ -61,6 +61,7 @@ Ethereum Sepolia's blocks carry `blockAccessListHash` (EIP-7928) and its node an
 | The same on an anvil fork of Sepolia | 19,240,803 | — |
 | `payWithAuthorization`, first payment (USDC, fork) | 457,705 | 166,954 (ceiling 215,000) |
 | `cancel` (fork) | 146,812 | 57,628 (ceiling 81,000) |
+| The owner's CREATE2 deployment on Sepolia, 2026-10-29 (transaction `0x9a5ade11…b0e5b3`): gas used by its receipt | **18,946,483** under a limit of 21,174,513, at 1.5 gwei a gas: 0.0284 Sepolia ETH | — |
 
 The first gas table and the deploy kit's bounds (Ethereum's anvil profile, Bpo1) would therefore have refused the deployment (`E_GAS_ABOVE_CEILING`, ceiling 4,077,000), every payment and every cancellation on the real chain; the first rehearsals pinned the fork to Prague and could not see it. Since 2026-10-22 the registry's Ethereum Sepolia gas table and the kit's deployment bounds come from `tools/deploy-page/scripts/sepolia-fork.ts --measure` on a fork under the chain's own rules (`packages/chains/data/fork-gas-measurements.json`, profile `sepolia`), and every fork test runs unpinned. Fees stay negligible on Sepolia (base fee 14 wei at block 11,968,600), but the owner's wallet must accept a deployment limit near 21 million gas.
 
