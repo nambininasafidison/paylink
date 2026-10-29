@@ -67,7 +67,11 @@ The bundle Cloudflare deploys as `paylink-api` ([ADR 0018](docs/adr/0018-paypal-
 | Component | Version | Licence |
 |---|---|---|
 | hono | 4.13.13 | MIT, © Yusuke Wada and Hono contributors |
+| zod | 4.6.5 | MIT, © Colin McDonnell |
 | viem (the functions the API imports) | 2.57.3 | MIT, © weth, LLC |
+| ox | 0.14.45 | MIT, © wevm |
+| abitype | 1.2.3 | MIT, © weth, LLC |
+| @noble/curves | 1.9.1 | MIT, © Paul Miller |
 | @noble/hashes | 1.8.0 | MIT, © Paul Miller |
 
 ### 3.3 Distributed in the web site build (`apps/web/dist`)
