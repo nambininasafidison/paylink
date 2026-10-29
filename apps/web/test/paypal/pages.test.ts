@@ -2,7 +2,8 @@
 /**
  * The PayPal edition's shell (`/paypal/`, ADR 0018) renders in every language without a wallet and without a network:
  * the edition tag, its four tabs with the desk, Ethereum Sepolia alone ("Not deployed" until the registry records
- * PayLinkV2 there), the desk's "coming" placeholder with the API's health row, the Status page without a relayer, and
+ * PayLinkV2 there, as it has since 2026-10-29), the desk's "coming" placeholder with the API's health row, the Status
+ * page without a relayer, and
  * the footer's source link to the branch paypal. Runs with `__PAYLINK_EDITION__ = "paypal"` (vitest project "paypal").
  */
 import "fake-indexeddb/auto";
@@ -243,6 +244,11 @@ describe("create and status, without an API", () => {
       expect(document.querySelector(".band[aria-checked=true] .band-id")?.textContent).toBe("Not deployed");
       // The deploy kit resolves `?chain=` by the registry label (web/v2/deploy/app.js): ETH is Ethereum Sepolia there.
       expect(document.querySelector(".view-create .warn-note a")?.getAttribute("href")).toBe("/deploy/?chain=eth");
+    } else {
+      // Recorded since 2026-10-29 (protocol/deployments/11155111.json): the band names the testnet, and no notice sends
+      // the payee to the deploy kit.
+      expect(document.querySelector(".band[aria-checked=true] .band-id")?.textContent).toBe("Testnet · 11155111");
+      expect(document.querySelector(".view-create .warn-note")).toBeNull();
     }
   });
 
