@@ -363,7 +363,7 @@ test.describe("create: the assistant sheet (F1)", () => {
 // ------------------------------------------------------------------------------------------- twin panel
 
 test.describe("create: the twin panel (F1)", () => {
-  test("creating, then created and read back from PayPal: SHARED, the number, the amount; the request is the link as shared", async ({ browser }) => {
+  test("creating, then created and read back from PayPal: UNPAID, the number, the amount; the request is the link as shared", async ({ browser }) => {
     const a = await actor(browser);
     const link = await createInvoice(a, "120", "Logo design");
     const key = await lastKey(a.page);
@@ -378,7 +378,7 @@ test.describe("create: the twin panel (F1)", () => {
     await snap(a, "twin-creating", panel);
     await expect(panel).toHaveAttribute("data-state", "created");
     const readout = panel.locator(".twin-readout");
-    await expect(readout).toHaveAttribute("data-status", "SHARED");
+    await expect(readout).toHaveAttribute("data-status", "UNPAID");
     await expect(readout.locator(".twin-number")).toHaveText(numberOf(key));
     await expect(readout.locator(".readings")).toContainText("120.00 USD");
     await expect(panel.locator(".status")).toHaveText(`PayPal twin ${numberOf(key)} made and read back from PayPal.`);
@@ -627,7 +627,7 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
     await expect(a.page.locator(".till-source")).toContainText("via PAYPAL · verified with PayPal");
     await expect(a.page.locator(".till-figure")).toContainText("120.00");
     await expect(a.page.locator(".till-figure .unit")).toHaveText("USD");
-    // Three reads did not light it (SHARED, an echo, another amount); the fourth did.
+    // Three reads did not light it (open, an echo, another amount); the fourth did.
     expect(a.api.to("twin.get").length).toBe(4);
     expect(sent(a.wallet)).toBe(0);
     await noAiOnMoneyScreens(a.page);

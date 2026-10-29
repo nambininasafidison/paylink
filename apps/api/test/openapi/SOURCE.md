@@ -26,10 +26,13 @@ toolkit files that are vendored are in `../vendor/paypal-agent-toolkit-1.11.0/`)
   the bodies PayLink builds (`src/paypal/invoice.ts`) for any input the builder accepts (fast-check). P1 is checked with
   the client's own parser, which follows the toolkit's documented response.
 
-`contract.ts` reads the files as they are and corrects two of their own defects in memory, and only those:
-`payment_reference.payment_id` writes its `minLength` and `maxLength` as strings (`"1"`, `"22"`), which JSON Schema
-refuses; and `verify_webhook_signature.transmission_sig` carries the pattern `^(?!\d+$)\w+\S+`, which a base64 signature
-beginning with `+` or `/` would fail although that is what PayPal delivers in `PAYPAL-TRANSMISSION-SIG`. PayPal's own
-formats (`ppaas_*`) have no published definition and are checked by their patterns only.
+`contract.ts` reads the files as they are and corrects two of their own defects in memory, and adds one answer of
+PayPal's sandbox they do not list, and only those: `payment_reference.payment_id` writes its `minLength` and `maxLength`
+as strings (`"1"`, `"22"`), which JSON Schema refuses; `verify_webhook_signature.transmission_sig` carries the pattern
+`^(?!\d+$)\w+\S+`, which a base64 signature beginning with `+` or `/` would fail although that is what PayPal delivers in
+`PAYPAL-TRANSMISSION-SIG`; and `invoices.remind-400` lists two issues, while the sandbox answered a reminder for an
+invoice without a billing email with a third, `CANNOT_REMIND_AS_BILLING_INFO_ABSENT` (the owner's capture of 2026-10-29,
+[`docs/research/paypal/capture-2026-10-29.md`](../../../../docs/research/paypal/capture-2026-10-29.md)), which is added to
+that list. PayPal's own formats (`ppaas_*`) have no published definition and are checked by their patterns only.
 
 Do not edit the JSON: replace it with a newer upstream copy and update this table.

@@ -446,7 +446,8 @@ export async function makeTwin(a: Actor, key: InvoiceKey, client: string): Promi
   await expect(panel).toHaveAttribute("data-state", "created", { timeout: 60_000 });
   const number = `PL-${String(SEPOLIA)}-${key.slice(2, 14)}`;
   await expect(panel.locator(".twin-readout .twin-number")).toHaveText(number);
-  await expect(panel.locator(".twin-readout")).toHaveAttribute("data-status", "SHARED");
+  // The sandbox's open status after a share link (the owner's capture of 2026-10-29), which the fake follows.
+  await expect(panel.locator(".twin-readout")).toHaveAttribute("data-status", "UNPAID");
   return number;
 }
 

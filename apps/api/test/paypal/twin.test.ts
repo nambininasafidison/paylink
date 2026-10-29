@@ -17,7 +17,7 @@ describe("ensureTwin", () => {
   it("creates, shares and reads back a new twin: P2, P3, P4, P5 with deterministic request ids", async () => {
     const { fake, client } = fakeAndClient();
     const twin = await ensureTwin(client, KEY, body);
-    expect(twin).toMatchObject({ origin: "created", send: 200, duplicates: [], invoice: { status: "SHARED", detail: { reference: KEY } } });
+    expect(twin).toMatchObject({ origin: "created", send: 200, duplicates: [], invoice: { status: "UNPAID", detail: { reference: KEY } } });
     expect(fake.requests.filter((r) => r.op !== "P1").map((r) => r.op)).toEqual(["P2", "P3", "P4", "P5"]);
     expect(fake.requests.find((r) => r.op === "P3")?.requestId).toBe(`pl-create-${KEY.slice(2, 26)}`);
     expect(fake.requests.find((r) => r.op === "P4")?.requestId).toBe(`pl-send-${KEY.slice(2, 26)}`);
@@ -37,7 +37,7 @@ describe("ensureTwin", () => {
     const { fake, client } = fakeAndClient();
     fake.inject({ op: "P3", noAnswer: "after" });
     const twin = await ensureTwin(client, KEY, body);
-    expect(twin).toMatchObject({ origin: "found", send: 200, invoice: { status: "SHARED" } });
+    expect(twin).toMatchObject({ origin: "found", send: 200, invoice: { status: "UNPAID" } });
     expect(fake.state.invoices.size).toBe(1);
     expect(fake.requests.filter((r) => r.op !== "P1").map((r) => r.op)).toEqual(["P2", "P3", "P2", "P4", "P5"]);
   });
@@ -55,7 +55,7 @@ describe("ensureTwin", () => {
     const { fake, client } = fakeAndClient();
     await client.createInvoice(body);
     const twin = await ensureTwin(client, KEY, body);
-    expect(twin).toMatchObject({ origin: "found", send: 200, invoice: { status: "SHARED" } });
+    expect(twin).toMatchObject({ origin: "found", send: 200, invoice: { status: "UNPAID" } });
     expect(fake.state.invoices.size).toBe(1);
   });
 
@@ -63,7 +63,7 @@ describe("ensureTwin", () => {
     const { fake, client } = fakeAndClient();
     fake.inject({ op: "P4", noAnswer: "after" });
     const twin = await ensureTwin(client, KEY, body);
-    expect(twin).toMatchObject({ send: "settled-by-read", invoice: { status: "SHARED" } });
+    expect(twin).toMatchObject({ send: "settled-by-read", invoice: { status: "UNPAID" } });
   });
 
   it("keeps the failure when P4's answer was lost before PayPal sent anything", async () => {

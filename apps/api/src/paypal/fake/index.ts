@@ -6,9 +6,9 @@
  * process (`fake.fetch`, the transport of the client in `fake` mode) or over HTTP when the fake is served on its own
  * (`fake.app`, or mounted under a path of another server).
  *
- * What the fake decides where PayPal's files are silent is `FakeBehaviour` (model.ts): each choice is the expected one
- * or the pessimistic one, every one is switchable, and each stays UNVERIFIED until the owner's capture run
- * (apps/api/scripts/capture/) records what the sandbox does.
+ * What the fake decides where PayPal's files are silent is `FakeBehaviour` (model.ts): each default is what the sandbox
+ * did in the owner's capture run of 2026-10-29 (apps/api/scripts/capture/, docs/research/paypal/capture-2026-10-29.md)
+ * where the run recorded it, the expected or pessimistic choice (UNVERIFIED) otherwise, and every one is switchable.
  *
  * For tests: faults (`inject`: an error status, a dropped connection before or after PayPal processed the request), the
  * log of every request (`requests`), the payer paying (`pay`), forced statuses, and webhook delivery on demand (`flush`).

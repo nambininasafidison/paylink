@@ -4,13 +4,18 @@
  * OpenAPI files (`paypal-rest-api-specifications@90e8041`, this folder), with ajv. `contractTransport` wraps any
  * transport (the PayPal fake's, in tests) and checks every request the client sends and every answer it parses.
  *
- * The files are read as they are; two of their own defects are corrected in memory before compiling, and only those:
+ * The files are read as they are; two of their own defects, and one answer of PayPal's sandbox that they do not list,
+ * are corrected in memory before compiling, and only those:
  *
  * 1. `payment_reference.payment_id` writes `minLength: "1"` and `maxLength: "22"` as strings, which JSON Schema (and
  *    ajv) refuses: they are read as the numbers they mean.
  * 2. `verify_webhook_signature.transmission_sig` has the pattern `^(?!\d+$)\w+\S+`, which a base64 signature beginning
  *    with `+` or `/` (one in 32) would fail although it is what PayPal itself delivers in the `PAYPAL-TRANSMISSION-SIG`
  *    header: the pattern is not applied to that member.
+ * 3. `invoices.remind-400` lists two issues; to a reminder for an invoice without a billing email the sandbox answered
+ *    400 `INVALID_REQUEST` with a third, `CANNOT_REMIND_AS_BILLING_INFO_ABSENT` (the owner's capture of 2026-10-29,
+ *    docs/research/paypal/capture-2026-10-29.md), which the PayPal fake now answers too: that issue is added to the
+ *    list, and nothing else.
  *
  * OpenAPI 3.0 keywords JSON Schema does not know (`nullable`, `x-*`) and PayPal's own formats (`ppaas_*`) are ignored
  * (ajv `strict: false`); `readOnly` members are annotations, so a request carrying one passes here and is refused by the
@@ -44,9 +49,16 @@ export function loadSpec(name: (typeof SPEC_FILES)[keyof typeof SPEC_FILES]): Sp
   return JSON.parse(readFileSync(new URL(name, import.meta.url), "utf8")) as Spec;
 }
 
-/** The two in-memory corrections of the module comment. */
+/** The issue PayPal's sandbox answered to a reminder without a billing email (correction 3 of the module comment). */
+export const SANDBOX_REMIND_400_ISSUE = "CANNOT_REMIND_AS_BILLING_INFO_ABSENT";
+
+/** The three in-memory corrections of the module comment. */
 function corrected(spec: Spec): Spec {
   const copy = structuredClone(spec);
+  const remind400 = (copy.components.schemas["invoices.remind-400"] as { properties?: { details?: { items?: { anyOf?: unknown[] } } } } | undefined)?.properties?.details?.items?.anyOf;
+  if (remind400 !== undefined) {
+    remind400.push({ title: SANDBOX_REMIND_400_ISSUE, properties: { issue: { type: "string", enum: [SANDBOX_REMIND_400_ISSUE] } } });
+  }
   const reference = (copy.components.schemas["payment_reference"] as { properties?: { payment_id?: Record<string, unknown> } } | undefined)?.properties?.payment_id;
   if (reference !== undefined) {
     for (const bound of ["minLength", "maxLength"]) {

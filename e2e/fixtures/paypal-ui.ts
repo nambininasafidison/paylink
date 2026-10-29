@@ -382,7 +382,8 @@ export function twin(key: InvoiceKey, over: Partial<TwinView> = {}): TwinView {
     key,
     paypalId: "INV2-E2E0-AAAA-BBBB-CCCC",
     number: numberOf(key),
-    status: "SHARED",
+    // The sandbox's open status after a share link (the owner's capture of 2026-10-29).
+    status: "UNPAID",
     statusClass: "open",
     recipientViewUrl: "https://www.sandbox.paypal.com/invoice/p/#INV2E2E0AAAABBBBCCCC",
     amount: "120.00",

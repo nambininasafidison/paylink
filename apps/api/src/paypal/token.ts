@@ -26,8 +26,9 @@ export interface TokenStore {
 }
 
 /**
- * When a token fetched at `issuedAt` stops being used: `expires_in` − 10 min (§7.1). A token that lives 20 minutes or
- * less (sandbox tokens last 3–8 hours, toolkit README) is used for half its life instead, so it is never used late.
+ * When a token fetched at `issuedAt` stops being used: `expires_in` − 10 min (§7.1), whatever lifetime PayPal gives (the
+ * sandbox's token answered 32,326 s in the owner's capture of 2026-10-29, so it is used for 8 h 48 min 46 s). A token
+ * that lives 20 minutes or less is used for half its life instead, so it is never used late.
  */
 export function tokenExpiry(issuedAt: number, expiresInSeconds: number): number {
   const lifetime = expiresInSeconds * 1000;

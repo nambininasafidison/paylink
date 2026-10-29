@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { PayPalError } from "../../src/paypal/client.ts";
 import { isPayPalError } from "../../src/paypal/client.ts";
+import { DEFAULT_BEHAVIOUR } from "../../src/paypal/fake/index.ts";
 import { createHttpPayPalClient, spliceVerification } from "../../src/paypal/http.ts";
 import { CANCEL_SILENTLY, REMIND_RECIPIENT, SHARE_LINK, twinCreateBody } from "../../src/paypal/invoice.ts";
 import { TOKEN_MARGIN_MS } from "../../src/paypal/token.ts";
@@ -27,7 +28,7 @@ async function failure(promise: Promise<unknown>): Promise<PayPalError> {
 }
 
 describe("OAuth token (P1)", () => {
-  it("fetches one token for many calls and caches it until expires_in − 10 min", async () => {
+  it("fetches one token for many calls and caches it until expires_in − 10 min (the sandbox's 32,326 s)", async () => {
     const { fake, client, global } = fakeAndClient();
     const twin = await sharedTwin(client);
     await client.getInvoice(twin.id ?? "");
@@ -35,7 +36,8 @@ describe("OAuth token (P1)", () => {
     expect(fake.requests.find((r) => r.op === "P1")).toMatchObject({ method: "POST", authorization: "basic", body: "grant_type=client_credentials" });
     expect(fake.requests.filter((r) => r.op !== "P1").every((r) => r.authorization === "bearer")).toBe(true);
     expect(global.tokens).toHaveLength(1);
-    expect(global.tokens[0]?.expiresAtMs).toBe(T0 + 32_400_000 - TOKEN_MARGIN_MS);
+    expect(DEFAULT_BEHAVIOUR.tokenLifetimeSeconds).toBe(32_326);
+    expect(global.tokens[0]?.expiresAtMs).toBe(T0 + 32_326_000 - TOKEN_MARGIN_MS);
   });
 
   it("shares the token through the Global store: a second isolate fetches none", async () => {
@@ -58,7 +60,7 @@ describe("OAuth token (P1)", () => {
     const clock = manualClock();
     const { fake, client } = fakeAndClient({ clock: clock.now });
     await client.listInvoices();
-    clock.advance(32_400_000 - TOKEN_MARGIN_MS - 1);
+    clock.advance(32_326_000 - TOKEN_MARGIN_MS - 1);
     await client.listInvoices();
     expect(fake.requests.filter((r) => r.op === "P1")).toHaveLength(1);
     clock.advance(1);
@@ -274,7 +276,7 @@ describe("operations", () => {
     expect(recorded.payment_id).toMatch(/^[0-9A-Za-z_-]{1,22}$/u);
     expect((await client.getInvoice(id)).status).toBe("MARKED_AS_PAID");
     await client.deletePayment(id, recorded.payment_id);
-    expect((await client.getInvoice(id)).status).toBe("SHARED");
+    expect((await client.getInvoice(id)).status).toBe("UNPAID");
     await client.cancelInvoice(id, CANCEL_SILENTLY);
     expect((await client.getInvoice(id)).status).toBe("CANCELLED");
     const hook = await client.createWebhook({ url: "https://paylink-api.example/v1/paypal/webhook", event_types: [{ name: "INVOICING.INVOICE.PAID" }] });

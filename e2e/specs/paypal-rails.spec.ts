@@ -101,7 +101,8 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     const twin = (await api.invoices()).find((i) => i.detail.reference === key);
     expect(twin, "PayPal holds the twin, found by its reference K").toBeDefined();
     expect(twin?.detail.invoice_number).toBe(number);
-    expect(twin?.status).toBe("SHARED");
+    // The sandbox's open status after a share link (the owner's capture of 2026-10-29), which the fake follows.
+    expect(twin?.status).toBe("UNPAID");
     await snap(payee, "a-twin-created", payee.page.locator("section.twin"));
 
     // The payee arms the till; it watches the chain and, with the desk session, PayPal's own record.
@@ -115,14 +116,15 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     await payee.page.locator(".view-till > .key-primary").click();
     await expect(payee.page.locator(".till")).toHaveAttribute("data-state", "waiting");
 
-    // The payer chooses PayPal: a top-level navigation to the pinned sandbox host, then pays as the sandbox buyer.
+    // The payer chooses PayPal: a top-level navigation to the pinned sandbox payer page, PayPal's own form with the
+    // invoice in the fragment (`/invoice/p/#<id>`, the capture of 2026-10-29), then pays as the sandbox buyer.
     const payer = await railsActor(browser, api, fork, ACCOUNTS.payer);
     actors.push(payer);
     await payPage(payer, link);
     const chooser = payer.page.locator(".rails");
     await expect(chooser).toHaveAttribute("data-rails", "both");
     const paypal = chooser.locator("[data-action=pay-paypal]");
-    await expect(paypal).toHaveAttribute("href", new RegExp(`^${PAYER_ORIGIN}/invoice/p/${twin?.id ?? "-"}$`));
+    await expect(paypal).toHaveAttribute("href", `${PAYER_ORIGIN}/invoice/p/#${twin?.id ?? "-"}`);
     await snap(payer, "a-rails-both");
     await clean(payer);
     const linesBefore = api.lines.length;
@@ -231,7 +233,8 @@ test.describe("the two rails on a fork of Ethereum Sepolia, with the PayPal fake
     await expect(record).toHaveAttribute("data-state", "undone", { timeout: 30_000 });
     paypalInvoice = await api.invoice(paypalId);
     expect(paypalInvoice.payments?.transactions ?? []).toHaveLength(0);
-    expect(["SENT", "SHARED", "UNPAID"]).toContain(paypalInvoice.status);
+    // Open again, as the sandbox left it after an undo by payment id (the capture of 2026-10-29).
+    expect(paypalInvoice.status).toBe("UNPAID");
     await sweep(view);
     const again = card(view, "record_external_payment", number);
     await expect(again).toHaveAttribute("data-state", "open");

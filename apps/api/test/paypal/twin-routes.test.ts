@@ -24,8 +24,8 @@ describe("POST /v1/twin", () => {
     const response = await h.post({ link: url, recipient: { givenName: "Sarah", email: "sarah@example.com" }, dueDate: "2026-11-06" });
     expect(response.status).toBe(201);
     const view = (await response.json()) as TwinView;
-    expect(view).toMatchObject({ key, number: `PL-11155111-${key.slice(2, 14)}`, status: "SHARED", statusClass: "open", amount: "120.00", currency: "USD", checkedAt: new Date(T0).toISOString() });
-    expect(view.recipientViewUrl).toBe(`http://paypal.fake.invalid/invoice/p/${view.paypalId}`);
+    expect(view).toMatchObject({ key, number: `PL-11155111-${key.slice(2, 14)}`, status: "UNPAID", statusClass: "open", amount: "120.00", currency: "USD", checkedAt: new Date(T0).toISOString() });
+    expect(view.recipientViewUrl).toBe(`http://paypal.fake.invalid/invoice/p/#${view.paypalId}`);
     expect(h.fake.requests.filter((r) => r.op !== "P1").map((r) => r.op)).toEqual(["P2", "P3", "P4", "P5"]);
     const created = h.fake.invoice(view.paypalId) as { detail: { reference: string; memo: string; note: string; payment_term: unknown }; primary_recipients: unknown; items: unknown };
     expect(created.detail).toMatchObject({ reference: key, memo: `PayLink twin · payee ${PAYEE.address} · eip155:11155111`, payment_term: { due_date: "2026-11-06" } });
@@ -193,7 +193,8 @@ describe("GET /v1/rails/:key", () => {
     const twin = (lastStatus: TwinRecord["lastStatus"], situation: TwinRecord["situation"] = "S1"): TwinRecord => ({ lastStatus, situation, amountBase: "120000000", checkedAt: T0, recipientViewUrl: "https://www.sandbox.paypal.com/invoice/p/#INV2-1" }) as TwinRecord;
     const status = (record: TwinRecord): RailsResponse["status"] => railsView(record).status;
     expect(status(twin("SHARED"))).toBe("open");
-    expect(railsView(twin("SHARED")).url).toBe("https://www.sandbox.paypal.com/invoice/p/#INV2-1");
+    expect(status(twin("UNPAID"))).toBe("open");
+    expect(railsView(twin("UNPAID")).url).toBe("https://www.sandbox.paypal.com/invoice/p/#INV2-1");
     expect(status(twin("SENT", "S3"))).toBe("closed");
     expect(status(twin("SENT", "S7"))).toBe("closed");
     expect(status(twin("SENT", "S0"))).toBe("none");

@@ -4,52 +4,59 @@
  * subscriptions, events and their deliveries. Pure state and rules, no HTTP (src/paypal/fake/app.ts serves it).
  *
  * The status machine (statuses and their meanings V, `invoice_status` in `invoicing_v2.json`; transitions are the
- * operations' descriptions where they state them, and the fake's documented choice where they do not):
+ * operations' descriptions where they state them, the sandbox's where the owner's capture of 2026-10-29 recorded them,
+ * **C** (docs/research/paypal/capture-2026-10-29.md), and the fake's documented choice otherwise):
  *
  * | From | Event | To | Source |
  * |---|---|---|---|
  * | (none) | P3 create | `DRAFT` | "Creates a draft invoice" (V) |
- * | `DRAFT` | P4 send, issue date today or past | `SENT` (to the recipient) or `behaviour.statusAfterShare` (share link) | 200 "when the invoice issue date is current date" (V); `SHARED` vs `SENT` UNVERIFIED |
+ * | `DRAFT` | P4 send, issue date today or past | `SENT` (to the recipient) or `behaviour.statusAfterShare` (share link: `UNPAID`) | 200 "when the invoice issue date is current date" (V); 200 and `UNPAID` after a share link (C) |
  * | `DRAFT` | P4 send, issue date in the future | `SCHEDULED` (answer 202) | 202 description (V) |
- * | open | the payer pays the whole amount | `behaviour.payerPaymentStatus` (`PAID`) | `PAID`: "The payer has paid for the invoice" (V) |
- * | open | P6 records the whole amount due | `behaviour.statusAfterRecord` | "If no payment is due, the invoice is marked as `PAID`" (V); what the sandbox shows is UNVERIFIED |
+ * | open | the payer pays the whole amount | `behaviour.payerPaymentStatus` (`PAID`), a transaction of type and method `PAYPAL` | `PAID`: "The payer has paid for the invoice" (V); both (C) |
+ * | open | P6 records the whole amount due | `behaviour.statusAfterRecord` (`MARKED_AS_PAID`), the note kept exactly | "If no payment is due, the invoice is marked as `PAID`" (V); the sandbox shows `MARKED_AS_PAID` (C) |
  * | open | P6 or a payment covers part of it | `PARTIALLY_PAID` | "Otherwise, the invoice is marked as PARTIALLY PAID" (V) |
- * | paid by P6 | P7 deletes the external payment | the open status it had | E |
- * | open, `SCHEDULED` excepted | P8 cancel | `CANCELLED` | 422 issues `CANNOT_CANCEL_DRAFT_INVOICE`, `CANNOT_CANCEL_PAID_INVOICE`, `CANNOT_CANCEL_REFUNDED_INVOICE`, `CANNOT_CANCEL_SCHEDULED_INVOICE`, `INVOICE_CANCELED_ALREADY` (V) |
- * | open or `PARTIALLY_PAID` | P9 remind | unchanged | 422 issue `CANNOT_REMIND_INVOICE` (V) otherwise, and past `behaviour.remindersPerDay` (S: two a day) |
+ * | paid by P6 | P7 deletes the external payment (P6's `payment_id` as `transaction_id`) | the open status it had (`UNPAID`) | C |
+ * | open, `SCHEDULED` excepted | P8 cancel | `CANCELLED` | 422 issues `CANNOT_CANCEL_DRAFT_INVOICE`, `CANNOT_CANCEL_PAID_INVOICE`, `CANNOT_CANCEL_REFUNDED_INVOICE`, `CANNOT_CANCEL_SCHEDULED_INVOICE`, `INVOICE_CANCELED_ALREADY` (V); `CANCELLED` after an undo (C) |
+ * | open or `PARTIALLY_PAID` | P9 remind | unchanged | 422 issue `CANNOT_REMIND_INVOICE` (V) otherwise, and past `behaviour.remindersPerDay` (S: two a day); without a billing email 400 `INVALID_REQUEST`, issue `CANNOT_REMIND_AS_BILLING_INFO_ABSENT` (C) |
  *
- * "open" is `SENT`, `SHARED` or `UNPAID`. `AUTO_CANCELLED`, the refund statuses and `UNPAID` are reached only through the
- * fake's own controls (`forceStatus`), for tests of the situations they lead to.
+ * "open" is `SENT`, `SHARED` or `UNPAID`. `SHARED` after a share link is reached only through `behaviour`, and
+ * `AUTO_CANCELLED` and the refund statuses only through the fake's own controls (`forceStatus`), for tests of the
+ * situations they lead to.
  *
  * Owner: PayPal spine workstream.
  */
 import { SUBSCRIBED_EVENTS } from "../types.ts";
 import type { FakeIds } from "./ids.ts";
 
-/** Behaviours the OpenAPI files leave open, each set to the pessimistic or expected choice and switchable in tests. */
+/**
+ * Behaviours the OpenAPI files leave open. Each default is what the sandbox did in the owner's capture of 2026-10-29
+ * (**C**, docs/research/paypal/capture-2026-10-29.md) where the capture recorded it, and otherwise the pessimistic or
+ * expected choice (UNVERIFIED). Each stays switchable, so the tests prove PayLink against the other answers too, and the
+ * capture script (apps/api/scripts/capture/) can be shown to tell them apart.
+ */
 export interface FakeBehaviour {
-  /** Open status after a share-link send (`send_to_recipient: false`). UNVERIFIED; `SHARED` is expected (§7.4). */
-  readonly statusAfterShare: "SHARED" | "SENT";
-  /** Status after P6 records the whole amount due. UNVERIFIED (K4): `PAID`, `MARKED_AS_PAID` or `PAID_EXTERNAL`. */
+  /** Open status after a share-link send (`send_to_recipient: false`). C: `UNPAID`. */
+  readonly statusAfterShare: "UNPAID" | "SHARED" | "SENT";
+  /** Status after P6 records the whole amount due. C: `MARKED_AS_PAID` (K4's payer page after a record is still open). */
   readonly statusAfterRecord: "PAID" | "MARKED_AS_PAID" | "PAID_EXTERNAL";
-  /** How P2 matches `reference`. UNVERIFIED: `contains` (the pessimistic case PayLink's exact filter must survive). */
+  /** How P2 matches `reference`. C: partly (`contains`), which PayLink's exact filter must survive. */
   readonly referenceSearch: "exact" | "contains";
-  /** Status a payer's whole payment leaves: `PAID`, or `PAYMENT_PENDING` (a held payment). */
+  /** Status a payer's whole payment leaves: `PAID` (C), or `PAYMENT_PENDING` (a held payment). */
   readonly payerPaymentStatus: "PAID" | "PAYMENT_PENDING";
-  /** P9 needs a recipient email. UNVERIFIED: yes (the pessimistic case). */
+  /** P9 needs a billing email: C, refused without one (400 `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`). */
   readonly remindRequiresEmail: boolean;
   /** P9 calls allowed per invoice per 24 hours (S: "2 manual reminders per invoice within 24 hours"). */
   readonly remindersPerDay: number;
-  /** Where an invoicing event carries the invoice: `{ invoice: {...} }` or the invoice itself. UNVERIFIED. */
+  /** Where an invoicing event carries the invoice: `{ invoice: {...} }` or the invoice itself. UNVERIFIED (the capture's event list was empty). */
   readonly eventResource: "invoice-wrapper" | "flat";
   /** Deduplicate writes by `PayPal-Request-Id`. UNVERIFIED for Invoicing: off, so tests prove read-before-retry. */
   readonly honourRequestId: boolean;
-  /** Seconds a token lives (`expires_in`; the toolkit README's example: 32400). */
+  /** Seconds a token lives (`expires_in`). C: the sandbox's token answered 32,326. */
   readonly tokenLifetimeSeconds: number;
 }
 
 export const DEFAULT_BEHAVIOUR: FakeBehaviour = {
-  statusAfterShare: "SHARED",
+  statusAfterShare: "UNPAID",
   statusAfterRecord: "MARKED_AS_PAID",
   referenceSearch: "contains",
   payerPaymentStatus: "PAID",
@@ -57,7 +64,7 @@ export const DEFAULT_BEHAVIOUR: FakeBehaviour = {
   remindersPerDay: 2,
   eventResource: "invoice-wrapper",
   honourRequestId: false,
-  tokenLifetimeSeconds: 32_400,
+  tokenLifetimeSeconds: 32_326,
 };
 
 /** Open statuses (§7.4). */
@@ -307,7 +314,7 @@ export class FakeState {
     return recorded;
   }
 
-  /** P7: the transaction id is the recorded payment's `payment_id` (UNVERIFIED that PayPal uses the same id, §7.1). */
+  /** P7: the transaction id is the recorded payment's `payment_id`, as in the sandbox (C, capture of 2026-10-29). */
   deletePayment(id: string, transactionId: string): void {
     const invoice = this.get(id);
     const index = invoice.payments.findIndex((p) => p.paymentId === transactionId);
@@ -347,7 +354,7 @@ export class FakeState {
     invoice.updatedAt = now;
   }
 
-  /** P9. */
+  /** P9. Without a billing email, the sandbox's own refusal (C, capture of 2026-10-29); the files' 422 otherwise. */
   remind(id: string): void {
     const invoice = this.get(id);
     const now = this.clock();
@@ -356,7 +363,13 @@ export class FakeState {
       const email = (r as { readonly billing_info?: { readonly email_address?: unknown } }).billing_info?.email_address;
       return typeof email === "string" && email !== "";
     });
-    if ((!OPEN_STATUSES.includes(invoice.status) && invoice.status !== "PARTIALLY_PAID") || (this.behaviour.remindRequiresEmail && !hasEmail) || recent.length >= this.behaviour.remindersPerDay) {
+    if (!OPEN_STATUSES.includes(invoice.status) && invoice.status !== "PARTIALLY_PAID") {
+      throw new FakeRefusal(422, "CANNOT_REMIND_INVOICE");
+    }
+    if (this.behaviour.remindRequiresEmail && !hasEmail) {
+      throw new FakeRefusal(400, "CANNOT_REMIND_AS_BILLING_INFO_ABSENT");
+    }
+    if (recent.length >= this.behaviour.remindersPerDay) {
       throw new FakeRefusal(422, "CANNOT_REMIND_INVOICE");
     }
     invoice.reminders.push(now);

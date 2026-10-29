@@ -10,23 +10,29 @@
  * (`CANNOT_REMIND_INVOICE`, `CANNOT_CANCEL_PAID_INVOICE`, ...) and the fake's own otherwise, marked in model.ts.
  *
  * The fake is stricter than PayPal may be on purpose: it refuses read-only members in requests (`type` in a payment,
- * `id`, `status`, `metadata`, ... in an invoice) and both `term_type` and `due_date` in one payment term, so a PayLink
- * mistake fails a test instead of passing silently.
+ * `id`, `status`, `metadata`, ... in an invoice), so a PayLink mistake fails a test instead of passing silently. A
+ * payment term follows the sandbox: `due_date` alone, and `term_type` `DUE_ON_DATE_SPECIFIED` with a `due_date`, are
+ * accepted, as the sandbox accepted both in the owner's capture of 2026-10-29 (docs/paypal/SPEC.md §7.2: "the contract
+ * test follows the capture"); any other `term_type` with a `due_date` is refused, as the files' "either but not both"
+ * says (what the sandbox does with those is UNVERIFIED, and PayLink never sends one).
  *
  * Outside PayPal's API (never called by the PayPal client):
- * - `GET /invoice/p/{id}` and `POST /invoice/p/{id}/pay`: the payer's view (`recipient_view_url`), a plain page with
- *   one button, for the e2e suite and the offline demo;
+ * - `GET /invoice/p/`, `GET /invoice/p/{id}` and `POST /invoice/p/{id}/pay`: the payer's view. `recipient_view_url` is
+ *   `<public URL>/invoice/p/#<id>`, PayPal's own form (the sandbox's, recorded by the owner's capture of 2026-10-29);
+ *   `/invoice/p/` opens `/invoice/p/<id>` from the fragment, a plain page with one button, for the e2e suite and the
+ *   offline demo (src/paypal/fake/page.ts);
  * - `/__fake/...`: controls for tests (pay, force a status, deliver webhooks, inject faults, list invoices).
  *
  * Owner: PayPal spine workstream.
  */
+import { payPalPayerPageUrl } from "@paylink/api-contract";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { SUBSCRIBED_EVENTS } from "../types.ts";
 import type { FakeInvoice, FakePayment, FakeState } from "./model.ts";
 import { centsOf, FakeRefusal, valueOf } from "./model.ts";
-import { payerPage } from "./page.ts";
+import { PAYER_REDIRECT_SCRIPT_HASH, payerPage, payerRedirectPage } from "./page.ts";
 import { AUTH_ALGO, publicKeyPem, signatureInput, verify } from "./signing.ts";
 
 /** `name` and `message` of each error status (V, `error_400` … `error_503`; 429's are not in the files: UNVERIFIED). */
@@ -98,7 +104,7 @@ export function renderInvoice(host: FakeHost, invoice: FakeInvoice): Json {
         ...(invoice.firstSentAt === null ? {} : { first_sent_time: iso(invoice.firstSentAt) }),
         ...(invoice.lastSentAt === null ? {} : { last_sent_time: iso(invoice.lastSentAt) }),
         created_by_flow: "REGULAR_SINGLE",
-        ...(sent ? { recipient_view_url: `${base}/invoice/p/${invoice.id}` } : {}),
+        ...(sent ? { recipient_view_url: payPalPayerPageUrl(base, invoice.id) } : {}),
         invoicer_view_url: `${base}/invoice/details/${invoice.id}`,
       },
     },
@@ -179,6 +185,8 @@ function notification(body: unknown): { readonly toRecipient: boolean } {
 }
 
 const READ_ONLY_INVOICE = ["id", "parent_id", "status", "due_amount", "gratuity", "payments", "refunds", "links"];
+/** The one `term_type` the sandbox accepted with a `due_date` (the owner's capture of 2026-10-29, `createWithTermTypeAndDueDate`). */
+const DUE_ON_DATE = "DUE_ON_DATE_SPECIFIED";
 
 function createInput(body: unknown, today: string, fallbackNumber: string): Parameters<FakeState["create"]>[0] {
   if (!isRecord(body) || !isRecord(body["detail"])) {
@@ -204,7 +212,8 @@ function createInput(body: unknown, today: string, fallbackNumber: string): Para
   let paymentTerm: Record<string, string> | null = null;
   if (detail["payment_term"] !== undefined) {
     const term = detail["payment_term"];
-    if (!isRecord(term) || (term["term_type"] !== undefined && term["due_date"] !== undefined)) {
+    // Both members only as the capture of 2026-10-29 sent them (the module comment): DUE_ON_DATE_SPECIFIED and a date.
+    if (!isRecord(term) || (term["term_type"] !== undefined && term["due_date"] !== undefined && term["term_type"] !== DUE_ON_DATE)) {
       throw new FakeRefusal(400, "INVALID_PARAMETER_SYNTAX", "/detail/payment_term");
     }
     const due = str(term["due_date"], "/detail/payment_term/due_date", 10);
@@ -513,7 +522,7 @@ export function createFakeApp(host: FakeHost): Hono {
     } else {
       host.announce("INVOICING.INVOICE.SCHEDULED", invoice);
     }
-    return c.json({ href: `${host.publicUrl()}/invoice/p/${id}`, rel: "payer-view", method: "GET" }, status);
+    return c.json({ href: payPalPayerPageUrl(host.publicUrl(), id), rel: "payer-view", method: "GET" }, status);
   });
 
   // P9.
@@ -615,7 +624,8 @@ export function createFakeApp(host: FakeHost): Hono {
   // The certificate URL of the fake's deliveries (a public key, not an X.509 certificate: only the fake reads it).
   app.get("/v1/notifications/certs/:id", async (c) => c.body(await publicKeyPem(), 200, { "Content-Type": "application/x-pem-file" }));
 
-  // The payer's view.
+  // The payer's view: PayPal's link carries the invoice in the fragment (page.ts), then the invoice's own page.
+  app.get("/invoice/p/", (c) => c.html(payerRedirectPage(), 200, REDIRECT_HEADERS));
   app.get("/invoice/p/:id", (c) => {
     const invoice = state.invoices.get(c.req.param("id"));
     const view =
@@ -664,6 +674,8 @@ export function createFakeApp(host: FakeHost): Hono {
 }
 
 const PAGE_HEADERS = { "Content-Security-Policy": "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'", "Cache-Control": "no-store" };
+/** The fragment's page runs its one script, by hash, and nothing else. */
+const REDIRECT_HEADERS = { "Content-Security-Policy": `default-src 'none'; script-src '${PAYER_REDIRECT_SCRIPT_HASH}'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`, "Cache-Control": "no-store" };
 
 /** The certificate URL the fake's deliveries carry. */
 export function certUrl(host: FakeHost): string {

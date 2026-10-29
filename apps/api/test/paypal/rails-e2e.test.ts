@@ -20,7 +20,7 @@ describe("the PayPal rail", () => {
     const w = world();
     const { url, key } = await link();
     const twin = (await (await w.post({ link: url, recipient: { givenName: "Sarah", email: "sarah@example.com" } })).json()) as TwinView;
-    expect(twin).toMatchObject({ status: "SHARED", situation: "S1" });
+    expect(twin).toMatchObject({ status: "UNPAID", situation: "S1" });
 
     w.fake.pay(twin.paypalId);
     await w.fake.settled();
@@ -63,7 +63,7 @@ describe("the PayPal rail", () => {
     });
     expect(response.status).toBe(400);
     w.clock.now += TWIN_FRESH_MS - 1;
-    expect((await (await w.get(`/v1/twin/${key}`, "payee")).json()) as TwinView).toMatchObject({ status: "SHARED", situation: "S1" });
+    expect((await (await w.get(`/v1/twin/${key}`, "payee")).json()) as TwinView).toMatchObject({ status: "UNPAID", situation: "S1" });
   });
 });
 

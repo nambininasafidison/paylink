@@ -4,11 +4,12 @@
  * bodies, OAuth, the signed webhook deliveries and the postback check (P10) that accepts exactly the bytes delivered,
  * the payer's page, the controls, and being mounted under another server's path.
  */
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { isPayPalError } from "../../src/paypal/client.ts";
 import type { PayPalFake } from "../../src/paypal/fake/index.ts";
 import { createPayPalFake, FAKE_WEBHOOK_ID, operationOf } from "../../src/paypal/fake/index.ts";
-import { escapeHtml } from "../../src/paypal/fake/page.ts";
+import { escapeHtml, PAYER_REDIRECT_SCRIPT, PAYER_REDIRECT_SCRIPT_HASH } from "../../src/paypal/fake/page.ts";
 import { crc32, signatureInput, sign, verify } from "../../src/paypal/fake/signing.ts";
 import { CANCEL_SILENTLY, REMIND_RECIPIENT, SHARE_LINK, twinCreateBody } from "../../src/paypal/invoice.ts";
 import { readTransmission, verifyDelivery } from "../../src/paypal/webhook.ts";
@@ -28,17 +29,20 @@ async function issue(promise: Promise<unknown>): Promise<string> {
 }
 
 describe("status machine", () => {
-  it("DRAFT → share link → SHARED (the expected status, UNVERIFIED), or SENT when sent to the recipient", async () => {
+  it("DRAFT → share link → UNPAID (the sandbox's, capture of 2026-10-29) or SHARED or SENT when switched; SENT when sent to the recipient", async () => {
     const { client } = fakeAndClient();
     const shared = await sharedTwin(client);
-    expect(shared.status).toBe("SHARED");
-    expect(shared.detail.metadata?.recipient_view_url).toBe(`http://paypal.fake.invalid/invoice/p/${shared.id ?? ""}`);
+    expect(shared.status).toBe("UNPAID");
+    // PayPal's payer page rule, as the sandbox's link had it: the invoice in the fragment of /invoice/p/.
+    expect(shared.detail.metadata?.recipient_view_url).toBe(`http://paypal.fake.invalid/invoice/p/#${shared.id ?? ""}`);
     const draft = await client.createInvoice(twinCreateBody(twinInput({ key: OTHER_KEY })));
     expect(draft.detail.metadata?.recipient_view_url).toBeUndefined();
     await client.sendInvoice(draft.id ?? "", { send_to_recipient: true, send_to_invoicer: false });
     expect((await client.getInvoice(draft.id ?? "")).status).toBe("SENT");
     const other = fakeAndClient({ fake: { behaviour: { statusAfterShare: "SENT" } } });
     expect((await sharedTwin(other.client)).status).toBe("SENT");
+    const linked = fakeAndClient({ fake: { behaviour: { statusAfterShare: "SHARED" } } });
+    expect((await sharedTwin(linked.client)).status).toBe("SHARED");
   });
 
   it("the payer pays: PAID (or PAYMENT_PENDING, then PAID), with a PAYPAL transaction and nothing due", async () => {
@@ -57,7 +61,7 @@ describe("status machine", () => {
     expect((await held.client.getInvoice(pending.id ?? "")).status).toBe("PAID");
   });
 
-  it.each(["PAID", "MARKED_AS_PAID", "PAID_EXTERNAL"] as const)("P6 of the whole amount leaves %s when switched to it (UNVERIFIED, K4); P7 restores the open status", async (statusAfterRecord) => {
+  it.each(["PAID", "MARKED_AS_PAID", "PAID_EXTERNAL"] as const)("P6 of the whole amount leaves %s when switched to it (MARKED_AS_PAID by default, the sandbox's); P7 restores the open status", async (statusAfterRecord) => {
     const { client } = fakeAndClient({ fake: { behaviour: { statusAfterRecord } } });
     const twin = await sharedTwin(client);
     const id = twin.id ?? "";
@@ -66,7 +70,24 @@ describe("status machine", () => {
     expect(after).toMatchObject({ status: statusAfterRecord, due_amount: { value: "0.00" }, payments: { transactions: [{ type: "EXTERNAL", method: "OTHER", payment_id: recorded.payment_id, note: echoNoteFor(KEY), amount: { value: "120.00" } }] } });
     expect(recorded.payment_id).toMatch(/^EXTR-[0-9A-Z]{17}$/u);
     await client.deletePayment(id, recorded.payment_id);
-    expect((await client.getInvoice(id)).status).toBe("SHARED");
+    expect((await client.getInvoice(id)).status).toBe("UNPAID");
+  });
+
+  it("follows the sandbox by default: UNPAID shared, PAID by the payer, MARKED_AS_PAID recorded with the note kept, UNPAID undone, CANCELLED", async () => {
+    const { fake, client } = fakeAndClient();
+    const paid = await sharedTwin(client);
+    expect(paid.status).toBe("UNPAID");
+    fake.pay(paid.id ?? "");
+    expect(await client.getInvoice(paid.id ?? "")).toMatchObject({ status: "PAID", payments: { transactions: [{ type: "PAYPAL", method: "PAYPAL" }] } });
+    const twin = await sharedTwin(client, { key: OTHER_KEY });
+    const id = twin.id ?? "";
+    const recorded = await client.recordPayment(id, { method: "OTHER", note: echoNoteFor(OTHER_KEY) });
+    expect(await client.getInvoice(id)).toMatchObject({ status: "MARKED_AS_PAID", payments: { transactions: [{ note: echoNoteFor(OTHER_KEY) }] } });
+    expect(recorded.payment_id).toHaveLength(22);
+    await client.deletePayment(id, recorded.payment_id);
+    expect((await client.getInvoice(id)).status).toBe("UNPAID");
+    await client.cancelInvoice(id, CANCEL_SILENTLY);
+    expect((await client.getInvoice(id)).status).toBe("CANCELLED");
   });
 
   it("a part payment leaves PARTIALLY_PAID, and the rest pays it", async () => {
@@ -105,7 +126,7 @@ describe("status machine", () => {
     expect(await issue(client.cancelInvoice(draft.id ?? "", CANCEL_SILENTLY))).toBe("422 CANNOT_CANCEL_REFUNDED_INVOICE");
   });
 
-  it("remind: open invoices with an email, at most twice a day (S), never a draft or a paid one", async () => {
+  it("remind: open invoices with an email, at most twice a day (S), never a draft or a paid one; without an email the sandbox's 400", async () => {
     const clock = manualClock();
     const { fake, client } = fakeAndClient({ clock: clock.now });
     const twin = await sharedTwin(client);
@@ -118,7 +139,7 @@ describe("status machine", () => {
     fake.pay(id);
     expect(await issue(client.remindInvoice(id, REMIND_RECIPIENT))).toBe("422 CANNOT_REMIND_INVOICE");
     const noEmail = await sharedTwin(client, { key: OTHER_KEY, recipient: { givenName: "Tom" } });
-    expect(await issue(client.remindInvoice(noEmail.id ?? "", REMIND_RECIPIENT))).toBe("422 CANNOT_REMIND_INVOICE");
+    expect(await issue(client.remindInvoice(noEmail.id ?? "", REMIND_RECIPIENT))).toBe("400 CANNOT_REMIND_AS_BILLING_INFO_ABSENT");
     const lenient = fakeAndClient({ fake: { behaviour: { remindRequiresEmail: false } } });
     const tom = await sharedTwin(lenient.client, { recipient: null });
     expect(await issue(lenient.client.remindInvoice(tom.id ?? "", REMIND_RECIPIENT))).toBe("ok");
@@ -133,10 +154,10 @@ describe("status machine", () => {
     expect(await issue(client.recordPayment(id, { method: "OTHER", type: "EXTERNAL" }))).toBe("400 INVALID_PARAMETER_SYNTAX");
     expect(await issue(client.recordPayment(id, { method: "BITCOIN" as "OTHER" }))).toBe("400 INVALID_PAYMENT_METHOD");
     expect(await issue(client.recordPayment(id, {} as { method: "OTHER" }))).toBe("400 MISSING_REQUIRED_PARAMETER");
-    expect(fake.invoice(id)).toMatchObject({ status: "SHARED" });
+    expect(fake.invoice(id)).toMatchObject({ status: "UNPAID" });
   });
 
-  it("P3 refuses read-only members, both payment terms at once, a bad email and a reused number", async () => {
+  it("P3 refuses read-only members, a term type other than the due date's with a due date, a bad email and a reused number", async () => {
     const { client } = fakeAndClient();
     const body = twinCreateBody(twinInput());
     expect(await issue(client.createInvoice({ ...body, status: "PAID" } as typeof body))).toBe("400 INVALID_PARAMETER_SYNTAX");
@@ -147,7 +168,17 @@ describe("status machine", () => {
     expect(await issue(client.createInvoice(body))).toBe("422 UNPROCESSABLE_ENTITY");
   });
 
-  it("P2 matches the reference partly by default (pessimistic, UNVERIFIED) or exactly when switched", async () => {
+  it("P3 takes a due date alone, or with DUE_ON_DATE_SPECIFIED, as the sandbox did (capture of 2026-10-29); PayLink sends it alone", async () => {
+    const { client } = fakeAndClient();
+    const alone = twinCreateBody(twinInput({ dueDate: "2026-11-06" }));
+    expect(alone.detail.payment_term).toEqual({ due_date: "2026-11-06" });
+    expect((await client.createInvoice(alone)).detail.payment_term).toEqual({ due_date: "2026-11-06" });
+    const other = twinCreateBody(twinInput({ key: OTHER_KEY, dueDate: "2026-11-06" }));
+    const both = { ...other, detail: { ...other.detail, payment_term: { term_type: "DUE_ON_DATE_SPECIFIED", due_date: "2026-11-06" } as never } };
+    expect((await client.createInvoice(both)).detail.payment_term).toEqual({ term_type: "DUE_ON_DATE_SPECIFIED", due_date: "2026-11-06" });
+  });
+
+  it("P2 matches the reference partly by default, as the sandbox did (capture of 2026-10-29), or exactly when switched", async () => {
     const { client } = fakeAndClient();
     await sharedTwin(client);
     expect((await client.searchInvoices({ reference: KEY.slice(0, 20) })).items).toHaveLength(1);
@@ -333,7 +364,13 @@ describe("faults, controls, mounting and the payer's page", () => {
       return { fake: f, delivered: sent };
     })();
     const twin = await sharedTwin(fakeClient(fake), { description: "<script>alert(1)</script>" });
-    expect(twin.detail.metadata?.recipient_view_url).toBe(`http://127.0.0.1:9999/__paypal-fake/invoice/p/${twin.id ?? ""}`);
+    expect(twin.detail.metadata?.recipient_view_url).toBe(`http://127.0.0.1:9999/__paypal-fake/invoice/p/#${twin.id ?? ""}`);
+    // PayPal's link carries the invoice in the fragment: /invoice/p/ opens /invoice/p/<id> with its one hashed script.
+    const link = await fake.fetch(`${fake.baseUrl}/invoice/p/`);
+    expect(link.status).toBe(200);
+    expect(link.headers.get("content-security-policy")).toBe(`default-src 'none'; script-src '${PAYER_REDIRECT_SCRIPT_HASH}'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`);
+    expect(await link.text()).toContain(`<script>${PAYER_REDIRECT_SCRIPT}</script>`);
+    expect(PAYER_REDIRECT_SCRIPT_HASH).toBe(`sha256-${createHash("sha256").update(PAYER_REDIRECT_SCRIPT, "utf8").digest("base64")}`);
     const page = await fake.fetch(`${fake.baseUrl}/invoice/p/${twin.id ?? ""}`);
     expect(page.headers.get("content-security-policy")).toContain("default-src 'none'");
     const html = await page.text();

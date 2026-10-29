@@ -41,6 +41,13 @@ describe("PayPal failures as the API's problems", () => {
 });
 
 describe("the token's lifetime", () => {
+  it("honours the lifetime PayPal gives: the sandbox's 32,326 s (capture of 2026-10-29) is used for 8 h 48 min 46 s", () => {
+    expect(tokenExpiry(T0, 32_326) - T0).toBe((8 * 3600 + 48 * 60 + 46) * 1000);
+    // No ceiling of PayLink's own: a longer or shorter lifetime is honoured the same way.
+    expect(tokenExpiry(T0, 86_400)).toBe(T0 + 86_400_000 - TOKEN_MARGIN_MS);
+    expect(tokenExpiry(T0, 3_600)).toBe(T0 + 3_600_000 - TOKEN_MARGIN_MS);
+  });
+
   it("is expires_in − 10 min, or half of a short one", () => {
     expect(tokenExpiry(T0, 32_400)).toBe(T0 + 32_400_000 - TOKEN_MARGIN_MS);
     expect(tokenExpiry(T0, 1_201)).toBe(T0 + 1_201_000 - TOKEN_MARGIN_MS);

@@ -16,7 +16,7 @@ import { CANCEL_SILENTLY, REMIND_RECIPIENT, SHARE_LINK, TwinInputError, twinCrea
 import { readTransmission, verifyDelivery } from "../../src/paypal/webhook.ts";
 import { echoNoteFor, KEY, OTHER_KEY, twinInput } from "../paypal/fixtures.ts";
 import { T0 } from "../paypal/support.ts";
-import { contractTransport, contractValidator, loadSpec, SPEC_FILES } from "./contract.ts";
+import { contractTransport, contractValidator, loadSpec, SANDBOX_REMIND_400_ISSUE, SPEC_FILES } from "./contract.ts";
 
 const silent = { log: () => undefined, child: () => silent };
 
@@ -62,7 +62,7 @@ async function scenario(behaviour: Partial<FakeBehaviour> = {}): Promise<{ excha
   await note("P8 again", client.cancelInvoice(id, CANCEL_SILENTLY));
   await note("P5 missing", client.getInvoice("INV2-NONE-NONE-NONE-NONE"));
 
-  // A second twin without an email: PayPal's reminder is refused (UNVERIFIED that the sandbox needs one).
+  // A second twin without an email: PayPal's reminder is refused, as the sandbox refused it (the capture of 2026-10-29).
   const silentTwin = await client.createInvoice(twinCreateBody(twinInput({ key: OTHER_KEY, recipient: { givenName: "Tom" } })));
   await client.sendInvoice(silentTwin.id ?? "", SHARE_LINK);
   await note("P9 no email", client.remindInvoice(silentTwin.id ?? "", REMIND_RECIPIENT));
@@ -127,7 +127,7 @@ describe("L0: requests and answers against the vendored schemas", () => {
       "P8: ok",
       "P8 again: 422 INVOICE_CANCELED_ALREADY",
       "P5 missing: 404 INVALID_RESOURCE_ID",
-      "P9 no email: 422 CANNOT_REMIND_INVOICE",
+      "P9 no email: 400 CANNOT_REMIND_AS_BILLING_INFO_ABSENT",
       "P5 paid: ok",
       "P11: ok",
       "P11 again: 400 WEBHOOK_URL_ALREADY_EXISTS",
@@ -148,12 +148,26 @@ describe("L0: requests and answers against the vendored schemas", () => {
     { statusAfterRecord: "PAID" },
     { statusAfterRecord: "PAID_EXTERNAL" },
     { statusAfterShare: "SENT" },
+    { statusAfterShare: "SHARED" },
     { referenceSearch: "exact" },
     { eventResource: "flat" },
     { remindRequiresEmail: false },
   ])("stays valid with the fake's behaviour %o", async (behaviour) => {
     const { exchanges } = await scenario(behaviour);
     expect(exchanges.filter((e) => e.requestProblems.length > 0 || e.responseProblems.length > 0)).toEqual([]);
+  });
+});
+
+describe("L0: the one sandbox answer the files do not list", () => {
+  const validator = contractValidator();
+  const refusal = (issue: string): string => JSON.stringify({ name: "INVALID_REQUEST", message: "Request is not well-formed, syntactically incorrect, or violates schema.", debug_id: "f00", details: [{ issue }] });
+
+  it("accepts P9's 400 CANNOT_REMIND_AS_BILLING_INFO_ABSENT (the capture of 2026-10-29) and still refuses any other new issue", () => {
+    expect(SANDBOX_REMIND_400_ISSUE).toBe("CANNOT_REMIND_AS_BILLING_INFO_ABSENT");
+    expect(validator.response("P9", 400, refusal(SANDBOX_REMIND_400_ISSUE))).toEqual([]);
+    expect(validator.response("P9", 400, refusal("INVALID_STRING_MAX_LENGTH"))).toEqual([]);
+    expect(validator.response("P9", 400, refusal("SOMETHING_ELSE")).length).toBeGreaterThan(0);
+    expect(validator.response("P8", 400, refusal(SANDBOX_REMIND_400_ISSUE)).length).toBeGreaterThan(0);
   });
 });
 
@@ -209,11 +223,15 @@ describe("L0: the bodies PayLink builds", () => {
     expect(validator.request("P11", JSON.stringify({ url: "https://paylink-api.raherizonambinina.workers.dev/v1/paypal/webhook", event_types: [{ name: "INVOICING.INVOICE.PAID" }] }))).toEqual([]);
   });
 
-  it("knows the two corrections it makes to the files, and no other", () => {
+  it("knows the three corrections it makes to the files, and no other", () => {
     const invoicing = loadSpec(SPEC_FILES.invoicing);
     const webhooks = loadSpec(SPEC_FILES.webhooks);
     expect(JSON.stringify((invoicing.components.schemas["payment_reference"] as { properties: unknown }).properties)).toContain('"minLength":"1"');
     expect(JSON.stringify((webhooks.components.schemas["verify_webhook_signature"] as { properties: unknown }).properties)).toContain("transmission_sig");
+    // The files list two issues for P9's 400, not the one the sandbox answered on 2026-10-29: correction 3 adds it.
+    const remind400 = JSON.stringify(invoicing.components.schemas["invoices.remind-400"]);
+    expect([...remind400.matchAll(/"title":"([A-Z_]+)"/gu)].map((m) => m[1])).toEqual(["INVALID_STRING_MAX_LENGTH", "INVALID_ARRAY_MAX_ITEMS"]);
+    expect(remind400).not.toContain(SANDBOX_REMIND_400_ISSUE);
     expect(validator.response("P6", 200, JSON.stringify({ payment_id: "EXTR-86F38350LX4353815" }))).toEqual([]);
     expect(validator.response("P6", 200, JSON.stringify({ payment_id: "x".repeat(23) })).join()).toMatch(/payment_id/u);
   });
