@@ -10,3 +10,6 @@ protocol/lib/forge-std.manifest linguist-generated
 
 # Generated lockfiles: collapsed in diffs but still reviewable (supply chain).
 scripts/toolchain/requirements-slither.txt linguist-generated
+
+# The release's standard JSON input, exactly as protocol/script/standard-input.py writes it: collapsed in diffs.
+protocol/PayLinkV2-2.0.0.standard-input.json linguist-generated

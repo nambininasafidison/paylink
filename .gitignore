@@ -9,8 +9,10 @@ build/
 /protocol/broadcast/**/dry-run/
 /protocol/crytic-export/
 /protocol/lcov.info
-# The release's standard JSON input for explorer verification (protocol/script/standard-input.py), made on demand
+# The release's standard JSON input for explorer verification (protocol/script/standard-input.py), made on demand;
+# 2.0.0's is committed, for the owner to download for Etherscan (docs/runbooks/paypal.md §9 step 6)
 /protocol/PayLinkV2-*.standard-input.json
+!/protocol/PayLinkV2-2.0.0.standard-input.json
 # JS tooling
 coverage/
 dist/
