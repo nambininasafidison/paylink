@@ -14,7 +14,7 @@ import { runCapture } from "../../scripts/capture/run.ts";
 import type { FakeBehaviour } from "../../src/paypal/fake/index.ts";
 import { fakeAndClient, manualClock } from "./support.ts";
 
-async function capture(behaviour: Partial<FakeBehaviour> = {}, options: { readonly pay?: boolean } = {}): Promise<{ report: CaptureReport; json: string; secret: string; lines: string[] }> {
+async function capture(behaviour: Partial<FakeBehaviour> = {}, options: { readonly pay?: boolean; readonly events?: () => Promise<unknown> } = {}): Promise<{ report: CaptureReport; json: string; secret: string; lines: string[] }> {
   const clock = manualClock();
   const { fake, client } = fakeAndClient({ clock: clock.now, fake: { behaviour } });
   const lines: string[] = [];
@@ -37,6 +37,9 @@ async function capture(behaviour: Partial<FakeBehaviour> = {}, options: { readon
             return Promise.resolve();
           },
     listEvents: async () => {
+      if (options.events !== undefined) {
+        return await options.events();
+      }
       const token = await client.token();
       const response = await fake.fetch(`${fake.baseUrl}/v1/notifications/webhooks-events?event_type=INVOICING.INVOICE.PAID`, { headers: { Authorization: `Bearer ${token.access_token}` } });
       return (await response.json()) as unknown;
@@ -135,6 +138,20 @@ describe("the capture run", () => {
   ])("tells the alternatives apart (%o)", async (behaviour, expected) => {
     const { report } = await capture(behaviour);
     expect(report.findings).toMatchObject(expected);
+  });
+
+  it("records an empty event list as it is, as the sandbox's was right after the payment, and nothing else changes", async () => {
+    const answered = await capture();
+    const empty = await capture({}, { events: () => Promise.resolve({ events: [], count: 0, links: [] }) });
+    expect(empty.report.findings.webhookEventPaths).toEqual([]);
+    expect(empty.report.steps.find((s) => s.id === "events-paid")).toMatchObject({ outcome: { result: "ok" }, answer: { listed: 0, ofThisInvoice: false } });
+    expect(answered.report.steps.find((s) => s.id === "events-paid")).toMatchObject({ answer: { ofThisInvoice: true } });
+    expect(empty.lines.some((l) => l.includes("the event list holds no INVOICING.INVOICE.PAID event of the paid invoice yet"))).toBe(true);
+    expect(answered.lines.some((l) => l.includes("the event list holds no"))).toBe(false);
+    const butEvents = (report: CaptureReport): Record<string, unknown> => Object.fromEntries(Object.entries(report.findings).filter(([finding]) => finding !== "webhookEventPaths"));
+    expect(butEvents(empty.report)).toEqual(butEvents(answered.report));
+    // An answer that is not a list at all counts as no event too.
+    expect((await capture({}, { events: () => Promise.resolve(null) })).report.findings.webhookEventPaths).toEqual([]);
   });
 
   it("skips the payer's step unless asked, and says so", async () => {

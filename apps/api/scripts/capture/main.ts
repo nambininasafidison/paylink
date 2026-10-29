@@ -117,7 +117,11 @@ const report = await runCapture({
     ? async (eventType) => {
         const token = await paypal.token();
         const response = await fetch(`${base}/v1/notifications/webhooks-events?event_type=${encodeURIComponent(eventType)}&page_size=10`, { headers: { Authorization: `Bearer ${token.access_token}`, Accept: "application/json" } });
-        return (await response.json()) as unknown;
+        if (!response.ok) {
+          console.error(`capture: the event list answered HTTP ${String(response.status)}; recorded as no event`);
+        }
+        // An answer that is not JSON counts as no event: the run goes on (nothing in PayLink reads this list).
+        return (await response.json().catch(() => null)) as unknown;
       }
     : null,
   keep: values.keep,

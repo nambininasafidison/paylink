@@ -7,7 +7,7 @@
  * |---|---|---|
  * | token | P1 | lifetime and scopes of a sandbox token |
  * | create-a, create-b, create-c | P3 ×3 | `payment_term` with `due_date` alone, with `term_type` too; a twin without an email |
- * | send-a, send-c | P4, P5 | 200 or 202, `SENT` or `SHARED` after a share link, the host of `recipient_view_url`, a share without an email |
+ * | send-a, send-c | P4, P5 | 200 or 202, the open status after a share link (`SENT`, `SHARED` or `UNPAID`), the host of `recipient_view_url`, a share without an email |
  * | search-exact, search-partial | P2 ×2 | whether `reference` search is exact or partial |
  * | remind-a, remind-c | P9 ×2 | PayPal's reminder with and without an email |
  * | payer-pays (optional) | P5, webhook events | the status and transaction after a sandbox buyer pays, and an `INVOICING.INVOICE.PAID` event's shape |
@@ -18,8 +18,15 @@
  * The invoices are the run's own: random keys, a placeholder payee address, a synthetic client ("Capture" at
  * `payer@example.com`), $1.00 each. The report (./report.ts) keeps no secret and no personal data.
  *
+ * The owner ran it on 2026-10-29; its report is docs/research/paypal/capture-2026-10-29.json. There, `webhookEventPaths`
+ * is `[]` because the event list held no event of the paid invoice yet when it was read, right after the payment: the
+ * run could not see an event's shape, and nothing in PayLink reads that list (P10 is proven by the webhook route). Since
+ * then, `events-paid` records how many events were listed and whether one was the paid invoice's, and the run says when
+ * none was.
+ *
  * Owner: PayPal spine workstream.
  */
+import { PAYPAL_PAYMENT_ID_PATTERN } from "@paylink/api-contract";
 import type { InvoiceKey } from "@paylink/api-contract";
 import type { PayPalClient } from "../../src/paypal/client.ts";
 import { isPayPalError } from "../../src/paypal/client.ts";
@@ -34,8 +41,8 @@ const CHAIN_ID = 11155111;
 /** A placeholder payee: the run's memos name no real account. */
 const PLACEHOLDER_PAYEE = "0x0000000000000000000000000000000000000001";
 const SYNTHETIC_RECIPIENT = { givenName: "Capture", email: "payer@example.com" } as const;
-/** The shape of P6's `payment_id` (`payment_reference`, V: 1–22 characters, `^[0-9A-Za-z_-]+$`). */
-const PAYMENT_ID = /^[0-9A-Za-z_-]{1,22}$/u;
+/** The shape of P6's `payment_id` (`payment_reference`, V: 1–22 characters, `^[0-9A-Za-z_-]+$`), shared with the API. */
+const PAYMENT_ID = PAYPAL_PAYMENT_ID_PATTERN;
 
 export interface CaptureOptions {
   readonly paypal: PayPalClient;
@@ -154,10 +161,26 @@ export async function runCapture(options: CaptureOptions): Promise<CaptureReport
     await options.waitForPayment(viewA, a.id);
     paidA = await read("payer-paid-a", a.id);
     if (options.listEvents !== null) {
-      const listed = await step("events-paid", "webhooks-events", () => options.listEvents?.("INVOICING.INVOICE.PAID") ?? Promise.resolve(null), () => ({}));
-      const events = (listed as { readonly events?: readonly unknown[] } | null)?.events ?? [];
-      const mine = events.find((e) => JSON.stringify(e).includes(a.id ?? "\u0000"));
+      const invoiceId = a.id;
+      const listedEvents = (answer: unknown): readonly unknown[] => {
+        const events = (answer as { readonly events?: unknown } | null)?.events;
+        return Array.isArray(events) ? (events as readonly unknown[]) : [];
+      };
+      const ofInvoice = (events: readonly unknown[]): unknown => events.find((e) => JSON.stringify(e).includes(invoiceId));
+      // The step keeps counts only, never an event (it would carry ids): how many were listed, and whether one was A's.
+      const listed = await step(
+        "events-paid",
+        "webhooks-events",
+        () => options.listEvents?.("INVOICING.INVOICE.PAID") ?? Promise.resolve(null),
+        (answer) => ({ listed: listedEvents(answer).length, ofThisInvoice: ofInvoice(listedEvents(answer)) !== undefined }),
+      );
+      const mine = ofInvoice(listedEvents(listed));
       eventPaths = mine === undefined ? [] : paths(mine).filter((p) => !p.startsWith("links"));
+      if (mine === undefined) {
+        // An empty answer is an answer, not a failure: the list may not hold the event yet (the sandbox's did not on
+        // 2026-10-29). Nothing in PayLink reads this list; the deployed webhook route proves P10 (manual check P10).
+        say("capture: the event list holds no INVOICING.INVOICE.PAID event of the paid invoice yet (webhookEventPaths: []); check P10 on the deployed Worker's logs instead");
+      }
     }
   } else {
     steps.push({ id: "payer-pays", operation: "manual", outcome: { result: "skipped", reason: options.waitForPayment === null ? "not asked (--wait-payment)" : "no payer view" } });
