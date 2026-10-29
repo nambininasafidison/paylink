@@ -10,6 +10,7 @@
  *
  * Owner: PayPal spine workstream.
  */
+import { PAYPAL_PAYMENT_ID_PATTERN } from "@paylink/api-contract";
 import { z } from "zod";
 import type {
   Invoice,
@@ -86,7 +87,8 @@ const TokenSchema = z.looseObject({
   nonce: z.string().optional(),
 });
 
-const PaymentReferenceSchema = z.looseObject({ payment_id: z.string().min(1).max(22).regex(/^[0-9A-Za-z_-]+$/u) });
+/** P6's answer: `payment_id` of the shape `PAYPAL_PAYMENT_ID_PATTERN` (V; the sandbox's was 22 characters, C 2026-10-29). */
+const PaymentReferenceSchema = z.looseObject({ payment_id: z.string().regex(PAYPAL_PAYMENT_ID_PATTERN) });
 
 const VerifySchema = z.looseObject({ verification_status: z.enum(["SUCCESS", "FAILURE"]) });
 

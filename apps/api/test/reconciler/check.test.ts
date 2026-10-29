@@ -4,8 +4,9 @@
  * the chain. A fake "payment received" message with no record is NOT_RECEIVED every time; a source that cannot be read
  * makes it UNAVAILABLE, never a guess; links are judged by host.
  */
+import { PAYPAL_PAYER_PAGES } from "@paylink/api-contract";
 import { describe, expect, it } from "vitest";
-import { checkMessage, extract } from "../../src/reconciler/check.ts";
+import { checkMessage, extract, trustedHosts } from "../../src/reconciler/check.ts";
 import { registerTwin } from "../../src/reconciler/engine.ts";
 import { KEY, OTHER_KEY, PAYEE, TX } from "./fixtures.ts";
 import { world } from "./world.ts";
@@ -55,6 +56,17 @@ describe("the verdict", () => {
     w.paypal.payOnPayPal("INV2-A");
     const answer = await checkMessage(w.services, PAYEE, `I paid ${NUMBER} on https://www.paypal.com`, w.clock.now);
     expect(answer).toMatchObject({ verdict: "RECEIVED", matches: [{ key: KEY, paidOn: ["PAYPAL"] }], links: [{ host: "www.paypal.com", allowed: true }] });
+  });
+
+  it("trusts PayPal's payer page on the host the capture of 2026-10-29 recorded, and no host that only looks like it", async () => {
+    const w = await withTwins();
+    const answer = await checkMessage(w.services, PAYEE, `Pay ${NUMBER} at https://www.sandbox.paypal.com/invoice/p/#INV2-A, not https://www.sandbox.paypal.com.evil.example/invoice/p/#INV2-A`, w.clock.now);
+    expect(answer.links).toEqual([
+      { host: "www.sandbox.paypal.com", allowed: true },
+      { host: "www.sandbox.paypal.com.evil.example", allowed: false },
+    ]);
+    expect(w.services.runtime.config.paypal.payerHost).toBe(PAYPAL_PAYER_PAGES.sandbox.host);
+    expect(trustedHosts(w.services).has(PAYPAL_PAYER_PAGES.sandbox.host)).toBe(true);
   });
 
   it("is RECEIVED when the chain shows a verified payment, matched by amount alone", async () => {

@@ -138,7 +138,7 @@ describe("headers and CORS", () => {
   it("deploys for the PayPal edition's Pages origins and PayPal's sandbox only (D-HOST)", () => {
     expect(DEFAULT_CONFIG.allowedOrigins).toEqual(["https://paypal.paylink-mg.pages.dev", "https://paylink-mg.pages.dev"]);
     expect(PAGES_ORIGINS).toBe(DEFAULT_CONFIG.allowedOrigins);
-    expect(DEFAULT_CONFIG.paypal).toEqual({ mode: "sandbox", baseUrl: PAYPAL_SANDBOX_BASE, payerHost: null });
+    expect(DEFAULT_CONFIG.paypal).toEqual({ mode: "sandbox", baseUrl: PAYPAL_SANDBOX_BASE, payerHost: "www.sandbox.paypal.com" });
     expect(PAYPAL_SANDBOX_BASE).toBe("https://api-m.sandbox.paypal.com");
     expect(DEFAULT_CONFIG.chainId).toBe(11155111);
     expect(DEFAULT_CONFIG.ai).toMatchObject({ mode: "workers-ai", model: "@cf/google/gemma-4-26b-a4b-it", fallbackModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", dailyNeuronBudget: 10_000 });

@@ -26,6 +26,7 @@
  *
  * Owner: reconciler workstream.
  */
+import { PAYPAL_PAYMENT_ID_PATTERN } from "@paylink/api-contract";
 import type { Address, ApproveResponse } from "@paylink/api-contract";
 import { DEFAULT_CANCEL_TTL_SECONDS } from "@paylink/sdk";
 import { errorFields } from "../core/log.ts";
@@ -208,7 +209,7 @@ export async function rejectProposal(services: ApiServices, payee: Address, id: 
 /** `POST /v1/desk/:id/undo` with `id` = `r_<payment id>`: P7 within 24 hours of an automatic record (D-07). */
 export async function undoRecord(services: ApiServices, payee: Address, id: string, now: number): Promise<{ readonly state: "undone"; readonly key: `0x${string}`; readonly paymentId: string }> {
   const store = services.stores.payee(payee);
-  const paymentId = /^r_[0-9A-Za-z_-]{1,22}$/u.test(id) ? id.slice(2) : null;
+  const paymentId = id.startsWith("r_") && PAYPAL_PAYMENT_ID_PATTERN.test(id.slice(2)) ? id.slice(2) : null;
   const record = paymentId === null ? null : await store.getAutoRecord(paymentId);
   if (record === null || paymentId === null) {
     throw new ProblemError("not-found", "no such record");
@@ -230,7 +231,7 @@ export async function undoRecord(services: ApiServices, payee: Address, id: stri
   try {
     let code = paymentId;
     try {
-      // UNVERIFIED until the owner's capture run: that P7's transaction id is P6's payment_id (§7.1 P7).
+      // P7's transaction id is P6's payment_id (§7.1 P7; C, the owner's capture run of 2026-10-29).
       await services.paypal.deletePayment(twin.paypalId, paymentId, { requestId: requestIdFor("undo", paymentId) });
     } catch (error) {
       // A lost answer, or "not found" on a second try: settle it by reading P5 (a record it no longer lists is deleted).

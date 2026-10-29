@@ -34,9 +34,8 @@ export const CHECK_MAX_MATCHES = 5;
 export const CHECK_MAX_LINKS = 20;
 
 /**
- * PayPal's own web hosts (E: the hosts of paypal.com and its sandbox, where invoices are paid; S for the sandbox host,
- * docs/research/paypal/paypal-tech.md). The payer host of `recipient_view_url` is pinned in configuration after the
- * owner's capture run (UNVERIFIED today).
+ * PayPal's own web hosts (E: the hosts of paypal.com and its sandbox, where invoices are paid). The sandbox's payer page
+ * is on `www.sandbox.paypal.com` (C, the owner's capture run of 2026-10-29), pinned in configuration as `payerHost`.
  */
 export const PAYPAL_HOSTS = ["paypal.com", "www.paypal.com", "sandbox.paypal.com", "www.sandbox.paypal.com"] as const;
 
@@ -67,10 +66,7 @@ export function extract(text: string): Extracted {
 /** The hosts a payee may trust in a message: PayPal's, the pinned payer host, the edition's own origins. */
 export function trustedHosts(services: ApiServices): ReadonlySet<string> {
   const { config } = services.runtime;
-  const hosts = new Set<string>(PAYPAL_HOSTS);
-  if (config.paypal.payerHost !== null) {
-    hosts.add(config.paypal.payerHost.toLowerCase());
-  }
+  const hosts = new Set<string>([...PAYPAL_HOSTS, config.paypal.payerHost.toLowerCase()]);
   for (const origin of config.allowedOrigins) {
     try {
       hosts.add(new URL(origin).hostname.toLowerCase());

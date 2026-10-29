@@ -5,7 +5,7 @@
  *
  * Owner: foundation.
  */
-import { PAYPAL_EDITION_CHAIN_ID } from "@paylink/api-contract";
+import { PAYPAL_EDITION_CHAIN_ID, PAYPAL_PAYER_PAGES } from "@paylink/api-contract";
 import { FALLBACK_MODEL, FREE_NEURONS_PER_DAY, PRIMARY_MODEL } from "../ai/models.ts";
 import type { ApiConfig } from "./runtime.ts";
 import { API_VERSION } from "./version.ts";
@@ -23,8 +23,8 @@ export const DEFAULT_CONFIG: ApiConfig = {
   service: "paylink-api",
   version: API_VERSION,
   allowedOrigins: PAGES_ORIGINS,
-  // payerHost stays null until the owner's capture run records the host of recipient_view_url (§12.3, UNVERIFIED).
-  paypal: { mode: "sandbox", baseUrl: PAYPAL_SANDBOX_BASE, payerHost: null },
+  // The host of the sandbox's recipient_view_url, as the owner's capture run of 2026-10-29 recorded it (§12.3, C).
+  paypal: { mode: "sandbox", baseUrl: PAYPAL_SANDBOX_BASE, payerHost: PAYPAL_PAYER_PAGES.sandbox.host },
   ai: {
     mode: "workers-ai",
     model: PRIMARY_MODEL.id,

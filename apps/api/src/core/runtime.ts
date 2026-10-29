@@ -37,10 +37,12 @@ export interface PayPalConfig {
   /** REST base without a trailing slash (`servers` of the OpenAPI files, V). */
   readonly baseUrl: string;
   /**
-   * The only host the pay page may send a payer to (`recipient_view_url`), pinned after the owner's capture run
-   * (§12.3). `null` until then: the web edition then shows no PayPal key.
+   * The host of PayPal's payer page (`recipient_view_url`, §12.3): `www.sandbox.paypal.com`, recorded by the owner's
+   * capture run of 2026-10-29 (`PAYPAL_PAYER_PAGES` of `@paylink/api-contract`, which the web edition pins on its own).
+   * "Was I really paid?" trusts links on it. It was `null` until that run named the host (docs/paypal/SPEC.md,
+   * "Payer host"); the run decided it, so it is always set.
    */
-  readonly payerHost: string | null;
+  readonly payerHost: string;
 }
 
 export interface AiConfig {
