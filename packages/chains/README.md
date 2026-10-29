@@ -18,7 +18,7 @@ Isomorphic TypeScript (browser, Cloudflare Worker, Node). Depends only on viem.
 
 Every fact carries the confidence tag it has in PAYLINK-V2-SPEC §3.4 (`UV`, `C`, `L`, `U`). Facts the spec does not state are not invented: unstated capabilities are `false`, an unstated EIP-712 domain is `null` (read from the chain), and assumed values are listed in `pendingVerification`, which `createRegistry` refuses on an enabled chain.
 
-No chain has a recorded PayLinkV2 deployment yet, so `registry.v2Target(chainId)` is `undefined` everywhere and no link can be paid until a deployment is recorded.
+PayLinkV2 deployments are recorded on Monad testnet (10143), Base Sepolia (84532), Mezo testnet (31611) and Ethereum Sepolia (11155111): `src/generated/deployments.ts`, generated from `protocol/deployments/<chainId>.json`. On every other chain `registry.v2Target(chainId)` is `undefined`, and no link can be paid there until a deployment is recorded.
 
 ## Guarantees, enforced by tests
 
