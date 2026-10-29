@@ -26,6 +26,7 @@
     {"address": "0x448eCce9711860502806A3d5B021a4f9Ba715082", "label": "PayLinkV2 2.0.0 deployment", "chainId": 10143, "use": "registry", "confidence": "C", "source": "protocol/deployments/10143.json"},
     {"address": "0x448eCce9711860502806A3d5B021a4f9Ba715082", "label": "PayLinkV2 2.0.0 deployment (relayed EIP-7702 CREATE2)", "chainId": 84532, "use": "registry", "confidence": "C", "source": "protocol/deployments/84532.json"},
     {"address": "0x448eCce9711860502806A3d5B021a4f9Ba715082", "label": "PayLinkV2 2.0.0 deployment", "chainId": 31611, "use": "registry", "confidence": "C", "source": "protocol/deployments/31611.json"},
+    {"address": "0x448eCce9711860502806A3d5B021a4f9Ba715082", "label": "PayLinkV2 2.0.0 deployment", "chainId": 11155111, "use": "registry", "confidence": "C", "source": "protocol/deployments/11155111.json"},
     {"address": "0x0000000000000000000000000000000000000000", "label": "zero address (native coin in Invoice.token)", "chainId": null, "use": "protocol", "confidence": "C", "source": "docs/spec/paylink-invoice-v2.md §3.1"},
     {"address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "label": "anvil default account 0 (public test key)", "chainId": 31337, "use": "fixture", "confidence": "C", "source": "anvil default mnemonic"},
     {"address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", "label": "anvil default account 1 (public test key)", "chainId": 31337, "use": "fixture", "confidence": "C", "source": "anvil default mnemonic"},

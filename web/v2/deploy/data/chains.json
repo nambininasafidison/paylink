@@ -292,7 +292,14 @@
           "ceiling": "28862000"
         }
       },
-      "deployment": null,
+      "deployment": {
+        "address": "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+        "method": "CREATE2",
+        "txHash": "0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3",
+        "blockNumber": "12017054",
+        "deployer": "0xd9a39e47a152a88E408324E8f8fdAF89e86243A2",
+        "status": "active"
+      },
       "notes": [
         "Gas is Sepolia ETH, paid by the payer: no relayer serves this chain (ADR 0018). eth_getLogs spans at most 50,000 blocks (C).",
         "Logs older than about 10,000 blocks may read as unavailable on the public RPC (C): retry, or read from the payment's receipt.",

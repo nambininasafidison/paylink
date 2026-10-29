@@ -53,4 +53,17 @@ export const DEPLOYMENT_RECORDS: Readonly<Partial<Record<number, DeploymentRecor
     runtimeCodeHash: "0x4835a6a4919a183d0952d502806812158e1443891510a52cf5314d85f72670d8",
     explorers: [{ name: "Basescan", origin: "https://sepolia.basescan.org" }, { name: "Blockscout", origin: "https://base-sepolia.blockscout.com" }],
   },
+  11155111: {
+    network: "Ethereum Sepolia",
+    address: "0x448eCce9711860502806A3d5B021a4f9Ba715082",
+    release: "2.0.0",
+    method: "CREATE2",
+    deployer: "0xd9a39e47a152a88E408324E8f8fdAF89e86243A2",
+    txHash: "0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3",
+    blockNumber: 12017054n,
+    initCodeHash: "0x289dcd6477a467fcd8cc185bb4fb6c3cd58c06132d08fa11822f21f824627ac5",
+    maskedRuntimeHash: "0x59c48f00a8e437c74bf6b0b5ac1363149c8977c9185d1cf23405fa09c18aeb4d",
+    runtimeCodeHash: "0x9522d6810b9b4c5024aa5090f393fcc39bba973f556af2d290daa7bb7dbc07bb",
+    explorers: [{ name: "Etherscan", origin: "https://sepolia.etherscan.io" }],
+  },
 };

@@ -8,10 +8,10 @@ import type { ChainDefinition } from "../types.ts";
  * confidence C unless a note says otherwise.
  *
  * Disabled for every other edition, and offered by the PayPal edition only (it takes the chain explicitly, as the Mezo
- * edition takes Mezo testnet): `/`, `/monad/`, `/base/` and `/mezo/` do not change. No PayLinkV2 deployment is recorded
- * yet: the owner deploys the release at its CREATE2 address with the deploy kit, and until
- * `protocol/deployments/11155111.json` exists the chain reads "not deployed yet" and nothing can be signed or paid there.
- * No relayer serves it (D-SCOPE cut): payers pay their own Sepolia gas.
+ * edition takes Mezo testnet): `/`, `/monad/`, `/base/` and `/mezo/` do not change. The owner deployed the release at
+ * its CREATE2 address with the deploy kit on 2026-10-29 (block 12,017,054); `deployment` is generated from its record,
+ * `protocol/deployments/11155111.json`, re-verified on chain by tools/verify-deployment. No relayer serves this chain
+ * (D-SCOPE cut): payers pay their own Sepolia gas.
  */
 export const ethereumSepolia: ChainDefinition = {
   chainId: 11155111,
