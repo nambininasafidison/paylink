@@ -93,7 +93,7 @@ PAYLINK_FORK_SEPOLIA=1 NODE_USE_ENV_PROXY=1 pnpm --filter @paylink/deploy-page e
 
 The fork runs the chain's own rules (no `--hardfork` pin): Sepolia runs Amsterdam, whose state-creation gas (EIP-8037) makes the deployment cost about 19.2 million gas, seven times Ethereum's schedule before it ([sepolia.md §5](../../docs/research/paypal/sepolia.md)). `--measure` writes the `sepolia` profile of `packages/chains/data/fork-gas-measurements.json` (the `mezo` profile is kept); then `pnpm --filter @paylink/chains run generate` and `pnpm --filter @paylink/deploy-page run generate` derive the registry's gas table and this page's deployment bounds from it.
 
-The fork test is skipped unless `PAYLINK_FORK_SEPOLIA=1`, because it needs egress to `ethereum-sepolia-rpc.publicnode.com`.
+The fork test is skipped unless `PAYLINK_FORK_SEPOLIA=1`, because it needs egress to `ethereum-sepolia-rpc.publicnode.com`. Since the owner's deployment is recorded (`protocol/deployments/11155111.json`, block 12,017,054), the rehearsal forks at block 12,017,053, the last block without the contract, so it needs that block's state from the registry's endpoint: the public endpoint keeps recent state only and answers "historical state … is not available" (checked 2026-10-29), so the rehearsal no longer runs there. The deployment itself is re-checked on the live chain with `tools/verify-deployment --check`, and payments through it run on a fork of today's Sepolia in `e2e/specs/paypal-rails.spec.ts`.
 
 ## Gates
 
