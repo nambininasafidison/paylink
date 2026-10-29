@@ -32,8 +32,9 @@ describe("--local-chain", () => {
   it("records the deployment on Ethereum Sepolia only, at the release address only, with the registry's RPC and tokens", () => {
     const local = registryWithLocalDeployment(SEPOLIA, LOCAL);
     const chain = local.get(SEPOLIA);
-    expect(shippedRegistry.get(SEPOLIA)?.deployment).toBeNull();
-    expect(chain?.deployment).toMatchObject({ address: RELEASE.create2.address, status: "active", method: "CREATE2", blockNumber: 11_967_300n, initCodeHash: RELEASE.initCodeHash });
+    // The shipped registry records the owner's deployment (protocol/deployments/11155111.json); the fork's replaces it.
+    expect(shippedRegistry.get(SEPOLIA)?.deployment).toMatchObject({ address: RELEASE.create2.address, txHash: "0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3", blockNumber: 12_017_054n });
+    expect(chain?.deployment).toMatchObject({ address: RELEASE.create2.address, status: "active", method: "CREATE2", txHash: LOCAL.deployment.txHash, deployer: LOCAL.deployment.deployer, blockNumber: 11_967_300n, initCodeHash: RELEASE.initCodeHash });
     expect(chain?.rpc).toEqual(shippedRegistry.get(SEPOLIA)?.rpc);
     expect(chain?.tokens).toEqual(shippedRegistry.get(SEPOLIA)?.tokens);
     for (const other of shippedRegistry.chains.filter((c) => c.chainId !== SEPOLIA)) {

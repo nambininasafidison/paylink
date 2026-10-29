@@ -2,9 +2,10 @@
 /**
  * The PayPal edition's API end to end in process, for the spine's route tests: the real services (the reconciler's
  * engine, approvals and in-memory stores), the PayPal fake the factory builds in `fake` mode with its webhook deliveries
- * handed to the same app, Ethereum Sepolia with PayLinkV2 recorded at its CREATE2 address (as it will be once the owner
- * deploys it), a chain reader the test switches between payable and paid, and links signed with anvil keys. Sessions
- * are stubbed (`payee`, `other`); the registry's RPC answers `eth_getCode` with "no code" and nothing else.
+ * handed to the same app, Ethereum Sepolia with PayLinkV2 recorded at its CREATE2 address (a fixture deployment; the
+ * shipped registry records the owner's), a chain reader the test switches between payable and paid, and links signed
+ * with anvil keys. Sessions are stubbed (`payee`, `other`); the registry's RPC answers `eth_getCode` with "no code" and
+ * nothing else.
  *
  * Owner: PayPal spine workstream.
  */
@@ -32,7 +33,7 @@ export const PAGES = "https://paypal.paylink-mg.pages.dev/paypal/pay/";
 /** Where the fake delivers webhooks: this app's route. */
 export const HOOK_ORIGIN = "http://api.test";
 
-/** The shipped Sepolia entry with PayLinkV2 recorded at its release address (the owner's deployment, later). */
+/** The shipped Sepolia entry with a fixture deployment of PayLinkV2 at its release address (not the owner's record). */
 export const DEPLOYED: Registry = createRegistry([
   {
     ...ethereumSepolia,

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
  * Builds the chain reader for the edition's chain (Ethereum Sepolia, decision D-CHAIN) from the runtime's registry (the
- * shipped `@paylink/chains` one in the Worker: RPC, Multicall3, PayLinkV2's recorded deployment), read-only, over the
- * runtime's `fetch`. Until
- * `protocol/deployments/11155111.json` is recorded, `deployed` is false and every read answers `not-deployed` without a
- * request.
+ * shipped `@paylink/chains` one in the Worker: RPC, Multicall3, PayLinkV2's recorded deployment,
+ * `protocol/deployments/11155111.json`), read-only, over the runtime's `fetch`. On a registry that records no deployment
+ * on the chain, `deployed` is false and every read answers `not-deployed` without a request.
  *
  * Owner: reconciler workstream.
  */

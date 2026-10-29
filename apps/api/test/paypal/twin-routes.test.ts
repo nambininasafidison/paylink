@@ -2,11 +2,11 @@
 /**
  * POST /v1/twin, GET /v1/twin/:key and GET /v1/rails/:key (src/routes/twin.ts) over the API's real services (the
  * reconciler's engine and in-memory stores), the PayPal fake, Ethereum Sepolia with PayLinkV2 recorded at its CREATE2
- * address (as it will be once deployed), a chain reader answering "payable", and links signed with an anvil key
- * (./world.ts).
+ * address (a fixture deployment; the shipped registry records the owner's), a chain reader answering "payable", and
+ * links signed with an anvil key (./world.ts).
  */
 import type { ApiProblem, RailsResponse, TwinView } from "@paylink/api-contract";
-import { registry as shippedRegistry } from "@paylink/chains";
+import { createRegistry, ethereumSepolia, RELEASE, registry as shippedRegistry } from "@paylink/chains";
 import { describe, expect, it } from "vitest";
 import { railsView, TWIN_FRESH_MS } from "../../src/routes/twin.ts";
 import type { TwinRecord } from "../../src/store/types.ts";
@@ -77,13 +77,24 @@ describe("POST /v1/twin", () => {
     expect(h.fake.requests).toHaveLength(0);
   });
 
-  it("says PayLinkV2 is not deployed yet while the shipped registry has no Sepolia deployment (D-CHAIN)", async () => {
-    expect(shippedRegistry.v2Target(11155111)).toBeUndefined();
-    const h = harness(shippedRegistry);
+  it("says PayLinkV2 is not deployed yet while the registry records no Sepolia deployment (D-CHAIN)", async () => {
+    const undeployed = createRegistry([{ ...ethereumSepolia, deployment: null }]);
+    expect(undeployed.v2Target(11155111)).toBeUndefined();
+    const h = harness(undeployed);
     const { url } = await link();
     const response = await h.post({ link: url });
     expect(response.status).toBe(400);
     expect(await problem(response)).toMatchObject({ code: "invalid-request", rule: "E_CHAIN_UNKNOWN", detail: "PayLinkV2 is not deployed on this link's chain yet" });
+    expect(h.fake.requests).toHaveLength(0);
+  });
+
+  it("makes the twin with the shipped registry, which records the owner's deployment on Sepolia (D-CHAIN)", async () => {
+    expect(shippedRegistry.v2Target(11155111)?.deployment).toMatchObject({ address: RELEASE.create2.address, txHash: "0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3", blockNumber: 12_017_054n });
+    const h = harness(shippedRegistry);
+    const { url, key } = await link();
+    const response = await h.post({ link: url });
+    expect(response.status).toBe(201);
+    expect(((await response.json()) as TwinView).key).toBe(key);
   });
 
   it.each<[string, Parameters<typeof link>[0], Record<string, unknown>, string]>([

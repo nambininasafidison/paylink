@@ -4,7 +4,7 @@
  * number of twins, states in order (paid, cancelled, expired on chain time, payable), `Paid` events decoded strictly and
  * checked against the twin, retries on pruned history, and explicit failures (`unreadable`, `not-deployed`).
  */
-import { registry } from "@paylink/chains";
+import { createRegistry, registry } from "@paylink/chains";
 import { describe, expect, it } from "vitest";
 import { createChainReader } from "../../src/chain/factory.ts";
 import { MIN_CONFIRMATIONS } from "../../src/chain/reader.ts";
@@ -127,17 +127,27 @@ describe("states", () => {
   });
 });
 
-describe("the shipped registry (no PayLinkV2 recorded on Sepolia yet)", () => {
-  it("answers not-deployed without any request", async () => {
+describe("the registry's deployment (decision D-CHAIN)", () => {
+  it("reads PayLinkV2 where the shipped registry records it on Sepolia (protocol/deployments/11155111.json)", () => {
     const fake = rpcFake(() => {
       throw new Error("no request expected");
     });
     const reader = createChainReader({ runtime: { ...testRuntime(), fetch: fake.fetch }, stores: createMemoryStores() });
     expect(reader.chainId).toBe(11155111);
-    expect(reader.deployed).toBe(registry.v2Target(11155111) !== undefined);
-    if (!reader.deployed) {
-      expect(await reader.observe(TWIN)).toEqual({ state: "not-deployed", payments: [], paidAt: null, chainTime: null });
-      expect(fake.calls).toEqual([]);
-    }
+    expect(registry.v2Target(11155111)?.deployment).toMatchObject({ address: "0x448eCce9711860502806A3d5B021a4f9Ba715082", blockNumber: 12_017_054n });
+    expect(reader.deployed).toBe(true);
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("answers not-deployed without any request while the registry records no deployment", async () => {
+    const fake = rpcFake(() => {
+      throw new Error("no request expected");
+    });
+    const undeployed = createRegistry(registry.chains.map((chain) => (chain.chainId === 11155111 ? { ...chain, deployment: null } : chain)));
+    const reader = createChainReader({ runtime: { ...testRuntime(), fetch: fake.fetch, registry: undeployed }, stores: createMemoryStores() });
+    expect(reader.deployed).toBe(false);
+    expect(await reader.observe(TWIN)).toEqual({ state: "not-deployed", payments: [], paidAt: null, chainTime: null });
+    expect([...(await reader.observeMany([TWIN, OTHER])).values()].map((o) => o.state)).toEqual(["not-deployed", "not-deployed"]);
+    expect(fake.calls).toEqual([]);
   });
 });

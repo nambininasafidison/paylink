@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 import { API_CONTRACT_VERSION, API_ROUTES } from "@paylink/api-contract";
 import type { ApiProblem, HealthResponse } from "@paylink/api-contract";
+import { createRegistry, registry } from "@paylink/chains";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import * as z from "zod";
@@ -70,11 +71,19 @@ describe("GET /v1/health", () => {
     expect(doc).toMatchObject({ service: "paylink-api", version: PACKAGE.version, contract: API_CONTRACT_VERSION, paypalEnvironment: "sandbox", time: new Date(T0).toISOString() });
     expect(API_VERSION).toBe(PACKAGE.version);
     expect(doc.rows.map((r) => r.id)).toEqual(["paypal", "webhook", "assistant", "chain", "store"]);
-    // The chain has no PayLinkV2 deployment yet (decision D-CHAIN), so the document is degraded; the in-memory stores
-    // answer, so the store row is readable.
+    // The shipped registry records PayLinkV2 on Ethereum Sepolia (protocol/deployments/11155111.json), so the chain row
+    // is ok; PayPal has not been read and the assistant not called yet, so the document is degraded. The in-memory
+    // stores answer, so the store row is readable.
+    expect(doc.status).toBe("degraded");
+    expect(doc.rows.find((r) => r.id === "chain")).toMatchObject({ state: "ok", code: "deployed", values: { chainId: 11155111 } });
+    expect(doc.rows.find((r) => r.id === "store")).toMatchObject({ state: "ok", code: "readable" });
+  });
+
+  it("says not-deployed while the registry records no PayLinkV2 on the edition's chain (D-CHAIN)", async () => {
+    const undeployed = createRegistry(registry.chains.map((chain) => (chain.chainId === 11155111 ? { ...chain, deployment: null } : chain)));
+    const doc = (await (await testApp(testServices({ runtime: { ...testRuntime(), registry: undeployed } })).request("/v1/health")).json()) as HealthResponse;
     expect(doc.status).toBe("degraded");
     expect(doc.rows.find((r) => r.id === "chain")).toMatchObject({ state: "degraded", code: "not-deployed", values: { chainId: 11155111 } });
-    expect(doc.rows.find((r) => r.id === "store")).toMatchObject({ state: "ok", code: "readable" });
   });
 
   it("shows the assistant's neurons left today, and resting once a call no longer fits (§9.4)", async () => {

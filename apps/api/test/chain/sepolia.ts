@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
- * Ethereum Sepolia as the API's tests see it: the shipped registry entry with PayLinkV2 recorded at its CREATE2 address
- * (as it will be once the owner deploys it; the address is the release's, packages/chains RELEASE), and a scripted RPC
+ * Ethereum Sepolia as the API's tests see it: the shipped registry entry with a fixture deployment of PayLinkV2 at its
+ * CREATE2 address (the release's, packages/chains RELEASE; the owner's real one is recorded in
+ * protocol/deployments/11155111.json, and no test here depends on its values), and a scripted RPC
  * that answers `aggregate3` (statesOf, the clock, the block number) and `eth_getLogs` for `Paid` and `InvoiceCancelled`
  * from a small in-memory chain.
  */
