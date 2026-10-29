@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * The PayPal edition's shell end to end (e2e/specs/paypal.spec.ts, ADR 0018): the production build of the `all` and
- * `paypal` editions (production registry: Ethereum Sepolia, PayLinkV2 not deployed there yet), served under its real
+ * `paypal` editions (production registry: Ethereum Sepolia, with PayLinkV2 recorded there), served under its real
  * `_headers`, and the edition's API (apps/api) through its Node entry in a separate process.
  *
  * The app keeps its production `/config.json`: the API is https://paylink-api.raherizonambinina.workers.dev, and the test

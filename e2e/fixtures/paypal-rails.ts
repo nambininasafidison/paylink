@@ -4,10 +4,10 @@
  * Nothing is mocked between the page and the chain or PayPal's API surface:
  *
  * - **The chain:** an anvil fork of the real Ethereum Sepolia (chain 11155111, its RPC
- *   https://ethereum-sepolia-rpc.publicnode.com). PayLinkV2 is not deployed there yet (decision D-CHAIN), so the fork
- *   deploys it exactly as the owner's deploy kit will: through the CREATE2 factory 0x4e59…956C with the committed
- *   release init code (web/v2/deploy/data/release.json), at the release address. Once the owner has deployed it on
- *   Sepolia and recorded protocol/deployments/11155111.json, the fork carries the real one and the suite uses it. The
+ *   https://ethereum-sepolia-rpc.publicnode.com). The owner deployed PayLinkV2 there on 2026-10-29 and
+ *   protocol/deployments/11155111.json records it, so the fork carries the real one and the suite uses it. On a chain
+ *   without it, the fixture deploys it exactly as the owner's deploy kit did: through the CREATE2 factory 0x4e59…956C
+ *   with the committed release init code (web/v2/deploy/data/release.json), at the release address. The
  *   payer holds real Circle USDC on the fork (`anvil_dealERC20`), and pays it by its own EIP-3009 authorisation, with
  *   its own gas (no relayer in this edition).
  * - **The API:** apps/api's offline Node entry (`src/node/main.ts --offline`) with the PayPal fake: its webhook

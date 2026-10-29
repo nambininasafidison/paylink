@@ -10,7 +10,8 @@
  * - The four tabs (create, ledger, desk, till); the desk, without a wallet, asks for the payee's wallet and calls nothing
  *   but the API's public health, read through the CSP and the API's own CORS allowlist; no CSP violation under Trusted
  *   Types. Its screens with a session, on a mocked API, are e2e/specs/paypal-ui.spec.ts.
- * - Create offers Ethereum Sepolia alone and says PayLinkV2 is not deployed there yet (the owner deploys it later).
+ * - Create offers Ethereum Sepolia alone, where the production registry records PayLinkV2 (the owner's deployment of
+ *   2026-10-29, protocol/deployments/11155111.json): the band names the testnet and no "Not deployed" notice shows.
  * - Desk and create in EN, FR and MG, light and dark, at 320 px: axe-core WCAG 2.2 AA zero violations, no sideways scroll.
  */
 import { expect, test } from "@playwright/test";
@@ -118,12 +119,12 @@ test("shows the four tabs and the desk, which asks for the payee's wallet first,
   await expect(page.locator(".banners")).not.toContainText("PayPal sandbox");
 });
 
-test("offers Ethereum Sepolia alone and says PayLinkV2 is not deployed there yet", async ({ browser }) => {
+test("offers Ethereum Sepolia alone, where the registry records PayLinkV2", async ({ browser }) => {
   const { page } = await open(browser);
   await page.goto(`${server.origin}/paypal/`);
   await expect(page.locator(".band")).toHaveCount(1);
-  await expect(page.locator(".band[aria-checked=true] .band-id")).toHaveText("Not deployed");
-  await expect(page.locator(".view-create .warn-note a")).toHaveAttribute("href", "/deploy/?chain=eth");
+  await expect(page.locator(".band[aria-checked=true] .band-id")).toHaveText("Testnet · 11155111");
+  await expect(page.locator(".view-create .warn-note")).toHaveCount(0);
 });
 
 for (const locale of ["en", "fr", "mg"] as const) {
