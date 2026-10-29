@@ -250,12 +250,31 @@ class FormCoverageTest(unittest.TestCase):
 
 
 class CommittedPacksTest(unittest.TestCase):
-    """Every pack in docs/submissions passes."""
+    """Every pack in docs/submissions passes, and the PayPal pack answers its form as the owner did on 2026-10-29."""
 
     def test_every_pack_passes(self) -> None:
         for path in sf.documents():
             with self.subTest(path=path.name):
                 self.assertEqual(sf.problems(path), [])
+
+    def test_the_paypal_pack_holds_the_owners_answers(self) -> None:
+        path = sf.SUBMISSIONS / "paypal.md"
+        answers = {field.id: field.body for field in sf.fields(path)}
+        self.assertEqual(answers["paypal.submitter-type"], "Individual")
+        self.assertEqual(answers["paypal.country"], "Madagascar")
+        self.assertEqual(answers["paypal.province"], "N/A")
+        self.assertEqual(answers["paypal.organization"], "N/A")
+        self.assertEqual(answers["paypal.new-or-existing"], "Existing")
+        self.assertEqual(answers["paypal.sponsor-tools"], "None, used other AI tools.")
+        self.assertEqual(answers["paypal.rating"], "8")
+        self.assertEqual(answers["paypal.contact"], "Yes")
+        self.assertEqual(answers["paypal.learning"], "Significant")
+        self.assertEqual(answers["paypal.ai-value"], "Yes")
+        self.assertEqual(
+            answers["paypal.ai-tools"],
+            "Claude Code (Anthropic) as the project's AI assistant (code, tests, documentation) under my direction; inside the "
+            "product, Cloudflare Workers AI (Google Gemma model) for the drafting assistant and the desk agent.",
+        )
 
 
 if __name__ == "__main__":

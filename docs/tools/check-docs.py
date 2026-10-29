@@ -37,7 +37,9 @@ every packages/*/README.md and apps/*/README.md. Checks, each reported with file
              A line that records the change as history (it says "no longer", "claimed", "revised", "amended", ...)
              is exempt.
 9. fields    Every paste-ready field of docs/submissions/*.md (a marked ```text block) carries a count line that matches
-             its text and stays within the form's limit (docs/tools/submission_fields.py, which also rewrites the counts).
+             its text and stays within the form's limit (docs/tools/submission_fields.py, which also rewrites the counts);
+             a pack whose form is known field by field (the PayPal one) holds every field of that form, in its order,
+             with its kinds, limits and options.
 10. landing  .github/README.md, the page GitHub shows on the repository's home (ahead of v1's frozen root README.md),
              exists and covers what the Monad T&C ask of a README (PAYLINK-V2-SPEC §2.1): the problem and user, the
              contract with every deployment record's address and transaction, the architecture, setup, pre-existing

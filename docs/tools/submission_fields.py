@@ -208,7 +208,7 @@ PAYPAL_FORM = Form(
     ),
 )
 
-FORMS: dict[str, Form] = {}  # docs/submissions/paypal.md follows PAYPAL_FORM from the next commit on
+FORMS: dict[str, Form] = {"paypal.md": PAYPAL_FORM}
 
 
 # --------------------------------------------------------------------------- fields of a document
