@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 /**
  * The API's chain reads against Ethereum Sepolia's real state, on an anvil fork (ADR 0018, decision D-CHAIN): PayLinkV2
- * is deployed at its release CREATE2 address with the committed release init code (web/v2/deploy/data/release.json,
- * checked against RELEASE.initCodeHash), exactly as the owner's deploy kit will; Circle USDC is the real token; one
+ * is the owner's deployment, which the fork carries since 2026-10-29 and protocol/deployments/11155111.json records
+ * (its runtime code checked against the record); on a chain without it, the test deploys it at its release CREATE2
+ * address with the committed release init code (web/v2/deploy/data/release.json, checked against
+ * RELEASE.initCodeHash), exactly as the owner's deploy kit did. Circle USDC is the real token; one
  * invoice is paid by the payer's own EIP-3009 authorisation (no relayer: D-SCOPE), one is cancelled by the payee, one
  * stays payable, one expires on chain time. The reader must then see each as the reconciler needs it, the paid one with
  * its verified `Paid` event, and the situation table must decide S3, S7, S1 and S7.
@@ -20,7 +22,7 @@ import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createRegistry, ethereumSepolia, RELEASE } from "@paylink/chains";
-import type { Registry } from "@paylink/chains";
+import type { Deployment, Registry } from "@paylink/chains";
 import { authorizePayment, cancelCall, decodeInvoiceFragment, issueInvoice, payWithAuthorizationCall } from "@paylink/sdk";
 import type { DecodedInvoiceLink } from "@paylink/sdk";
 import { concat, createPublicClient, createWalletClient, hexToBytes, http, keccak256, stringToHex } from "viem";
@@ -135,7 +137,8 @@ describe.skipIf(!enabled)("chain reads on an anvil fork of Ethereum Sepolia", ()
     fork = await startFork();
     client = createPublicClient({ transport: http(fork.url) });
     expect(await client.getChainId()).toBe(11155111);
-    // 1. Deploy PayLinkV2 through the canonical CREATE2 factory with the committed release init code.
+    // 1. PayLinkV2: the owner's deployment where the fork carries it, else deployed here through the canonical CREATE2
+    // factory with the committed release init code.
     const release = JSON.parse(readFileSync(new URL("../../../../web/v2/deploy/data/release.json", import.meta.url), "utf8")) as { initCode: Hex };
     expect(keccak256(release.initCode)).toBe(RELEASE.initCodeHash);
     const deployer = privateKeyToAccount(labelKey("deployer"));
@@ -146,19 +149,27 @@ describe.skipIf(!enabled)("chain reads on an anvil fork of Ethereum Sepolia", ()
       // 10,000 ETH: the deployment reserves its whole limit (about 21M gas) at the 100 gwei cap of `send`.
       await fork.rpc("anvil_setBalance", [a.address, "0x21e19e0c9bab2400000"]);
     }
-    expect(await client.getCode({ address: RELEASE.create2.address })).toBeUndefined();
-    // Sepolia's own price (about 19.2M gas under Amsterdam, packages/chains/data/fork-gas-measurements.json), plus the kit's 10 %.
-    const deployData = concat([RELEASE.create2.salt, release.initCode]);
-    const deployEstimate = await client.estimateGas({ account: deployer.address, to: RELEASE.create2.factory, data: deployData });
-    const deployTx = await send(deployer, RELEASE.create2.factory, deployData, (deployEstimate * 110n) / 100n);
-    expect((await client.getCode({ address: RELEASE.create2.address }))?.length).toBe(2 + 2 * RELEASE.runtimeCodeSize);
-    const deployBlock = (await client.getTransactionReceipt({ hash: deployTx })).blockNumber;
-    registry = createRegistry([
-      {
-        ...ethereumSepolia,
-        deployment: { address: RELEASE.create2.address, status: "active", release: RELEASE.release, method: "CREATE2", deployer: deployer.address, txHash: deployTx, blockNumber: deployBlock, initCodeHash: RELEASE.initCodeHash, maskedRuntimeHash: RELEASE.maskedRuntimeHash, runtimeCodeHash: keccak256((await client.getCode({ address: RELEASE.create2.address })) ?? "0x") },
-      },
-    ]);
+    let deployment: Deployment;
+    const onChain = await client.getCode({ address: RELEASE.create2.address });
+    if (onChain !== undefined) {
+      // Deployed on Sepolia by the owner (2026-10-29): only the recorded deployment may be there, with the recorded code.
+      const recorded = ethereumSepolia.deployment;
+      if (recorded === null) {
+        throw new Error("PayLinkV2 is on Sepolia but protocol/deployments/11155111.json does not record it");
+      }
+      expect(onChain.length).toBe(2 + 2 * RELEASE.runtimeCodeSize);
+      expect(keccak256(onChain)).toBe(recorded.runtimeCodeHash);
+      deployment = recorded;
+    } else {
+      // Sepolia's own price (about 19.2M gas under Amsterdam, packages/chains/data/fork-gas-measurements.json), plus the kit's 10 %.
+      const deployData = concat([RELEASE.create2.salt, release.initCode]);
+      const deployEstimate = await client.estimateGas({ account: deployer.address, to: RELEASE.create2.factory, data: deployData });
+      const deployTx = await send(deployer, RELEASE.create2.factory, deployData, (deployEstimate * 110n) / 100n);
+      expect((await client.getCode({ address: RELEASE.create2.address }))?.length).toBe(2 + 2 * RELEASE.runtimeCodeSize);
+      const deployBlock = (await client.getTransactionReceipt({ hash: deployTx })).blockNumber;
+      deployment = { address: RELEASE.create2.address, status: "active", release: RELEASE.release, method: "CREATE2", deployer: deployer.address, txHash: deployTx, blockNumber: deployBlock, initCodeHash: RELEASE.initCodeHash, maskedRuntimeHash: RELEASE.maskedRuntimeHash, runtimeCodeHash: keccak256((await client.getCode({ address: RELEASE.create2.address })) ?? "0x") };
+    }
+    registry = createRegistry([{ ...ethereumSepolia, deployment }]);
     // 2. Four $120 USDC invoices signed by the payee.
     const now = (await client.getBlock()).timestamp;
     const issue = async (label: string, validUntil: bigint): Promise<DecodedInvoiceLink> => {
