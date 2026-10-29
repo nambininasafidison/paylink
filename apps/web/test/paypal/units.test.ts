@@ -116,7 +116,7 @@ describe("routes and problems", () => {
   });
 
   it("tells a made twin (201) from one that existed (200)", async () => {
-    const twin = { key: KEY, paypalId: "INV2-1", number: "PL-11155111-abababababab", status: "SHARED", statusClass: "open", recipientViewUrl: null, amount: "120.00", currency: "USD", situation: "S1", checkedAt: "2026-10-22T10:00:00.000Z" };
+    const twin = { key: KEY, paypalId: "INV2-1", number: "PL-11155111-abababababab", status: "UNPAID", statusClass: "open", recipientViewUrl: null, amount: "120.00", currency: "USD", situation: "S1", checkedAt: "2026-10-22T10:00:00.000Z" };
     expect((await postTwin(api({ "POST /v1/twin": { status: 201, body: twin } }).client, "t", { link: "https://x/#y" })).created).toBe(true);
     expect((await postTwin(api({ "POST /v1/twin": { status: 200, body: twin } }).client, "t", { link: "https://x/#y" })).created).toBe(false);
   });
@@ -209,9 +209,10 @@ describe("exact cents", () => {
 });
 
 describe("the pay page's PayPal checks", () => {
-  it("follows only https URLs on a pinned PayPal host, without credentials or port", () => {
+  it("follows only PayPal's sandbox payer page as the capture recorded it: https, the pinned host, /invoice/p/#<id>", () => {
     expect(PAYPAL_PAYER_HOSTS).toEqual(["www.sandbox.paypal.com"]);
     expect(payerUrl("https://www.sandbox.paypal.com/invoice/p/#INV2-1")?.href).toBe("https://www.sandbox.paypal.com/invoice/p/#INV2-1");
+    expect(payerUrl("https://www.sandbox.paypal.com/invoice/p/#INV2-ABCD-1234-EFGH-5678")?.href).toBe("https://www.sandbox.paypal.com/invoice/p/#INV2-ABCD-1234-EFGH-5678");
     for (const url of [
       "http://www.sandbox.paypal.com/invoice/p/#INV2-1",
       "https://www.sandbox.paypal.com.evil.example/invoice",
@@ -220,6 +221,12 @@ describe("the pay page's PayPal checks", () => {
       "https://www.sandbox.paypal.com:8443/invoice",
       "https://www.paypal.com/invoice/p/#INV2-1",
       "https://sandbox.paypal.com/invoice",
+      // The pinned host, but not the payer page: another path, a query, or no invoice in the fragment.
+      "https://www.sandbox.paypal.com/invoice/p/INV2-1",
+      "https://www.sandbox.paypal.com/signin#INV2-1",
+      "https://www.sandbox.paypal.com/invoice/p/?return=https://evil.example#INV2-1",
+      "https://www.sandbox.paypal.com/invoice/p/",
+      "https://www.sandbox.paypal.com/invoice/p/#",
       SCRIPT_URL,
       "not a url",
       null,
@@ -235,6 +242,7 @@ describe("the pay page's PayPal checks", () => {
     expect(railVerdict(link(), rails({ amount: null }))).toEqual({ kind: "hidden", reason: "amount" });
     expect(railVerdict(link(), rails({ currency: null }))).toEqual({ kind: "hidden", reason: "amount" });
     expect(railVerdict(link(), rails({ url: "https://www.sandbox-paypal.com/invoice" }))).toEqual({ kind: "hidden", reason: "host" });
+    expect(railVerdict(link(), rails({ url: "https://www.sandbox.paypal.com/myaccount/transfer#INV2-ABCD-1234" }))).toEqual({ kind: "hidden", reason: "host" });
     expect(railVerdict(link(), rails({ url: null }))).toEqual({ kind: "hidden", reason: "host" });
     expect(railVerdict(link(), rails({ status: "none", url: null }))).toEqual({ kind: "hidden", reason: "none" });
     expect(railVerdict(link(), rails({ status: "closed", url: null }))).toEqual({ kind: "hidden", reason: "closed" });

@@ -6,10 +6,11 @@
  *   meets it first; the token key then steps back to a secondary "Or pay in USDC from a wallet"). A top-level link to
  *   the twin's payer page (`recipient_view_url`, from the public `GET /v1/rails/:key`). It is offered only when all
  *   of these hold, checked in the browser: the four lamps are green (the chain says the invoice is genuine and
- *   payable); the API says the twin is open; the URL is `https:`, without credentials or port, on a host pinned in this
- *   code (`PAYPAL_PAYER_HOSTS`, never taken from the API or the link); and the twin's amount, in USD, equals the signed
- *   amount exactly. Otherwise the PayPal key is not shown: the API is trusted for availability and advice, never for
- *   where a payer goes or how much they pay (threats T-56, T-58).
+ *   payable); the API says the twin is open; the URL is PayPal's sandbox payer page exactly as pinned in code
+ *   (`https://www.sandbox.paypal.com/invoice/p/#<id>`: `https:`, that host, no credentials or port, that path, no query;
+ *   `PAYPAL_PAYER_HOSTS` here, `isPayPalPayerPage` of `@paylink/api-contract`, never taken from the API or the link); and
+ *   the twin's amount, in USD, equals the signed amount exactly. Otherwise the PayPal key is not shown: the API is
+ *   trusted for availability and advice, never for where a payer goes or how much they pay (threats T-56, T-58).
  * - **Pay in USDC or PayPal USD**: the page's own key, on Ethereum Sepolia from the payer's wallet, unchanged.
  *
  * States: both rails · PayPal hidden (no twin, the API unreachable, or a check failed, which says so) · "PayPal says
@@ -22,7 +23,7 @@
  *
  * Owner: web edition workstream.
  */
-import { PAYPAL_EDITION_CHAIN_ID } from "@paylink/api-contract";
+import { isPayPalPayerPage, PAYPAL_EDITION_CHAIN_ID, PAYPAL_PAYER_PAGES } from "@paylink/api-contract";
 import type { RailsResponse } from "@paylink/api-contract";
 import type { DecodedInvoiceLink } from "@paylink/sdk";
 import type { Address, Hex } from "viem";
@@ -33,13 +34,14 @@ import { getRails, paypalApi } from "./api.ts";
 import { baseFromDecimal, seconds, usdFromBase } from "./money.ts";
 
 /**
- * The only hosts a payer is sent to: PayPal's sandbox payer pages. UNVERIFIED until the owner's sandbox capture run
- * records the host of a real `recipient_view_url` (docs/runbooks/paypal.md); PayPal's OpenAPI file says only "the URL
- * for the invoice payer view hosted on paypal.com" (invoicing_v2.json at 90e8041). A change here is a reviewed commit.
+ * The only host a payer is sent to: PayPal's sandbox, whose payer page the owner's capture of 2026-10-29 recorded as
+ * `https://www.sandbox.paypal.com/invoice/p/#{id}` (docs/research/paypal/capture-2026-10-29.md). The edition is sandbox
+ * only (decision D-HOST): PayPal's live payer page, the same rule on `www.paypal.com`, is never followed from it. A
+ * change here is a reviewed commit.
  */
-export const PAYPAL_PAYER_HOSTS: readonly string[] = ["www.sandbox.paypal.com"];
+export const PAYPAL_PAYER_HOSTS: readonly string[] = [PAYPAL_PAYER_PAGES.sandbox.host];
 
-/** The payer page's URL when it may be followed (https, a pinned host, no credentials, no port), else `null`. */
+/** The payer page's URL when it may be followed (PayPal's sandbox payer page, `isPayPalPayerPage`), else `null`. */
 export function payerUrl(value: string | null): URL | null {
   if (value === null) {
     return null;
@@ -50,10 +52,7 @@ export function payerUrl(value: string | null): URL | null {
   } catch {
     return null;
   }
-  if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.port !== "" || !PAYPAL_PAYER_HOSTS.includes(url.hostname)) {
-    return null;
-  }
-  return url;
+  return PAYPAL_PAYER_HOSTS.includes(url.hostname) && isPayPalPayerPage(url, "sandbox") ? url : null;
 }
 
 /** What the chooser does with the API's answer for this link, before the lamps are read. */

@@ -169,7 +169,8 @@ describe("the twin panel", () => {
     key: KEY,
     paypalId: "INV2-ABCD-1234",
     number: "PL-11155111-abababababab",
-    status: "SHARED",
+    // The sandbox's open status after a share link (the owner's capture of 2026-10-29).
+    status: "UNPAID",
     statusClass: "open",
     recipientViewUrl: "https://www.sandbox.paypal.com/invoice/p/#INV2-ABCD-1234",
     amount: "120.00",
@@ -199,7 +200,7 @@ describe("the twin panel", () => {
     expect(seen[0]).toMatchObject({ method: "POST", path: "/v1/twin", body: { link: "https://paypal.paylink-mg.pages.dev/paypal/pay/#2.11155111.x", recipient: { givenName: "Sarah", email: "sarah@example.com" }, dueDate: "2026-11-06" } });
     expect(panel.getAttribute("data-state")).toBe("created");
     expect(panel.querySelector(".twin-number")?.textContent).toBe("PL-11155111-abababababab");
-    expect(panel.querySelector(".twin-readout .pill")?.textContent).toBe("SHARED");
+    expect(panel.querySelector(".twin-readout .pill")?.textContent).toBe("UNPAID");
     expect(panel.querySelector(".status")?.textContent).toBe("PayPal twin PL-11155111-abababababab made and read back from PayPal.");
     expect(cachedTwin(KEY)?.number).toBe("PL-11155111-abababababab");
   });

@@ -25,7 +25,8 @@ const twin = (over: Partial<TwinView> = {}): TwinView => ({
   key: KEY,
   paypalId: "INV2-AAAA-BBBB-CCCC-DDDD",
   number: "PL-11155111-abababababab",
-  status: "SHARED",
+  // The sandbox's open status after a share link (the owner's capture of 2026-10-29).
+  status: "UNPAID",
   statusClass: "open",
   recipientViewUrl: "https://www.sandbox.paypal.com/invoice/p/#INV2AAAABBBBCCCCDDDD",
   amount: "120.00",

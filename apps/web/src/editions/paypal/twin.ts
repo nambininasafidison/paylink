@@ -4,7 +4,8 @@
  * key makes its PayPal twin (`POST /v1/twin` with the signed link exactly as shared), and the panel shows what PayPal
  * itself answered when the API read the twin back (`GET` P5): its number, its status and when it was read.
  *
- * States: ready (optional client name, email and due date) · creating · created and read back (`SHARED` or `SENT`) ·
+ * States: ready (optional client name, email and due date) · creating · created and read back (an open status: `UNPAID`
+ * in the sandbox, as the owner's capture of 2026-10-29 read it after a share link; `SHARED` or `SENT` read the same) ·
  * PayPal unavailable ("the invoice is still valid; the PayPal option appears when PayPal answers", and Retry) · hands
  * off (situation S0: PayPal's copy does not match) · not eligible (open amount, several payments, a fraction of a cent,
  * another token or chain) · API not configured. The panel never changes the signed invoice: the link works whatever
