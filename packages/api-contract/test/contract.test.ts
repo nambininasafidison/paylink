@@ -13,9 +13,13 @@ import {
   CLARIFICATION_CODES,
   HEALTH_ROWS,
   INVOICE_KEY_PATTERN,
+  isPayPalPayerPage,
   PAYPAL_EDITION_CHAIN_ID,
   PAYPAL_INVOICE_STATUSES,
+  PAYPAL_PAYER_PAGES,
+  PAYPAL_PAYMENT_ID_PATTERN,
   PAYPAL_STATUS_CLASSES,
+  payPalPayerPageUrl,
   PROPOSAL_ACTOR,
   PROPOSAL_KINDS,
   RAILS,
@@ -121,5 +125,52 @@ describe("enumerations", () => {
     expect(INVOICE_KEY_PATTERN.test(`0x${"ab".repeat(32)}`)).toBe(true);
     expect(INVOICE_KEY_PATTERN.test(`0x${"AB".repeat(32)}`)).toBe(false);
     expect(INVOICE_KEY_PATTERN.test(`0x${"ab".repeat(31)}`)).toBe(false);
+  });
+});
+
+describe("PayPal's payer page and payment ids (the owner's sandbox capture of 2026-10-29)", () => {
+  const capture = JSON.parse(readFileSync(new URL("../../../docs/research/paypal/capture-2026-10-29.json", import.meta.url), "utf8")) as {
+    recipientViewUrl: string;
+    paymentIdShape: { length: number; pattern: boolean };
+    undoWithPaymentId: string;
+  };
+
+  it("is the sandbox page the capture recorded, and PayPal's live host by the same rule", () => {
+    expect(`https://${PAYPAL_PAYER_PAGES.sandbox.host}${PAYPAL_PAYER_PAGES.sandbox.path}#{id}`).toBe(capture.recipientViewUrl);
+    expect(PAYPAL_PAYER_PAGES.live).toEqual({ host: "www.paypal.com", path: PAYPAL_PAYER_PAGES.sandbox.path });
+    expect(payPalPayerPageUrl("https://www.sandbox.paypal.com", "INV2-ABCD-1234")).toBe("https://www.sandbox.paypal.com/invoice/p/#INV2-ABCD-1234");
+    expect(payPalPayerPageUrl("http://127.0.0.1:9999/__paypal/", "INV2-1")).toBe("http://127.0.0.1:9999/__paypal/invoice/p/#INV2-1");
+  });
+
+  it("is matched exactly: https, the environment's host, no credentials or port, the path, no query, an id", () => {
+    expect(isPayPalPayerPage(new URL(payPalPayerPageUrl("https://www.sandbox.paypal.com", "INV2-ABCD-1234")), "sandbox")).toBe(true);
+    expect(isPayPalPayerPage(new URL("https://www.paypal.com/invoice/p/#INV2-ABCD-1234"), "live")).toBe(true);
+    for (const [url, environment] of [
+      ["https://www.paypal.com/invoice/p/#INV2-1", "sandbox"],
+      ["https://www.sandbox.paypal.com/invoice/p/#INV2-1", "live"],
+      ["http://www.sandbox.paypal.com/invoice/p/#INV2-1", "sandbox"],
+      ["https://www.sandbox.paypal.com:8443/invoice/p/#INV2-1", "sandbox"],
+      ["https://user:pw@www.sandbox.paypal.com/invoice/p/#INV2-1", "sandbox"],
+      ["https://www.sandbox.paypal.com/invoice/p/INV2-1", "sandbox"],
+      ["https://www.sandbox.paypal.com/invoice/p", "sandbox"],
+      ["https://www.sandbox.paypal.com/invoice/p/", "sandbox"],
+      ["https://www.sandbox.paypal.com/invoice/p/#", "sandbox"],
+      ["https://www.sandbox.paypal.com/invoice/p/?next=x#INV2-1", "sandbox"],
+      ["https://www.sandbox.paypal.com/signin#INV2-1", "sandbox"],
+      ["https://www.sandbox.paypal.com.evil.example/invoice/p/#INV2-1", "sandbox"],
+      ["https://sandbox.paypal.com/invoice/p/#INV2-1", "sandbox"],
+    ] as const) {
+      expect(isPayPalPayerPage(new URL(url), environment), `${url} (${environment})`).toBe(false);
+    }
+  });
+
+  it("take P6's payment id shape (1 to 22 characters of the pattern), which the capture's id had and P7 accepted", () => {
+    expect(capture.paymentIdShape).toEqual({ length: 22, pattern: true });
+    expect(capture.undoWithPaymentId).toBe("accepted");
+    expect(PAYPAL_PAYMENT_ID_PATTERN.test("A".repeat(22))).toBe(true);
+    expect(PAYPAL_PAYMENT_ID_PATTERN.test("EXTR-0123456789_abcde")).toBe(true);
+    for (const id of ["", "A".repeat(23), "has space", "slash/es", "dot.ted", "a#b"]) {
+      expect(PAYPAL_PAYMENT_ID_PATTERN.test(id), id).toBe(false);
+    }
   });
 });

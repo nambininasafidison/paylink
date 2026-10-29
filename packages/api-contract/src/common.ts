@@ -191,6 +191,55 @@ export function statusClassOf(status: string): PayPalStatusClass {
   return (PAYPAL_INVOICE_STATUSES as readonly string[]).includes(status) ? STATUS_CLASS[status as PayPalInvoiceStatus] : "unknown";
 }
 
+/**
+ * P6's `payment_reference.payment_id` (V: 1–22 characters, `^[0-9A-Za-z_-]+$`). The sandbox's was 22 characters and
+ * matched the pattern (the owner's capture of 2026-10-29, docs/research/paypal/capture-2026-10-29.md). It is P7's
+ * `transaction_id` (same capture) and the desk's Undo id after `r_`.
+ */
+export const PAYPAL_PAYMENT_ID_PATTERN = /^[0-9A-Za-z_-]{1,22}$/u;
+
+/** PayPal's environments: the edition uses the sandbox only (decision D-HOST, `GET /v1/health` `paypalEnvironment`). */
+export type PayPalEnvironment = "sandbox" | "live";
+
+/**
+ * PayPal's payer page, where a twin is paid (`detail.metadata.recipient_view_url`, P5): `https://<host>/invoice/p/#<id>`,
+ * the invoice in the fragment, no query. The sandbox's is **C**: the owner's capture of 2026-10-29 read
+ * `https://www.sandbox.paypal.com/invoice/p/#{id}` (docs/research/paypal/capture-2026-10-29.md). The live host follows
+ * the same rule (PayPal's live web host in place of its sandbox's, **E**: never observed, since PayLink never calls
+ * PayPal live). A change here is a reviewed commit.
+ */
+export const PAYPAL_PAYER_PAGES: Readonly<Record<PayPalEnvironment, { readonly host: string; readonly path: "/invoice/p/" }>> = {
+  sandbox: { host: "www.sandbox.paypal.com", path: "/invoice/p/" },
+  live: { host: "www.paypal.com", path: "/invoice/p/" },
+};
+
+/** The payer page of invoice `id` on `origin` (`https://www.sandbox.paypal.com`, or the PayPal fake's origin and mount). */
+export function payPalPayerPageUrl(origin: string, id: string): string {
+  return `${origin.replace(/\/+$/u, "")}${PAYPAL_PAYER_PAGES.sandbox.path}#${id}`;
+}
+
+/** The members of a parsed URL the payer page rule reads (a WHATWG `URL` has them all). */
+export interface UrlParts {
+  readonly protocol: string;
+  readonly hostname: string;
+  readonly username: string;
+  readonly password: string;
+  readonly port: string;
+  readonly pathname: string;
+  readonly search: string;
+  readonly hash: string;
+}
+
+/**
+ * Whether `url` is PayPal's payer page in `environment`, exactly as the rule above has it: `https:`, the host, no
+ * credentials and no port, the path `/invoice/p/`, no query, and an id in the fragment. Anything else, another page of
+ * the same host included, is not.
+ */
+export function isPayPalPayerPage(url: UrlParts, environment: PayPalEnvironment): boolean {
+  const page = PAYPAL_PAYER_PAGES[environment];
+  return url.protocol === "https:" && url.hostname === page.host && url.username === "" && url.password === "" && url.port === "" && url.pathname === page.path && url.search === "" && url.hash.length > 1;
+}
+
 // ------------------------------------------------------------------------------------------- rails and chain
 
 /** The engraved rail labels (docs/paypal/SPEC.md §14.1): PayPal's hosted invoice, or a token on Ethereum Sepolia. */
