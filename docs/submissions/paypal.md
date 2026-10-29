@@ -299,7 +299,7 @@ What a judge sees on each path, and what can go wrong:
 **Preconditions**
 
 - [ ] [§10](#10-liste-de-contrôle-en-français) steps 1 to 9 done; `/paypal/status/` green with your pushed commit; the rehearsal of [runbook §11](../runbooks/paypal.md#11-rehearsal) passed the same week.
-- [ ] Chrome with two profiles at 1280 × 800: **Payee** (MetaMask account "Rina Design", a little Sepolia ETH) and **Client** (MetaMask account "Sarah", Sepolia ETH and at least 20 test USDC, and the "video" sandbox buyer's login typed off camera). Light theme, English, Do Not Disturb, no other extension, bookmarks bar hidden.
+- [ ] Chrome with two profiles at 1280 × 800: **Payee** (MetaMask: your "PayPal Demo" wallet, the API's demo payee of [runbook §10](../runbooks/paypal.md#10-judge-sandbox-buyers-and-judge-links) step 4, its account named "Rina Design" in MetaMask for the take; a little Sepolia ETH) and **Client** (MetaMask account "Sarah", Sepolia ETH and at least 20 test USDC, and the "video" sandbox buyer's login typed off camera). Light theme, English, Do Not Disturb, no other extension, bookmarks bar hidden.
 - [ ] "Rina" and "Sarah" are made-up names: the first caption says the story is a composite.
 
 | # | Time | Screen and exact clicks | Caption |
