@@ -294,6 +294,33 @@ function statusClassOf(status) {
 	return PAYPAL_INVOICE_STATUSES.includes(status) ? STATUS_CLASS[status] : "unknown";
 }
 /**
+* P6's `payment_reference.payment_id` (V: 1–22 characters, `^[0-9A-Za-z_-]+$`). The sandbox's was 22 characters and
+* matched the pattern (the owner's capture of 2026-10-29, docs/research/paypal/capture-2026-10-29.md). It is P7's
+* `transaction_id` (same capture) and the desk's Undo id after `r_`.
+*/
+const PAYPAL_PAYMENT_ID_PATTERN = /^[0-9A-Za-z_-]{1,22}$/u;
+/**
+* PayPal's payer page, where a twin is paid (`detail.metadata.recipient_view_url`, P5): `https://<host>/invoice/p/#<id>`,
+* the invoice in the fragment, no query. The sandbox's is **C**: the owner's capture of 2026-10-29 read
+* `https://www.sandbox.paypal.com/invoice/p/#{id}` (docs/research/paypal/capture-2026-10-29.md). The live host follows
+* the same rule (PayPal's live web host in place of its sandbox's, **E**: never observed, since PayLink never calls
+* PayPal live). A change here is a reviewed commit.
+*/
+const PAYPAL_PAYER_PAGES = {
+	sandbox: {
+		host: "www.sandbox.paypal.com",
+		path: "/invoice/p/"
+	},
+	live: {
+		host: "www.paypal.com",
+		path: "/invoice/p/"
+	}
+};
+/** The payer page of invoice `id` on `origin` (`https://www.sandbox.paypal.com`, or the PayPal fake's origin and mount). */
+function payPalPayerPageUrl(origin, id) {
+	return `${origin.replace(/\/+$/u, "")}${PAYPAL_PAYER_PAGES.sandbox.path}#${id}`;
+}
+/**
 * The actions the fence can allow (docs/paypal/SPEC.md §10.2). `share_reminder_text` has no server effect: the payee
 * shares the text through the share sheet. Refunds, captures and dispute acceptance do not exist here (AI-2).
 */
@@ -33625,7 +33652,7 @@ function twinFacts(twin, autoRecords) {
 * | Situation | PayPal (class of §7.4)                          | Chain                     | Fence                                      |
 * |-----------|-------------------------------------------------|---------------------------|--------------------------------------------|
 * | S0        | unreadable, unknown, SCHEDULED, DRAFT, a mismatch | unreadable, not deployed, a mismatch | nothing (hands off), alert        |
-* | S1        | open                                            | payable                   | share_reminder_text; send_reminder if due  |
+* | S1        | open                                            | payable                   | share_reminder_text; send_reminder if due and PayPal's invoice has the client's email |
 * | S2        | paid (≥ 1 non-echo), or marked paid by the merchant | payable               | cancel_paylink (tap + signature)           |
 * | S3        | open                                            | paid, verified            | record_external_payment (automatic), or cancel_paypal once recorded, or a tap record after an Undo; after a record vanished from PayPal (`record-missing`, alert): a tap record or cancel_paypal |
 * | S4        | paid (≥ 1 non-echo transaction)                 | paid                      | nothing, alert `paid-twice`                |
@@ -33847,11 +33874,15 @@ function decide(input, verified, listedCount, nonEchoCount) {
 			};
 	}
 }
-/** S1: sharing the reminder text is always allowed; PayPal's own reminder only when due, emailed and not sent today. */
+/**
+* S1: sharing the reminder text is always allowed; PayPal's own reminder only when due, emailed and not sent today.
+* Without a client email on PayPal's invoice, PayPal refuses its reminder (400 `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`,
+* the owner's capture of 2026-10-29), so it is never offered, and the share action's reason says why.
+*/
 function openActions(input) {
 	const { twin, paypal, now } = input;
-	const allowed = [action("share_reminder_text", fenceArgs.shareReminderText(twin), "share-reminder")];
 	const emailed = paypal.read === "ok" && paypal.hasRecipientEmail;
+	const allowed = [action("share_reminder_text", fenceArgs.shareReminderText(twin), emailed ? "share-reminder" : "share-reminder-no-email")];
 	const rested = twin.lastReminderAt === null || now - twin.lastReminderAt >= 864e5;
 	const due = isDue(twin.dueDate, now);
 	const waited = twin.sentAt !== null && now - twin.sentAt >= 2592e5;
@@ -34301,9 +34332,8 @@ const CHECK_MAX_MATCHES = 5;
 /** Links listed per check at most. */
 const CHECK_MAX_LINKS = 20;
 /**
-* PayPal's own web hosts (E: the hosts of paypal.com and its sandbox, where invoices are paid; S for the sandbox host,
-* docs/research/paypal/paypal-tech.md). The payer host of `recipient_view_url` is pinned in configuration after the
-* owner's capture run (UNVERIFIED today).
+* PayPal's own web hosts (E: the hosts of paypal.com and its sandbox, where invoices are paid). The sandbox's payer page
+* is on `www.sandbox.paypal.com` (C, the owner's capture run of 2026-10-29), pinned in configuration as `payerHost`.
 */
 const PAYPAL_HOSTS = [
 	"paypal.com",
@@ -34332,8 +34362,7 @@ function extract(text) {
 /** The hosts a payee may trust in a message: PayPal's, the pinned payer host, the edition's own origins. */
 function trustedHosts(services) {
 	const { config } = services.runtime;
-	const hosts = new Set(PAYPAL_HOSTS);
-	if (config.paypal.payerHost !== null) hosts.add(config.paypal.payerHost.toLowerCase());
+	const hosts = /* @__PURE__ */ new Set([...PAYPAL_HOSTS, config.paypal.payerHost.toLowerCase()]);
 	for (const origin of config.allowedOrigins) try {
 		hosts.add(new URL(origin).hostname.toLowerCase());
 	} catch {}
@@ -35535,6 +35564,38 @@ async function sweep(services, payee, now, agent, options = {}) {
 
 //#endregion
 //#region apps/api/src/reconciler/executor.ts
+/**
+* The executor (docs/paypal/SPEC.md §10.2 "Fresh-read on execute", §10.5, invariant AI-3): the only code that turns an
+* approved proposal into an effect. In order, each refusal leaving nothing changed:
+*
+* 1. the proposal exists in the session payee's own store (`not-found` otherwise: another payee's id is not visible);
+* 2. the request's hash is the stored proposal's, and the stored proposal still hashes to it (exact values unchanged);
+* 3. the HMAC approval token checks: its MAC, that hash, the session's payee, not expired;
+* 4. the proposal moves `open` → `approving` by compare-and-set (a replayed or concurrent approval finds it moved);
+* 5. under the twin's lock, a fresh read of P5 and the chain, the situation table again, and the action must still be
+*    in the fence with exactly the same values, or the proposal goes `stale` and the answer is 409 `E_STALE`;
+* 6. the effect, by kind: P9 (PayPal's reminder), P8 (cancel the PayPal twin), P6 (record, after an Undo), nothing on
+*    the server for `share_reminder_text`, and for `cancel_paylink` the payee's own signature: the answer carries the
+*    `Cancel(key, deadline)` to sign (deadline: one hour, invoice spec §9.2) and the proposal closes when the chain shows
+*    the key cancelled (src/reconciler/engine.ts).
+*
+* PayPal's reminder is never sent for a twin without a client email: the fence holds `send_reminder` only when the
+* fresh P5 shows a billing email (src/reconciler/situation.ts), because the sandbox refuses a reminder without one
+* (400 `INVALID_REQUEST`, issue `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`, the owner's capture of 2026-10-29). Should PayPal
+* answer that refusal anyway, the problem's rule says why: `E_PAYPAL_REMINDER_NEEDS_EMAIL`.
+*
+* A write whose answer is lost is settled by reading, never repeated blind (src/paypal/client.ts): each carries a
+* deterministic `PayPal-Request-Id` (src/paypal/idempotency.ts); a lost P8 or P6 reopens the proposal, and the next
+* approval's fresh read finds whether it happened (the fence then no longer holds it); a lost P9 cannot be read back
+* (an invoice does not list its reminders), so it counts as sent: the proposal closes `unconfirmed`, `lastReminderAt` is
+* set, and none is offered for 24 hours. Only PayPal's definite refusal (a 4xx) reopens a reminder. A lost P7 (Undo) is
+* settled by P5: a record P5 no longer lists was deleted.
+*
+* Nothing here takes a value from the request beyond the proposal id, the hash and the token: every exact value comes
+* from the stored proposal, checked against the fence. Model text never reaches this module.
+*
+* Owner: reconciler workstream.
+*/
 /** PayPal's own reminder and cancel bodies (P9, P8): PayPal ignores any subject or note (V), so none is sent. */
 const REMIND = {
 	send_to_recipient: true,
@@ -35544,9 +35605,17 @@ const CANCEL = {
 	send_to_recipient: false,
 	send_to_invoicer: false
 };
+/** PayPal's refusal of a reminder for an invoice without a billing email (400, C: the owner's capture of 2026-10-29). */
+const REMINDER_WITHOUT_EMAIL_ISSUE = "CANNOT_REMIND_AS_BILLING_INFO_ABSENT";
+/** The rule of a refused effect: a reminder needs the client's email on PayPal's invoice, or hit PayPal's limit. */
+function refusalRule(error, kind) {
+	if (kind === "send_reminder" && error.issue === "CANNOT_REMIND_AS_BILLING_INFO_ABSENT") return "E_PAYPAL_REMINDER_NEEDS_EMAIL";
+	if (kind === "send_reminder" && (error.status === 429 || error.status === 422)) return "E_PAYPAL_REMINDER_LIMIT";
+	return error.paypalName ?? `HTTP_${String(error.status)}`;
+}
 function paypalProblem$1(error, kind) {
 	if (isPayPalError(error)) {
-		const rule = kind === "send_reminder" && (error.status === 429 || error.status === 422) ? "E_PAYPAL_REMINDER_LIMIT" : error.paypalName ?? `HTTP_${String(error.status)}`;
+		const rule = refusalRule(error, kind);
 		return error.retryable ? new ProblemError("paypal-unavailable", "PayPal did not carry out the action; try again later", {
 			rule,
 			retryAfter: 60
@@ -35756,7 +35825,7 @@ async function rejectProposal(services, payee, id, now) {
 /** `POST /v1/desk/:id/undo` with `id` = `r_<payment id>`: P7 within 24 hours of an automatic record (D-07). */
 async function undoRecord(services, payee, id, now) {
 	const store = services.stores.payee(payee);
-	const paymentId = /^r_[0-9A-Za-z_-]{1,22}$/u.test(id) ? id.slice(2) : null;
+	const paymentId = id.startsWith("r_") && PAYPAL_PAYMENT_ID_PATTERN.test(id.slice(2)) ? id.slice(2) : null;
 	const record = paymentId === null ? null : await store.getAutoRecord(paymentId);
 	if (record === null || paymentId === null) throw new ProblemError("not-found", "no such record");
 	if (record.undone) throw new ProblemError("conflict", "the record was already undone", { rule: "E_ALREADY_UNDONE" });
@@ -36474,27 +36543,29 @@ const SUBSCRIBED_EVENTS = [
 * subscriptions, events and their deliveries. Pure state and rules, no HTTP (src/paypal/fake/app.ts serves it).
 *
 * The status machine (statuses and their meanings V, `invoice_status` in `invoicing_v2.json`; transitions are the
-* operations' descriptions where they state them, and the fake's documented choice where they do not):
+* operations' descriptions where they state them, the sandbox's where the owner's capture of 2026-10-29 recorded them,
+* **C** (docs/research/paypal/capture-2026-10-29.md), and the fake's documented choice otherwise):
 *
 * | From | Event | To | Source |
 * |---|---|---|---|
 * | (none) | P3 create | `DRAFT` | "Creates a draft invoice" (V) |
-* | `DRAFT` | P4 send, issue date today or past | `SENT` (to the recipient) or `behaviour.statusAfterShare` (share link) | 200 "when the invoice issue date is current date" (V); `SHARED` vs `SENT` UNVERIFIED |
+* | `DRAFT` | P4 send, issue date today or past | `SENT` (to the recipient) or `behaviour.statusAfterShare` (share link: `UNPAID`) | 200 "when the invoice issue date is current date" (V); 200 and `UNPAID` after a share link (C) |
 * | `DRAFT` | P4 send, issue date in the future | `SCHEDULED` (answer 202) | 202 description (V) |
-* | open | the payer pays the whole amount | `behaviour.payerPaymentStatus` (`PAID`) | `PAID`: "The payer has paid for the invoice" (V) |
-* | open | P6 records the whole amount due | `behaviour.statusAfterRecord` | "If no payment is due, the invoice is marked as `PAID`" (V); what the sandbox shows is UNVERIFIED |
+* | open | the payer pays the whole amount | `behaviour.payerPaymentStatus` (`PAID`), a transaction of type and method `PAYPAL` | `PAID`: "The payer has paid for the invoice" (V); both (C) |
+* | open | P6 records the whole amount due | `behaviour.statusAfterRecord` (`MARKED_AS_PAID`), the note kept exactly | "If no payment is due, the invoice is marked as `PAID`" (V); the sandbox shows `MARKED_AS_PAID` (C) |
 * | open | P6 or a payment covers part of it | `PARTIALLY_PAID` | "Otherwise, the invoice is marked as PARTIALLY PAID" (V) |
-* | paid by P6 | P7 deletes the external payment | the open status it had | E |
-* | open, `SCHEDULED` excepted | P8 cancel | `CANCELLED` | 422 issues `CANNOT_CANCEL_DRAFT_INVOICE`, `CANNOT_CANCEL_PAID_INVOICE`, `CANNOT_CANCEL_REFUNDED_INVOICE`, `CANNOT_CANCEL_SCHEDULED_INVOICE`, `INVOICE_CANCELED_ALREADY` (V) |
-* | open or `PARTIALLY_PAID` | P9 remind | unchanged | 422 issue `CANNOT_REMIND_INVOICE` (V) otherwise, and past `behaviour.remindersPerDay` (S: two a day) |
+* | paid by P6 | P7 deletes the external payment (P6's `payment_id` as `transaction_id`) | the open status it had (`UNPAID`) | C |
+* | open, `SCHEDULED` excepted | P8 cancel | `CANCELLED` | 422 issues `CANNOT_CANCEL_DRAFT_INVOICE`, `CANNOT_CANCEL_PAID_INVOICE`, `CANNOT_CANCEL_REFUNDED_INVOICE`, `CANNOT_CANCEL_SCHEDULED_INVOICE`, `INVOICE_CANCELED_ALREADY` (V); `CANCELLED` after an undo (C) |
+* | open or `PARTIALLY_PAID` | P9 remind | unchanged | 422 issue `CANNOT_REMIND_INVOICE` (V) otherwise, and past `behaviour.remindersPerDay` (S: two a day); without a billing email 400 `INVALID_REQUEST`, issue `CANNOT_REMIND_AS_BILLING_INFO_ABSENT` (C) |
 *
-* "open" is `SENT`, `SHARED` or `UNPAID`. `AUTO_CANCELLED`, the refund statuses and `UNPAID` are reached only through the
-* fake's own controls (`forceStatus`), for tests of the situations they lead to.
+* "open" is `SENT`, `SHARED` or `UNPAID`. `SHARED` after a share link is reached only through `behaviour`, and
+* `AUTO_CANCELLED` and the refund statuses only through the fake's own controls (`forceStatus`), for tests of the
+* situations they lead to.
 *
 * Owner: PayPal spine workstream.
 */
 const DEFAULT_BEHAVIOUR = {
-	statusAfterShare: "SHARED",
+	statusAfterShare: "UNPAID",
 	statusAfterRecord: "MARKED_AS_PAID",
 	referenceSearch: "contains",
 	payerPaymentStatus: "PAID",
@@ -36502,7 +36573,7 @@ const DEFAULT_BEHAVIOUR = {
 	remindersPerDay: 2,
 	eventResource: "invoice-wrapper",
 	honourRequestId: false,
-	tokenLifetimeSeconds: 32400
+	tokenLifetimeSeconds: 32326
 };
 /** Open statuses (§7.4). */
 const OPEN_STATUSES = [
@@ -36694,7 +36765,7 @@ var FakeState = class {
 		invoice.updatedAt = this.clock();
 		return recorded;
 	}
-	/** P7: the transaction id is the recorded payment's `payment_id` (UNVERIFIED that PayPal uses the same id, §7.1). */
+	/** P7: the transaction id is the recorded payment's `payment_id`, as in the sandbox (C, capture of 2026-10-29). */
 	deletePayment(id, transactionId) {
 		const invoice = this.get(id);
 		const index = invoice.payments.findIndex((p) => p.paymentId === transactionId);
@@ -36715,7 +36786,7 @@ var FakeState = class {
 		invoice.cancelledAt = now;
 		invoice.updatedAt = now;
 	}
-	/** P9. */
+	/** P9. Without a billing email, the sandbox's own refusal (C, capture of 2026-10-29); the files' 422 otherwise. */
 	remind(id) {
 		const invoice = this.get(id);
 		const now = this.clock();
@@ -36724,7 +36795,9 @@ var FakeState = class {
 			const email = r.billing_info?.email_address;
 			return typeof email === "string" && email !== "";
 		});
-		if (!OPEN_STATUSES.includes(invoice.status) && invoice.status !== "PARTIALLY_PAID" || this.behaviour.remindRequiresEmail && !hasEmail || recent.length >= this.behaviour.remindersPerDay) throw new FakeRefusal(422, "CANNOT_REMIND_INVOICE");
+		if (!OPEN_STATUSES.includes(invoice.status) && invoice.status !== "PARTIALLY_PAID") throw new FakeRefusal(422, "CANNOT_REMIND_INVOICE");
+		if (this.behaviour.remindRequiresEmail && !hasEmail) throw new FakeRefusal(400, "CANNOT_REMIND_AS_BILLING_INFO_ABSENT");
+		if (recent.length >= this.behaviour.remindersPerDay) throw new FakeRefusal(422, "CANNOT_REMIND_INVOICE");
 		invoice.reminders.push(now);
 		invoice.lastSentAt = now;
 		invoice.updatedAt = now;
@@ -36821,6 +36894,30 @@ function payerPage(view, payAction) {
 			`<p>Status: <span data-status>${escapeHtml(view.status)}</span></p>`,
 			view.payable ? `<form method="post" action="${escapeHtml(payAction)}"><button type="submit">Pay ${escapeHtml(view.due)} ${escapeHtml(view.currency)} as the sandbox buyer</button></form>` : "<p>Nothing to pay.</p>"
 		].join("\n"),
+		"</body>",
+		"</html>"
+	].join("\n");
+}
+/**
+* The one script of `/invoice/p/`: the invoice id in the fragment opens `/invoice/p/<id>` (relative to `/invoice/p/`,
+* so a mount path is kept); anything else says so.
+*/
+const PAYER_REDIRECT_SCRIPT = "var id = location.hash.slice(1); if (/^[A-Za-z0-9_-]{1,64}$/.test(id)) { location.replace(encodeURIComponent(id)); } else { document.body.textContent = \"Invoice not found: no invoice id after # in this PayPal fake link.\"; }";
+/** `script-src` of that page: the SHA-256 of `PAYER_REDIRECT_SCRIPT` (test/paypal/fake.test.ts recomputes it). */
+const PAYER_REDIRECT_SCRIPT_HASH = "sha256-MijRx4n5dxI9sAihNwccN4zo0U9nrL7nKqQIrRbKxZY=";
+/** The page of `/invoice/p/`: PayPal's payer link without the invoice in the path (module comment). */
+function payerRedirectPage() {
+	return [
+		"<!doctype html>",
+		"<html lang=\"en\">",
+		"<head>",
+		"<meta charset=\"utf-8\">",
+		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+		"<title>PayPal fake: invoice</title>",
+		"</head>",
+		"<body>",
+		"<p><em>PayPal fake (PayLink tests and offline demo). Not PayPal, no money.</em></p>",
+		`<script>${PAYER_REDIRECT_SCRIPT}<\/script>`,
 		"</body>",
 		"</html>"
 	].join("\n");
@@ -36928,12 +37025,17 @@ function fromBase64(text) {
 * (`CANNOT_REMIND_INVOICE`, `CANNOT_CANCEL_PAID_INVOICE`, ...) and the fake's own otherwise, marked in model.ts.
 *
 * The fake is stricter than PayPal may be on purpose: it refuses read-only members in requests (`type` in a payment,
-* `id`, `status`, `metadata`, ... in an invoice) and both `term_type` and `due_date` in one payment term, so a PayLink
-* mistake fails a test instead of passing silently.
+* `id`, `status`, `metadata`, ... in an invoice), so a PayLink mistake fails a test instead of passing silently. A
+* payment term follows the sandbox: `due_date` alone, and `term_type` `DUE_ON_DATE_SPECIFIED` with a `due_date`, are
+* accepted, as the sandbox accepted both in the owner's capture of 2026-10-29 (docs/paypal/SPEC.md §7.2: "the contract
+* test follows the capture"); any other `term_type` with a `due_date` is refused, as the files' "either but not both"
+* says (what the sandbox does with those is UNVERIFIED, and PayLink never sends one).
 *
 * Outside PayPal's API (never called by the PayPal client):
-* - `GET /invoice/p/{id}` and `POST /invoice/p/{id}/pay`: the payer's view (`recipient_view_url`), a plain page with
-*   one button, for the e2e suite and the offline demo;
+* - `GET /invoice/p/`, `GET /invoice/p/{id}` and `POST /invoice/p/{id}/pay`: the payer's view. `recipient_view_url` is
+*   `<public URL>/invoice/p/#<id>`, PayPal's own form (the sandbox's, recorded by the owner's capture of 2026-10-29);
+*   `/invoice/p/` opens `/invoice/p/<id>` from the fragment, a plain page with one button, for the e2e suite and the
+*   offline demo (src/paypal/fake/page.ts);
 * - `/__fake/...`: controls for tests (pay, force a status, deliver webhooks, inject faults, list invoices).
 *
 * Owner: PayPal spine workstream.
@@ -37030,7 +37132,7 @@ function renderInvoice(host, invoice) {
 				...invoice.firstSentAt === null ? {} : { first_sent_time: iso(invoice.firstSentAt) },
 				...invoice.lastSentAt === null ? {} : { last_sent_time: iso(invoice.lastSentAt) },
 				created_by_flow: "REGULAR_SINGLE",
-				...sent ? { recipient_view_url: `${base}/invoice/p/${invoice.id}` } : {},
+				...sent ? { recipient_view_url: payPalPayerPageUrl(base, invoice.id) } : {},
 				invoicer_view_url: `${base}/invoice/details/${invoice.id}`
 			}
 		},
@@ -37124,6 +37226,8 @@ const READ_ONLY_INVOICE = [
 	"refunds",
 	"links"
 ];
+/** The one `term_type` the sandbox accepted with a `due_date` (the owner's capture of 2026-10-29, `createWithTermTypeAndDueDate`). */
+const DUE_ON_DATE = "DUE_ON_DATE_SPECIFIED";
 function createInput(body, today, fallbackNumber) {
 	if (!isRecord$1(body) || !isRecord$1(body["detail"])) throw new FakeRefusal(400, "INVALID_PARAMETER_SYNTAX", "/detail");
 	for (const member of READ_ONLY_INVOICE) if (body[member] !== void 0) throw new FakeRefusal(400, "INVALID_PARAMETER_SYNTAX", `/${member}`);
@@ -37136,7 +37240,7 @@ function createInput(body, today, fallbackNumber) {
 	let paymentTerm = null;
 	if (detail["payment_term"] !== void 0) {
 		const term = detail["payment_term"];
-		if (!isRecord$1(term) || term["term_type"] !== void 0 && term["due_date"] !== void 0) throw new FakeRefusal(400, "INVALID_PARAMETER_SYNTAX", "/detail/payment_term");
+		if (!isRecord$1(term) || term["term_type"] !== void 0 && term["due_date"] !== void 0 && term["term_type"] !== DUE_ON_DATE) throw new FakeRefusal(400, "INVALID_PARAMETER_SYNTAX", "/detail/payment_term");
 		const due = str(term["due_date"], "/detail/payment_term/due_date", 10);
 		if (due !== null && !DATE.test(due)) throw new FakeRefusal(400, "INVALID_PARAMETER_SYNTAX", "/detail/payment_term/due_date");
 		const type = str(term["term_type"], "/detail/payment_term/term_type", 30);
@@ -37383,7 +37487,7 @@ function createFakeApp(host) {
 		if (status === 200) host.announce("INVOICING.INVOICE.SENT", invoice);
 		else host.announce("INVOICING.INVOICE.SCHEDULED", invoice);
 		return c.json({
-			href: `${host.publicUrl()}/invoice/p/${id}`,
+			href: payPalPayerPageUrl(host.publicUrl(), id),
 			rel: "payer-view",
 			method: "GET"
 		}, status);
@@ -37461,6 +37565,7 @@ function createFakeApp(host) {
 		}, 200);
 	});
 	app.get("/v1/notifications/certs/:id", async (c) => c.body(await publicKeyPem(), 200, { "Content-Type": "application/x-pem-file" }));
+	app.get("/invoice/p/", (c) => c.html(payerRedirectPage(), 200, REDIRECT_HEADERS));
 	app.get("/invoice/p/:id", (c) => {
 		const invoice = state.invoices.get(c.req.param("id"));
 		const view = invoice === void 0 ? null : {
@@ -37518,6 +37623,11 @@ function createFakeApp(host) {
 }
 const PAGE_HEADERS = {
 	"Content-Security-Policy": "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+	"Cache-Control": "no-store"
+};
+/** The fragment's page runs its one script, by hash, and nothing else. */
+const REDIRECT_HEADERS = {
+	"Content-Security-Policy": `default-src 'none'; script-src '${PAYER_REDIRECT_SCRIPT_HASH}'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
 	"Cache-Control": "no-store"
 };
 /** The certificate URL the fake's deliveries carry. */
@@ -37946,7 +38056,8 @@ const TokenSchema = looseObject({
 	app_id: string().optional(),
 	nonce: string().optional()
 });
-const PaymentReferenceSchema = looseObject({ payment_id: string().min(1).max(22).regex(/^[0-9A-Za-z_-]+$/u) });
+/** P6's answer: `payment_id` of the shape `PAYPAL_PAYMENT_ID_PATTERN` (V; the sandbox's was 22 characters, C 2026-10-29). */
+const PaymentReferenceSchema = looseObject({ payment_id: string().regex(PAYPAL_PAYMENT_ID_PATTERN) });
 const VerifySchema = looseObject({ verification_status: _enum(["SUCCESS", "FAILURE"]) });
 const WebhookSchema = looseObject({
 	id: string().min(1).optional(),
@@ -38020,8 +38131,9 @@ function validated(schema, body) {
 /** Refresh margin before PayPal's expiry (§7.1 P1). */
 const TOKEN_MARGIN_MS = 6e5;
 /**
-* When a token fetched at `issuedAt` stops being used: `expires_in` − 10 min (§7.1). A token that lives 20 minutes or
-* less (sandbox tokens last 3–8 hours, toolkit README) is used for half its life instead, so it is never used late.
+* When a token fetched at `issuedAt` stops being used: `expires_in` − 10 min (§7.1), whatever lifetime PayPal gives (the
+* sandbox's token answered 32,326 s in the owner's capture of 2026-10-29, so it is used for 8 h 48 min 46 s). A token
+* that lives 20 minutes or less is used for half its life instead, so it is never used late.
 */
 function tokenExpiry(issuedAt, expiresInSeconds) {
 	const lifetime = expiresInSeconds * 1e3;
@@ -40479,7 +40591,7 @@ const DEFAULT_CONFIG = {
 	paypal: {
 		mode: "sandbox",
 		baseUrl: PAYPAL_SANDBOX_BASE,
-		payerHost: null
+		payerHost: PAYPAL_PAYER_PAGES.sandbox.host
 	},
 	ai: {
 		mode: "workers-ai",
