@@ -10,6 +10,7 @@ import { API_CONTRACT_VERSION, API_ROUTES } from "@paylink/api-contract";
 import type { ApiProblem, HealthResponse } from "@paylink/api-contract";
 import { createRegistry, registry } from "@paylink/chains";
 import { Hono } from "hono";
+import { getAddress } from "viem";
 import { describe, expect, it } from "vitest";
 import * as z from "zod";
 import { createApp, HANDLER_MAPS, matchesPath } from "../src/core/app.ts";
@@ -19,6 +20,8 @@ import { createLogger } from "../src/core/log.ts";
 import { ProblemError } from "../src/core/problem.ts";
 import { API_VERSION } from "../src/core/version.ts";
 import { secretsFromEnv, startNodeApi } from "../src/node/server.ts";
+import { utcDay } from "../src/reconciler/money.ts";
+import { chargeAssistantCall, isDemoPayee } from "../src/store/quotas.ts";
 import { T0, TEST_ORIGIN, testApp, testRuntime, testServices } from "./helpers.ts";
 
 const PACKAGE = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
@@ -139,6 +142,25 @@ describe("headers and CORS", () => {
     expect(PAYPAL_SANDBOX_BASE).toBe("https://api-m.sandbox.paypal.com");
     expect(DEFAULT_CONFIG.chainId).toBe(11155111);
     expect(DEFAULT_CONFIG.ai).toMatchObject({ mode: "workers-ai", model: "@cf/google/gemma-4-26b-a4b-it", fallbackModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", dailyNeuronBudget: 10_000 });
+  });
+
+  it("reserves the demo lane for the owner's \"PayPal Demo\" wallet only (runbook §10 step 4)", async () => {
+    const DEMO = "0xd9a39e47a152a88E408324E8f8fdAF89e86243A2";
+    expect(DEFAULT_CONFIG.demoPayees).toEqual([DEMO]);
+    // Written in EIP-55 form, as the payee signs it in its session and invoices.
+    expect(DEFAULT_CONFIG.demoPayees.map((p) => getAddress(p))).toEqual(DEFAULT_CONFIG.demoPayees);
+    const services = testServices();
+    expect(services.runtime.config.demoPayees).toEqual(DEFAULT_CONFIG.demoPayees);
+    expect(isDemoPayee(services, DEMO)).toBe(true);
+    expect(isDemoPayee(services, DEMO.toLowerCase())).toBe(true);
+    expect(isDemoPayee(services, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")).toBe(false);
+    // Its assistant calls count in the reserved lane, and never against its request source or the public lane.
+    await chargeAssistantCall(services, DEMO, "192.0.2.1", T0);
+    const global = services.stores.global();
+    const day = utcDay(T0);
+    expect((await global.useQuota(day, "aiCallsDemo", 0)).used).toBe(1);
+    expect((await global.useQuota(day, "aiCalls", 0)).used).toBe(0);
+    expect((await global.useSubjectQuota(day, "aiCalls-source", "192.0.2.1", 0, 0)).used).toBe(0);
   });
 });
 

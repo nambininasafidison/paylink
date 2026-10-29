@@ -91,7 +91,7 @@ Each workstream adds its tests under `test/<area>/` and its fixtures next to the
 
 ## Configuration and secrets
 
-Configuration is code ([`src/core/config.ts`](src/core/config.ts)): origins, the PayPal sandbox base `https://api-m.sandbox.paypal.com`, the Workers AI models and their daily neuron ceiling ([`src/ai/models.ts`](src/ai/models.ts), sources there), the chain (Ethereum Sepolia, 11155111), the quotas, and `demoPayees`: the owner's demo wallet, whose sessions and assistant calls use a reserved lane the public cannot spend (empty until the owner names the wallet, [runbook §10](../../docs/runbooks/paypal.md#10-judge-sandbox-buyers-and-judge-links)). [`deploy/wrangler.toml`](deploy/wrangler.toml) has no `[vars]` and no secret; [`test/deploy.test.ts`](test/deploy.test.ts) keeps it so.
+Configuration is code ([`src/core/config.ts`](src/core/config.ts)): origins, the PayPal sandbox base `https://api-m.sandbox.paypal.com`, the Workers AI models and their daily neuron ceiling ([`src/ai/models.ts`](src/ai/models.ts), sources there), the chain (Ethereum Sepolia, 11155111), the quotas, and `demoPayees`: the owner's demo wallet, whose sessions and assistant calls use a reserved lane the public cannot spend (the "PayPal Demo" wallet since 2026-10-29, the payee of the video and the judge links and the deployer of PayLinkV2 on Ethereum Sepolia, [runbook §10](../../docs/runbooks/paypal.md#10-judge-sandbox-buyers-and-judge-links)). [`deploy/wrangler.toml`](deploy/wrangler.toml) has no `[vars]` and no secret; [`test/deploy.test.ts`](test/deploy.test.ts) keeps it so.
 
 | Secret | Purpose |
 |---|---|

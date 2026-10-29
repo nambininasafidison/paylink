@@ -35,9 +35,11 @@ export const DEFAULT_CONFIG: ApiConfig = {
   },
   chainId: PAYPAL_EDITION_CHAIN_ID,
   quotas: { twinsPerDay: 20, aiCallsPerDay: 60 },
-  // The owner adds the demo wallet's address here once it is chosen (docs/runbooks/paypal.md §10); empty, no payee has a
-  // reserved lane and the public limits apply to all.
-  demoPayees: [],
+  // The owner's "PayPal Demo" wallet (docs/runbooks/paypal.md §10 step 4), the payee of the video and the judge links
+  // (and the account that deployed PayLinkV2 on Ethereum Sepolia, protocol/deployments/11155111.json): its sessions and
+  // assistant calls draw on a reserved lane the public cannot spend (src/store/quotas.ts). Every other payee, a judge's
+  // own wallet included, has the public limits.
+  demoPayees: ["0xd9a39e47a152a88E408324E8f8fdAF89e86243A2"],
 };
 
 /** `DEFAULT_CONFIG` with some members replaced (Node entry, tests). */
