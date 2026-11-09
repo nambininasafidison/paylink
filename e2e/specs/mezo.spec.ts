@@ -18,6 +18,10 @@
  * - Mezo testnet's RPC answers `null` for mined transactions (research §2), which a fork never does: with lookups that
  *   answer `null` first, the payment still reads "Approved", the receipt still verifies and the till still lights.
  * - The payee cancels an invoice from the ledger with one `cancel` transaction (no relayer serves Mezo).
+ * - "Was I really paid?" (Wave 2): on the ledger, what a client sent is checked against the chain alone: a real
+ *   payment's hash and its receipt link read Paid with the amount, the invoice and the block; a made-up hash, an unpaid
+ *   invoice's link and an old receipt sent again for a new invoice read Not received; "I paid" alone, Can't tell yet.
+ *   On the create terminal, a pasted message fills the amount and the link's validity by fixed rules (no AI).
  * - Status: Mezo testnet answers, the contract is the genuine release, MUSD read live matches the registry, the BTC fee
  *   in sats, and why no payment is gasless here.
  * - Headers: `/mezo/` under its own policy (Mezo's RPC), the root's without it; no CSP violation under Trusted Types;
@@ -31,7 +35,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
 import { decodeFunctionData, parseAbi, parseUnits } from "viem";
 import type { Address, Hex } from "viem";
 import { axe } from "../fixtures/axe.ts";
@@ -536,6 +540,76 @@ test("headers: /mezo/ under its own policy with Mezo's RPC only, the root's with
   const scope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
   expect(scope).toBe(`${server.origin}/mezo/`);
   expect(problems).toEqual([]);
+});
+
+test("was I really paid? a client's message checked on Mezo testnet alone; a pasted message fills the create terminal", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const m = fork();
+  const payerAddress = account(2);
+  await m.mintMusd(payerAddress, MUSD("20"));
+  const payee = await actor(browser, account(1), { known: true });
+  const { page } = payee;
+
+  // The create terminal reads a client's message by code: the amount (dollars are MUSD) and the shortest validity
+  // that covers the due date. Nothing is signed.
+  await page.goto(`${server.origin}/mezo/`);
+  await page.locator(".paste > summary").click();
+  await page.locator("#paste-text").fill("Hello! Please invoice me 7.25 USD for the banner, payment due tomorrow.");
+  await page.getByRole("button", { name: "Fill the form" }).click();
+  await expect(page.locator("#amount")).toHaveValue("7.25");
+  await expect(page.locator('input[name="expiry"][value="1d"]')).toBeChecked();
+  await expect(page.locator(".paste-out")).toContainText("Amount: 7.25 MUSD");
+  expect(payee.wallet.requests.filter((r) => r.method === "eth_signTypedData_v4")).toHaveLength(0);
+
+  // Two invoices; the client pays the first.
+  const paidLink = await createInvoice(payee, "7.25", "Banner · Antananarivo");
+  const unpaidLink = await createInvoice(payee, "9", "Second banner");
+  const payer = await actor(browser, payerAddress, { known: true });
+  await (await openToPay(payer, paidLink, "Pay 7.25 MUSD")).click();
+  await expect(payer.page.locator(".receipt-slot .receipt")).toContainText("Approved");
+  const receipt = new URL((await payer.page.locator(".receipt-slot a.key").first().getAttribute("href")) ?? "", server.origin).toString();
+  const txHash = /#2\.\d+\.(0x[0-9a-f]{64})\./.exec(receipt)?.[1] ?? "";
+  expect(txHash).toMatch(/^0x[0-9a-f]{64}$/);
+
+  await page.goto(`${server.origin}/mezo/ledger/`);
+  await expect(page.locator("#check-head")).toHaveText("Was I really paid?");
+  await expect(page.locator(".view-ledger .links > li").first()).toBeVisible();
+  const check = async (text: string, verdict: string, timeout = 20_000): Promise<Locator> => {
+    await page.locator("#check-text").fill(text);
+    await page.getByRole("button", { name: "Check on Mezo testnet" }).click();
+    const result = page.locator(".check-result");
+    await expect(result).toHaveAttribute("data-verdict", verdict, { timeout });
+    return result;
+  };
+
+  // The payment's hash in a message: paid, to this merchant's invoice, with the amount, the time and the block.
+  let result = await check(`Hi, I paid 7.25 USD this morning. Tx: ${txHash}`, "paid");
+  await expect(result.locator(".pill")).toHaveText("Paid");
+  await expect(result.locator(".check-paid")).toContainText("7.25 MUSD");
+  await expect(result.locator(".check-paid")).toContainText("Banner · Antananarivo");
+  await expect(result.locator(".check-paid")).toContainText("Paid to your address, the invoice's payee.");
+  await expect(result.locator(".check-paid dl > div", { hasText: "Block" }).locator("dd")).toHaveText(/^\d+$/);
+  await expect(result.locator(".warn-note")).toHaveCount(0);
+  await shot(page, "14-check-paid-1280-light");
+  // Its receipt link, re-verified on chain; a claimed amount that differs is called out.
+  result = await check(`Here is my receipt for 9 MUSD: ${receipt}`, "paid");
+  await expect(result).toContainText("The message says 9 MUSD; the amount above is what the chain shows.");
+  // A made-up hash (asked again for about 11 s, as Mezo testnet's RPC needs), an unpaid invoice, an old receipt sent
+  // again for a new invoice: not received.
+  result = await check(`Paid! Here is the proof: 0x${"ab".repeat(32)}`, "not-received", 40_000);
+  await expect(result.locator(".check-findings")).toContainText("Mezo testnet has no such transaction");
+  result = await check(`Done, paid: ${unpaidLink}`, "not-received");
+  await expect(result.locator(".check-findings")).toHaveText("Invoice Second banner: no payment yet.");
+  result = await check(`Paid ${unpaidLink} , proof: ${receipt}`, "not-received");
+  await expect(result.locator(".check-findings")).toContainText("An old receipt is not a new payment.");
+  await shot(page, "15-check-not-received-1280-light");
+  // "I paid", and nothing the chain can check.
+  result = await check("I paid you yesterday, check your account", "unknown");
+  await expect(result.locator(".pill")).toHaveText("Can't tell yet");
+
+  expect(payee.problems).toEqual([]);
+  expect(payer.problems).toEqual([]);
+  expect([...payee.relayer, ...payer.relayer]).toEqual([]);
 });
 
 test.describe("reflow and accessibility", () => {
