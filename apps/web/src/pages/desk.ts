@@ -133,7 +133,9 @@ function renderDesk(app: App, ui: PageUi, section: HTMLElement, foot: HTMLElemen
       open.disabled = true;
       open.setAttribute("aria-busy", "true");
       setStatus(status, "", t("paypal.session.signing"));
-      openSession(app, api, account)
+      openSession(app, api, account, () => {
+        setStatus(status, "warn", t("paypal.session.expired"));
+      })
         .then(() => {
           renderDesk(app, ui, section, foot);
         })

@@ -900,6 +900,7 @@ export type MessageKey =
   | "paypal.session.signing"
   | "paypal.session.needWallet"
   | "paypal.session.forget"
+  | "paypal.session.expired"
   | "paypal.state.open"
   | "paypal.state.approving"
   | "paypal.state.done"
@@ -2115,6 +2116,7 @@ export interface MessageParams {
   readonly "paypal.session.signing": never;
   readonly "paypal.session.needWallet": never;
   readonly "paypal.session.forget": never;
+  readonly "paypal.session.expired": never;
   readonly "paypal.state.open": never;
   readonly "paypal.state.approving": never;
   readonly "paypal.state.done": never;
@@ -2662,6 +2664,7 @@ export type EditionKey =
   | "paypal.session.signing"
   | "paypal.session.needWallet"
   | "paypal.session.forget"
+  | "paypal.session.expired"
   | "paypal.state.open"
   | "paypal.state.approving"
   | "paypal.state.done"

@@ -123,6 +123,61 @@ describe("the till's verdict against the chain watcher (the owner's shoot of 202
 });
 
 describe("the till's PayPal line", () => {
+  it("says a session request signed too late has expired, and asks again; never refuses in silence", async () => {
+    let clock = Date.parse("2026-11-09T10:00:00.000Z");
+    vi.spyOn(Date, "now").mockImplementation(() => clock);
+    const shown: string[] = [];
+    let late = 2;
+    let source: ReturnType<typeof paypalTill> | null = null;
+    const account = {
+      address: PAYEE,
+      kind: "injected",
+      switchChain: () => Promise.resolve(),
+      signTypedData: () => {
+        shown.push(source?.element.textContent ?? "");
+        if (late > 0) {
+          // The owner signed about 25 minutes after "Also watch PayPal" asked.
+          late -= 1;
+          clock += 25 * 60_000;
+        }
+        return Promise.resolve(`0x${"11".repeat(65)}`);
+      },
+    } as unknown as AccountProvider;
+    const sessions: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        sessions.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+        return Promise.resolve(new Response(JSON.stringify({ token: "ps1.new", payee: PAYEE, expiresAt: new Date(clock + 3_600_000).toISOString() }), { status: 201 }));
+      }),
+    );
+    const app = { ...paypalApp("en"), registry: { get: () => undefined }, session: { account: () => account, ready: Promise.resolve(), subscribe: () => () => undefined } } as unknown as App;
+    const expired = "That signature request had expired: a desk session must be signed within 10 minutes of the request. Sign the new request in your wallet.";
+
+    // Both requests signed late: nothing is sent, the reason is shown with its code, and the key asks again.
+    source = paypalTill(app, link, () => undefined);
+    source.element.querySelector<HTMLButtonElement>("[data-action=watch-paypal]")?.click();
+    await vi.waitFor(() => {
+      expect(source.element.querySelector(".status")?.textContent).toBe(`${expired}Error code E_SESSION_REQUEST_EXPIRED`);
+    });
+    expect(shown[1]).toBe(expired);
+    expect(sessions).toEqual([]);
+    expect(source.element.getAttribute("data-paypal")).toBe("no-session");
+    expect(source.element.querySelector("[data-action=watch-paypal]")).not.toBeNull();
+
+    // Once late, then in time: the page says so, the wallet is asked again, and the session opens.
+    late = 1;
+    shown.length = 0;
+    source.element.querySelector<HTMLButtonElement>("[data-action=watch-paypal]")?.click();
+    await vi.waitFor(() => {
+      expect(source.element.getAttribute("data-paypal")).toBe("watching");
+    });
+    expect(shown[1]).toBe(expired);
+    expect(sessions).toEqual([`${API}/v1/session`]);
+    expect(storedSession(PAYEE)).toBe("ps1.new");
+  });
+
+
   it("asks for nothing and reads nothing without the payee's desk session: it offers a key that opens one", async () => {
     const seen = stubTwin([{ status: 200, body: twin() }]);
     const source = paypalTill(till(PAYEE, false), link, () => undefined);

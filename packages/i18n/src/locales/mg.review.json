@@ -896,6 +896,7 @@
     "paypal.session.signing",
     "paypal.session.needWallet",
     "paypal.session.forget",
+    "paypal.session.expired",
     "paypal.state.open",
     "paypal.state.approving",
     "paypal.state.done",

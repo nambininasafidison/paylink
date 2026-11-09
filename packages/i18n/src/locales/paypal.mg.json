@@ -37,6 +37,7 @@
   "paypal.session.signing": "Ataovy sonia ao amin'ny kitapom-bolanao ny fidirana amin'ny birao: tsy misy fifanakalozana, tsy misy sarany, manan-kery 12 ora.",
   "paypal.session.needWallet": "Ampifandraiso aloha ny kitapom-bolanao.",
   "paypal.session.forget": "Midira indray",
+  "paypal.session.expired": "Efa lany daty io fangatahana sonia io: tsy maintsy asiana sonia ao anatin'ny 10 minitra aorian'ny fangatahana ny fidirana amin'ny birao. Ataovy sonia ao amin'ny kitapom-bolanao ny fangatahana vaovao.",
   "paypal.state.open": "Hankatoavina",
   "paypal.state.approving": "Ankatoavina",
   "paypal.state.done": "Vita",

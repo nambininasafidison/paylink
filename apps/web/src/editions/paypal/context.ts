@@ -14,6 +14,7 @@ import { decodeUiError } from "../../core/errors.ts";
 import type { UiError } from "../../core/errors.ts";
 import { ApiError, paypalApi } from "./api.ts";
 import type { PaypalApi } from "./api.ts";
+import { SessionRequestExpired } from "./session.ts";
 
 export { baseFromDecimal, seconds, usdFromBase } from "./money.ts";
 
@@ -80,6 +81,9 @@ const CODE_TEXT: Readonly<Record<ApiError["code"], MessageKey>> = {
 /** A failure of the API, a wallet or the chain, in the user's language, with its engraved support code. */
 export function failureText(app: Pick<App, "i18n">, error: unknown): UiError {
   const { t, lookup } = app.i18n;
+  if (error instanceof SessionRequestExpired) {
+    return { message: t("paypal.session.expired"), code: t("common.errorCode", { code: "E_SESSION_REQUEST_EXPIRED" }), name: error.name };
+  }
   if (error instanceof ApiError) {
     const key = (error.rule === null ? undefined : RULE_TEXT[error.rule]) ?? CODE_TEXT[error.code];
     return { message: lookup(key) ?? t("error.unknown"), code: t("common.errorCode", { code: error.rule ?? error.code }), name: `Api ${error.code}` };

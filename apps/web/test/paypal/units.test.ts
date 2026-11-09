@@ -19,7 +19,7 @@ import { failureText } from "../../src/editions/paypal/context.ts";
 import { paidRail, paypalPaid, railColumns } from "../../src/editions/paypal/ledger.ts";
 import { baseFromDecimal, seconds, usdFromBase } from "../../src/editions/paypal/money.ts";
 import { PAYPAL_PAYER_HOSTS, payerUrl, railVerdict, tokenControls, twinnable } from "../../src/editions/paypal/rails.ts";
-import { forgetSession, openSession, sessionMessage, storedSession, withSession } from "../../src/editions/paypal/session.ts";
+import { forgetSession, openSession, SessionRequestExpired, sessionMessage, storedSession, withSession } from "../../src/editions/paypal/session.ts";
 import { cachedTwin, rememberTwin } from "../../src/editions/paypal/twins.ts";
 import { SCRIPT_URL } from "../helpers.ts";
 import { paypalApp } from "./fixtures.ts";
@@ -198,6 +198,22 @@ describe("the payee's session", () => {
     expect(storedSession(signer.address)).toBe("ps1.tok");
     expect(storedSession(PAYEE)).toBeNull();
     expect(storedSession(signer.address, Date.now() + 3_600_000)).toBeNull();
+  });
+
+  it("reads the API's refusal on time minutes after the request as an expired request, a moment after as the clock", async () => {
+    let clock = Date.parse("2026-11-09T10:00:00.000Z");
+    vi.spyOn(Date, "now").mockImplementation(() => clock);
+    let wait = 0;
+    const slow = { ...account, signTypedData: (typed: Parameters<AccountProvider["signTypedData"]>[0]) => ((clock += wait), account.signTypedData(typed)) };
+    const refused = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ type: "x", code: "invalid-request", status: 400, title: "t", detail: "d", rule: "E_SESSION_TIME" }), { status: 400 })));
+    const app = { ...paypalApp("en"), registry: { get: () => undefined } } as unknown as App;
+    wait = 5 * 60_000;
+    const late = await openSession(app, paypalApi(API, refused), slow).catch((error: unknown) => error);
+    expect(late).toBeInstanceOf(SessionRequestExpired);
+    expect(failureText(app, late)).toMatchObject({ message: expect.stringContaining("signature request had expired") as string, code: "Error code E_SESSION_REQUEST_EXPIRED" });
+    wait = 1_000;
+    await expect(openSession(app, paypalApi(API, refused), slow)).rejects.toMatchObject({ rule: "E_SESSION_TIME" });
+    expect(failureText(app, new ApiError(400, "invalid-request", "E_SESSION_TIME")).message).toBe("Your device's clock is off. Set it right, then try again.");
   });
 
   it("signs again once when a stored token is refused, and never twice in a row", async () => {

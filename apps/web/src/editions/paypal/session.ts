@@ -22,6 +22,22 @@ import type { PaypalApi } from "./api.ts";
 const STORAGE_KEY = "paylink.paypal.session";
 /** A token this close to its end is not used: the next call could outlive it. */
 const MARGIN_MS = 60_000;
+/**
+ * How long after its request a session may be signed: the API refuses one issued more than 10 minutes before it
+ * arrives (`SESSION_SIGNED_WITHIN_S`, apps/api/src/session/types.ts, rule `E_SESSION_TIME`). A signature that comes
+ * later, less a margin for the call, is not sent: the request has expired, and the payee is asked again.
+ */
+export const SESSION_SIGN_WITHIN_MS = 10 * 60_000 - 30_000;
+/** A refusal on time this long after the request is the request's age, not the device's clock. */
+const LATE_MS = 2 * 60_000;
+
+/** The wallet signed the session request after it had expired (`SESSION_SIGN_WITHIN_MS`): nothing was opened. */
+export class SessionRequestExpired extends Error {
+  constructor() {
+    super("the signed session request has expired");
+    this.name = "SessionRequestExpired";
+  }
+}
 
 interface StoredSession {
   readonly payee: string;
@@ -77,13 +93,30 @@ export function sessionMessage(payee: Address, origin: string, nowMs: number, ra
 /**
  * Asks the wallet to sign a session (after switching it to Ethereum Sepolia: wallets refuse typed data whose domain
  * names another chain than the active one), then opens it with the API. Resolves with the token.
+ *
+ * A request signed after it expired (the wallet left open for more than 10 minutes) is not sent. With `onExpired`, the
+ * page says so and the wallet is asked once more with a fresh request; without it, or when that one expires too, it
+ * rejects with `SessionRequestExpired`, which `failureText` words.
  */
-export async function openSession(app: App, api: PaypalApi, account: AccountProvider): Promise<string> {
+export async function openSession(app: App, api: PaypalApi, account: AccountProvider, onExpired?: () => void): Promise<string> {
+  try {
+    return await signAndOpen(app, api, account);
+  } catch (error) {
+    if (!(error instanceof SessionRequestExpired) || onExpired === undefined) {
+      throw error;
+    }
+    onExpired();
+    return await signAndOpen(app, api, account);
+  }
+}
+
+async function signAndOpen(app: App, api: PaypalApi, account: AccountProvider): Promise<string> {
   const chain = app.registry.get(PAYPAL_EDITION_CHAIN_ID);
   if (chain !== undefined) {
     await account.switchChain(chain);
   }
-  const session = sessionMessage(account.address, app.site.origin, Date.now());
+  const requestedAt = Date.now();
+  const session = sessionMessage(account.address, app.site.origin, requestedAt);
   // The session's domain has no verifying contract (nothing on chain checks it): the wallet layer derives the
   // EIP712Domain type from the fields present, so the absent member is simply not part of the domain.
   const domain = { ...SESSION_DOMAIN, chainId: PAYPAL_EDITION_CHAIN_ID } as unknown as Parameters<AccountProvider["signTypedData"]>[0]["domain"];
@@ -93,8 +126,19 @@ export async function openSession(app: App, api: PaypalApi, account: AccountProv
     primaryType: "PayLinkSession",
     message: { payee: session.payee, origin: session.origin, issuedAt: BigInt(session.issuedAt), expiresAt: BigInt(session.expiresAt), nonce: session.nonce },
   });
+  if (Date.now() - requestedAt >= SESSION_SIGN_WITHIN_MS) {
+    throw new SessionRequestExpired();
+  }
   const request: SessionRequest = { chainId: PAYPAL_EDITION_CHAIN_ID, session, signature };
-  const opened = await postSession(api, request);
+  let opened: Awaited<ReturnType<typeof postSession>>;
+  try {
+    opened = await postSession(api, request);
+  } catch (error) {
+    if (error instanceof ApiError && error.rule === "E_SESSION_TIME" && Date.now() - requestedAt >= LATE_MS) {
+      throw new SessionRequestExpired();
+    }
+    throw error;
+  }
   const expiresAt = Date.parse(opened.expiresAt);
   if (opened.payee.toLowerCase() !== account.address.toLowerCase() || Number.isNaN(expiresAt)) {
     throw new ApiError(200, "invalid-response");

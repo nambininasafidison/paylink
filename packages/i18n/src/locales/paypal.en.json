@@ -37,6 +37,7 @@
   "paypal.session.signing": "Sign the desk session in your wallet: no transaction, no fee, valid 12 hours.",
   "paypal.session.needWallet": "Connect your wallet first.",
   "paypal.session.forget": "Sign in again",
+  "paypal.session.expired": "That signature request had expired: a desk session must be signed within 10 minutes of the request. Sign the new request in your wallet.",
   "paypal.state.open": "To approve",
   "paypal.state.approving": "Approving",
   "paypal.state.done": "Done",

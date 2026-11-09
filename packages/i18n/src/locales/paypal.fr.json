@@ -37,6 +37,7 @@
   "paypal.session.signing": "Signez la session de bureau dans votre portefeuille : aucune transaction, aucun frais, valable 12 heures.",
   "paypal.session.needWallet": "Connectez d'abord votre portefeuille.",
   "paypal.session.forget": "Se reconnecter",
+  "paypal.session.expired": "Cette demande de signature avait expiré : une session de bureau doit être signée dans les 10 minutes qui suivent la demande. Signez la nouvelle demande dans votre portefeuille.",
   "paypal.state.open": "À approuver",
   "paypal.state.approving": "Approbation",
   "paypal.state.done": "Fait",

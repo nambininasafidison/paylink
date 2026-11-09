@@ -22,9 +22,10 @@ import type { App } from "../../app/context.ts";
 import { pickWallet } from "../../app/wallet-ui.ts";
 import { h, replace } from "../../ui/h.ts";
 import { ApiError, getTwin } from "./api.ts";
-import { apiFor } from "./context.ts";
+import { setStatus, statusLine } from "../../ui/atoms.ts";
+import { apiFor, failureText } from "./context.ts";
 import { baseFromDecimal } from "./money.ts";
-import { forgetSession, openSession, storedSession } from "./session.ts";
+import { forgetSession, openSession, SessionRequestExpired, storedSession } from "./session.ts";
 import { rememberTwin } from "./twins.ts";
 
 /** How often a running till reads the twin (docs/paypal/SPEC.md §7.5: "every 3 s while an invoice is armed"). */
@@ -88,14 +89,23 @@ export function paypalTill(app: App, link: DecodedInvoiceLink, onPaid: (twin: Tw
             say("no-session", h("p", { class: "field-hint" }, t("paypal.till.payeeOnly")), key);
             return;
           }
-          await openSession(app, api, account);
+          await openSession(app, api, account, () => {
+            // Signed too late: say so, and the wallet asks again with a fresh request.
+            const late = statusLine();
+            setStatus(late, "warn", t("paypal.session.expired"));
+            say("no-session", late);
+          });
           if (running) {
             poll();
           } else {
             say("watching", h("p", { class: "field-hint" }, t("paypal.till.ready")));
           }
-        } catch {
-          say("no-session", h("p", { class: "field-hint" }, t("paypal.till.notWatched")), key);
+        } catch (error) {
+          // Never a silent refusal: the reason (an expired request, the API's rule, the wallet's answer), then the key.
+          const failure = failureText(app, error);
+          const refused = statusLine();
+          setStatus(refused, error instanceof SessionRequestExpired ? "warn" : "err", failure.message, failure.code);
+          say("no-session", refused, h("p", { class: "field-hint" }, t("paypal.till.notWatched")), key);
         } finally {
           key.disabled = false;
           key.removeAttribute("aria-busy");
