@@ -45,6 +45,12 @@ export interface ChainClient {
    */
   getTransactionReceipt(parameters: { hash: Hex }): Promise<TransactionReceipt>;
   /**
+   * `eth_getTransactionByHash`: `null` when the node knows no such transaction, else its block (`null` while pending).
+   * Optional, so that test doubles need not carry it; the Mezo edition's "Was I really paid?" tells a pending payment
+   * from a made-up hash with it (`editions/mezo/verify.ts`).
+   */
+  getTransaction?(hash: Hex): Promise<{ readonly blockNumber: bigint | null } | null>;
+  /**
    * Polls for the receipt until it exists (about once per block) or `timeoutMs` passes, then throws viem's
    * `TransactionReceiptNotFoundError`: "not seen yet", which the wallet rails turn into `PaymentUnconfirmedError`.
    */
@@ -103,6 +109,10 @@ export function chainClient(chain: ChainDefinition, config: RuntimeConfig): Chai
     },
     getBlockNumber: async () => await getBlockNumber(viem, { cacheTime: 0 }),
     getTransactionReceipt: async ({ hash }) => await getTransactionReceipt(viem, { hash }),
+    async getTransaction(hash) {
+      const found = await viem.request({ method: "eth_getTransactionByHash", params: [hash] });
+      return found === null ? null : { blockNumber: found.blockNumber === null ? null : hexToBigInt(found.blockNumber) };
+    },
     async waitForReceipt(hash, options = {}) {
       const deadline = Date.now() + (options.timeoutMs ?? 180_000);
       const pause = options.pollingMs ?? pollingIntervalFor(chain);

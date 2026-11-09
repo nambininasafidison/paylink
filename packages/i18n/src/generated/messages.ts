@@ -861,7 +861,48 @@ export type MessageKey =
   | "mezo.status.loan"
   | "mezo.status.loanValue"
   | "mezo.pay.unconfirmed"
-  | "mezo.pay.checkPayment";
+  | "mezo.pay.checkPayment"
+  | "mezo.check.title"
+  | "mezo.check.lede"
+  | "mezo.check.label"
+  | "mezo.check.placeholder"
+  | "mezo.check.hint"
+  | "mezo.check.key"
+  | "mezo.check.reading"
+  | "mezo.check.connect"
+  | "mezo.check.empty"
+  | "mezo.check.verdict.paid"
+  | "mezo.check.verdict.notReceived"
+  | "mezo.check.verdict.pending"
+  | "mezo.check.verdict.unknown"
+  | "mezo.check.paid"
+  | "mezo.check.notReceived"
+  | "mezo.check.pending"
+  | "mezo.check.unavailable"
+  | "mezo.check.nothing"
+  | "mezo.check.fact.amount"
+  | "mezo.check.fact.invoice"
+  | "mezo.check.fact.time"
+  | "mezo.check.fact.block"
+  | "mezo.check.fact.tx"
+  | "mezo.check.fact.from"
+  | "mezo.check.payments"
+  | "mezo.check.toYou"
+  | "mezo.check.byAmount"
+  | "mezo.check.mismatch"
+  | "mezo.check.foreign"
+  | "mezo.check.find.otherPayee"
+  | "mezo.check.find.notYours"
+  | "mezo.check.find.otherInvoice"
+  | "mezo.check.find.unpaid"
+  | "mezo.check.find.cancelled"
+  | "mezo.check.find.noTx"
+  | "mezo.check.find.pending"
+  | "mezo.check.find.reverted"
+  | "mezo.check.find.notPaylink"
+  | "mezo.check.find.forged"
+  | "mezo.check.find.badLink"
+  | "mezo.check.find.unavailable";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1721,6 +1762,47 @@ export interface MessageParams {
   readonly "mezo.status.loanValue": { readonly btc: ParamValue; readonly debt: ParamValue; readonly loan: ParamValue; readonly price: ParamValue; readonly ratio: ParamValue };
   readonly "mezo.pay.unconfirmed": { readonly network: ParamValue; readonly tx: ParamValue };
   readonly "mezo.pay.checkPayment": never;
+  readonly "mezo.check.title": never;
+  readonly "mezo.check.lede": never;
+  readonly "mezo.check.label": never;
+  readonly "mezo.check.placeholder": never;
+  readonly "mezo.check.hint": never;
+  readonly "mezo.check.key": never;
+  readonly "mezo.check.reading": never;
+  readonly "mezo.check.connect": never;
+  readonly "mezo.check.empty": never;
+  readonly "mezo.check.verdict.paid": never;
+  readonly "mezo.check.verdict.notReceived": never;
+  readonly "mezo.check.verdict.pending": never;
+  readonly "mezo.check.verdict.unknown": never;
+  readonly "mezo.check.paid": never;
+  readonly "mezo.check.notReceived": never;
+  readonly "mezo.check.pending": never;
+  readonly "mezo.check.unavailable": never;
+  readonly "mezo.check.nothing": never;
+  readonly "mezo.check.fact.amount": never;
+  readonly "mezo.check.fact.invoice": never;
+  readonly "mezo.check.fact.time": never;
+  readonly "mezo.check.fact.block": never;
+  readonly "mezo.check.fact.tx": never;
+  readonly "mezo.check.fact.from": never;
+  readonly "mezo.check.payments": { readonly count: ParamValue };
+  readonly "mezo.check.toYou": never;
+  readonly "mezo.check.byAmount": never;
+  readonly "mezo.check.mismatch": { readonly claimed: ParamValue };
+  readonly "mezo.check.foreign": { readonly host: ParamValue };
+  readonly "mezo.check.find.otherPayee": { readonly payee: ParamValue; readonly ref: ParamValue };
+  readonly "mezo.check.find.notYours": { readonly payee: ParamValue; readonly ref: ParamValue };
+  readonly "mezo.check.find.otherInvoice": { readonly invoice: ParamValue; readonly ref: ParamValue };
+  readonly "mezo.check.find.unpaid": { readonly invoice: ParamValue };
+  readonly "mezo.check.find.cancelled": { readonly invoice: ParamValue };
+  readonly "mezo.check.find.noTx": { readonly ref: ParamValue };
+  readonly "mezo.check.find.pending": { readonly ref: ParamValue };
+  readonly "mezo.check.find.reverted": { readonly ref: ParamValue };
+  readonly "mezo.check.find.notPaylink": { readonly ref: ParamValue };
+  readonly "mezo.check.find.forged": { readonly ref: ParamValue; readonly why: ParamValue };
+  readonly "mezo.check.find.badLink": { readonly host: ParamValue };
+  readonly "mezo.check.find.unavailable": { readonly ref: ParamValue };
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -1900,4 +1982,45 @@ export type EditionKey =
   | "mezo.status.loan"
   | "mezo.status.loanValue"
   | "mezo.pay.unconfirmed"
-  | "mezo.pay.checkPayment";
+  | "mezo.pay.checkPayment"
+  | "mezo.check.title"
+  | "mezo.check.lede"
+  | "mezo.check.label"
+  | "mezo.check.placeholder"
+  | "mezo.check.hint"
+  | "mezo.check.key"
+  | "mezo.check.reading"
+  | "mezo.check.connect"
+  | "mezo.check.empty"
+  | "mezo.check.verdict.paid"
+  | "mezo.check.verdict.notReceived"
+  | "mezo.check.verdict.pending"
+  | "mezo.check.verdict.unknown"
+  | "mezo.check.paid"
+  | "mezo.check.notReceived"
+  | "mezo.check.pending"
+  | "mezo.check.unavailable"
+  | "mezo.check.nothing"
+  | "mezo.check.fact.amount"
+  | "mezo.check.fact.invoice"
+  | "mezo.check.fact.time"
+  | "mezo.check.fact.block"
+  | "mezo.check.fact.tx"
+  | "mezo.check.fact.from"
+  | "mezo.check.payments"
+  | "mezo.check.toYou"
+  | "mezo.check.byAmount"
+  | "mezo.check.mismatch"
+  | "mezo.check.foreign"
+  | "mezo.check.find.otherPayee"
+  | "mezo.check.find.notYours"
+  | "mezo.check.find.otherInvoice"
+  | "mezo.check.find.unpaid"
+  | "mezo.check.find.cancelled"
+  | "mezo.check.find.noTx"
+  | "mezo.check.find.pending"
+  | "mezo.check.find.reverted"
+  | "mezo.check.find.notPaylink"
+  | "mezo.check.find.forged"
+  | "mezo.check.find.badLink"
+  | "mezo.check.find.unavailable";

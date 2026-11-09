@@ -18,6 +18,7 @@ import type { App } from "../app/context.ts";
 import { intro, notes, routeHref } from "../app/shell.ts";
 import type { PageUi } from "../app/shell.ts";
 import { pickWallet } from "../app/wallet-ui.ts";
+import { checkPanel } from "../editions/mezo/check.ts";
 import { activityBlock } from "./ledger-history.ts";
 import { decodeUiError } from "../core/errors.ts";
 import { displayAmount, figureWidth, shortHex } from "../core/format.ts";
@@ -74,6 +75,10 @@ export const ledgerPage: PageDefinition = {
       ]),
     );
     const section = h("section", { class: "view view-ledger", attrs: { "aria-labelledby": "ledger-head" } });
+    if (__PAYLINK_EDITION__ === "mezo") {
+      // "Was I really paid?": a client's message checked against Mezo testnet alone, before the books.
+      ui.views.append(checkPanel(app));
+    }
     ui.views.append(section);
     // Re-read the books when the connected address changes, not on every wallet event.
     let shown: string | null | undefined;
