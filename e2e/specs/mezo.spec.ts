@@ -587,7 +587,8 @@ test("was I really paid? a client's message checked on Mezo testnet alone; a pas
   await expect(result.locator(".pill")).toHaveText("Paid");
   await expect(result.locator(".check-paid")).toContainText("7.25 MUSD");
   await expect(result.locator(".check-paid")).toContainText("Banner · Antananarivo");
-  await expect(result.locator(".check-paid")).toContainText("Paid to your address, the invoice's payee.");
+  // The memo and the verdict stay apart (the owner read "Logo design — testPaid to your address…").
+  await expect(result.locator(".check-paid")).toContainText("Banner · Antananarivo · Paid to your address, the invoice's payee.");
   await expect(result.locator(".check-paid dl > div", { hasText: "Block" }).locator("dd")).toHaveText(/^\d+$/);
   await expect(result.locator(".warn-note")).toHaveCount(0);
   await shot(page, "14-check-paid-1280-light");

@@ -13,9 +13,13 @@ import { decodeFunctionData, encodeAbiParameters, encodeFunctionResult, getAddre
 import type { Token } from "@paylink/chains";
 import type { Address, Hex, RpcLog, TransactionReceipt } from "viem";
 import { describe, expect, it } from "vitest";
+import { EN } from "@paylink/i18n";
+import type { App } from "../../src/app/context.ts";
 import { appRegistry } from "../../src/core/registry.ts";
+import { renderResult } from "../../src/editions/mezo/check.ts";
+import { loadMezoCopy, mezoTranslator } from "../../src/editions/mezo/copy.ts";
 import { checkPayment, claimedAmounts, decimalOf, extract } from "../../src/editions/mezo/verify.ts";
-import type { CheckClient, CheckContext } from "../../src/editions/mezo/verify.ts";
+import type { CheckClient, CheckContext, CheckResult } from "../../src/editions/mezo/verify.ts";
 
 const MEZO = 31611;
 const registry = appRegistry("mezo");
@@ -223,5 +227,27 @@ describe("the verdict comes from the chain alone (checkPayment)", () => {
     const forged = `https://paylink-mezo.example/r/#${encodeReceiptFragment({ chainId: MEZO, txHash: hash(12), logIndex: 7 })}`;
     expect(await checkPayment(forged, context(world))).toMatchObject({ verdict: "not-received", foreignHosts: ["paylink-mezo.example"], findings: [{ kind: "forged" }] });
     expect(await checkPayment("https://mezo.paylink-mg.pages.dev/mezo/pay/#2.31611.garbage", context(world))).toMatchObject({ verdict: "unknown", reason: "nothing", findings: [{ kind: "bad-link" }] });
+  });
+});
+
+describe("Was I really paid?, the verdict's invoice line (check.ts)", () => {
+  it("keeps the invoice's memo apart from the verdict: 'Logo design — test · Paid to your address, …'", async () => {
+    const token = chain.tokens.find((x) => x.symbol === "MUSD");
+    if (token === undefined) {
+      throw new Error("no Mezo testnet MUSD in the registry");
+    }
+    const app = { i18n: mezoTranslator("en", EN, await loadMezoCopy("en")), locale: "en" } as unknown as App;
+    const paid = (source: "invoice" | "amount"): CheckResult => ({
+      verdict: "paid",
+      reason: null,
+      findings: [{ kind: "paid", source, key: hash(1), amount: 120n * 10n ** 18n, token, payments: 1, txHash: null, blockNumber: null, timestamp: 1_790_000_000n, payer: null, memo: "Logo design — test" }],
+      claimed: [],
+      amountMismatch: false,
+      foreignHosts: [],
+    });
+    const invoiceLine = (result: CheckResult): string | null | undefined =>
+      [...renderResult(app, chain, result).querySelectorAll(".check-paid dl > div")].find((row) => row.querySelector("dt")?.textContent === "Invoice")?.querySelector("dd")?.textContent;
+    expect(invoiceLine(paid("invoice"))).toBe("Logo design — test · Paid to your address, the invoice's payee.");
+    expect(invoiceLine(paid("amount"))).toBe("Logo design — test · Paid to your address, the invoice's payee. · Found by its amount alone: the message names no hash and no link.");
   });
 });

@@ -105,7 +105,7 @@ function findingLine(app: App, finding: Exclude<Finding, { kind: "paid" }>): str
   }
 }
 
-function renderResult(app: App, chain: ChainDefinition, result: CheckResult): HTMLElement {
+export function renderResult(app: App, chain: ChainDefinition, result: CheckResult): HTMLElement {
   const { t } = app.i18n;
   const verdict = VERDICT[result.verdict];
   const explorer = chain.explorers[0];
@@ -131,7 +131,8 @@ function renderResult(app: App, chain: ChainDefinition, result: CheckResult): HT
           "dl",
           null,
           fact(t("mezo.check.fact.amount"), h("b", null, `${displayAmount(finding.amount, finding.token, app.locale)} ${symbol}`), finding.payments > 1 ? h("span", { class: "sub" }, t("mezo.check.payments", { count: finding.payments })) : null),
-          fact(t("mezo.check.fact.invoice"), finding.memo ?? shortHex(finding.key), h("span", { class: "sub" }, t("mezo.check.toYou")), finding.source === "amount" ? h("span", { class: "sub" }, t("mezo.check.byAmount")) : null),
+          // The invoice's memo, then what the check found, apart: "Logo design — test · Paid to your address, …".
+          fact(t("mezo.check.fact.invoice"), finding.memo ?? shortHex(finding.key), " · ", h("span", { class: "sub" }, t("mezo.check.toYou")), finding.source === "amount" ? [" · ", h("span", { class: "sub" }, t("mezo.check.byAmount"))] : null),
           fact(t("mezo.check.fact.time"), formatDateTime(app.locale, finding.timestamp)),
           fact(t("mezo.check.fact.block"), finding.blockNumber === null ? "—" : explorer === undefined ? finding.blockNumber.toString() : ext(explorerBlockUrl(explorer, finding.blockNumber), finding.blockNumber.toString())),
           finding.txHash === null ? null : fact(t("mezo.check.fact.tx"), explorer === undefined ? shortHex(finding.txHash) : ext(explorerTxUrl(explorer, finding.txHash), shortHex(finding.txHash))),
