@@ -1209,6 +1209,7 @@
     "paypal.ledger.markedMeta",
     "paypal.ledger.receivedPaypal",
     "paypal.rails.tokenKey",
+    "paypal.verify.networkPaypal",
     "paypal.rails.paypalWord",
     "paypal.rails.payWith",
     "paypal.alert.recordMissingPill",

@@ -509,7 +509,13 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     if (account === null) {
       feeCopy(null);
       clearSelfNote();
-      net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
+      if (__PAYLINK_EDITION__ === "paypal" && paypalRails?.offers() === true) {
+        // A client paying with PayPal has no wallet, and needs none: the chain's lamps above were read through the
+        // registry's public RPC. The wallet's network is checked as before once a wallet connects to pay in tokens.
+        net.set("off", t("paypal.verify.networkPaypal", { symbol: token.symbol }));
+      } else {
+        net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
+      }
       // PayPal edition: with "Pay with PayPal" offered, the token rail is the second way, and says so.
       key.textContent = __PAYLINK_EDITION__ === "paypal" && paypalRails?.offers() === true ? t("paypal.rails.tokenKey", { symbol: token.symbol }) : passkeys ? t("pay.useKey") : t("pay.connect");
       key.disabled = false;

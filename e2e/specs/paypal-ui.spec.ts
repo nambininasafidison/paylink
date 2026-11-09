@@ -487,6 +487,10 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
     await expect(tokenKey).not.toHaveClass(/\bkey-primary\b/);
     await expect(tokenKey).toHaveText("Or pay in USDC from a wallet");
     await expect(tokenKey).toBeEnabled();
+    // No wallet (path B): the Network lamp is neutral, never an amber "Check · Connect a wallet to check".
+    const network = a.page.locator(".vstrip > li").nth(1);
+    await expect(network).toHaveAttribute("data-lamp", "off");
+    await expect(network).toContainText("Not needed to pay with PayPal. Your wallet's network is checked only if you pay in USDC.");
     expect(await paypal.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(await tokenKey.evaluate((el) => el.getBoundingClientRect().top));
     expect(a.api.to("rails.get").map((c) => c.params["key"])).toEqual([key]);
     expect(a.api.to("rails.get")[0]?.token).toBeNull();
@@ -530,6 +534,9 @@ test.describe("pay: the rail chooser (F2, F3) and the till (F4)", () => {
       await expect(chooser).toHaveAttribute("data-rails", /^hidden-(none|closed)$/);
       await expect(chooser).toHaveText("");
       await expect(a.page.locator(".payform > .key")).toBeEnabled();
+      // The token rail alone: the wallet's network is still checked, and asked for.
+      await expect(a.page.locator(".vstrip > li").nth(1)).toHaveAttribute("data-lamp", "wait");
+      await expect(a.page.locator(".vstrip > li").nth(1)).toContainText("Connect a wallet to check.");
       await a.context.close();
     }
   });

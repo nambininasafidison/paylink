@@ -1213,6 +1213,7 @@ export type MessageKey =
   | "paypal.ledger.markedMeta"
   | "paypal.ledger.receivedPaypal"
   | "paypal.rails.tokenKey"
+  | "paypal.verify.networkPaypal"
   | "paypal.rails.paypalWord"
   | "paypal.rails.payWith"
   | "paypal.alert.recordMissingPill"
@@ -2427,6 +2428,7 @@ export interface MessageParams {
   readonly "paypal.ledger.markedMeta": { readonly number: ParamValue };
   readonly "paypal.ledger.receivedPaypal": never;
   readonly "paypal.rails.tokenKey": { readonly symbol: ParamValue };
+  readonly "paypal.verify.networkPaypal": { readonly symbol: ParamValue };
   readonly "paypal.rails.paypalWord": never;
   readonly "paypal.rails.payWith": never;
   readonly "paypal.alert.recordMissingPill": never;
@@ -2973,6 +2975,7 @@ export type EditionKey =
   | "paypal.ledger.markedMeta"
   | "paypal.ledger.receivedPaypal"
   | "paypal.rails.tokenKey"
+  | "paypal.verify.networkPaypal"
   | "paypal.rails.paypalWord"
   | "paypal.rails.payWith"
   | "paypal.alert.recordMissingPill"

@@ -350,6 +350,7 @@
   "paypal.ledger.markedMeta": "Marquée payée sur PayPal · {number}",
   "paypal.ledger.receivedPaypal": "Sur PayPal",
   "paypal.rails.tokenKey": "Ou payer en {symbol} depuis un portefeuille",
+  "paypal.verify.networkPaypal": "Inutile pour payer avec PayPal. Le réseau de votre portefeuille n'est vérifié que si vous payez en {symbol}.",
   "paypal.rails.paypalWord": "PayPal",
   "paypal.rails.payWith": "Payer avec",
   "paypal.alert.recordMissingPill": "PayPal rouvert",

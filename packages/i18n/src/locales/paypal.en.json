@@ -350,6 +350,7 @@
   "paypal.ledger.markedMeta": "Marked paid on PayPal · {number}",
   "paypal.ledger.receivedPaypal": "On PayPal",
   "paypal.rails.tokenKey": "Or pay in {symbol} from a wallet",
+  "paypal.verify.networkPaypal": "Not needed to pay with PayPal. Your wallet's network is checked only if you pay in {symbol}.",
   "paypal.rails.paypalWord": "PayPal",
   "paypal.rails.payWith": "Pay with",
   "paypal.alert.recordMissingPill": "PayPal open again",

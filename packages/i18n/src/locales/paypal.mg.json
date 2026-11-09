@@ -350,6 +350,7 @@
   "paypal.ledger.markedMeta": "Voamarika ho voaloa tamin'ny PayPal · {number}",
   "paypal.ledger.receivedPaypal": "Amin'ny PayPal",
   "paypal.rails.tokenKey": "Na andoavy amin'ny {symbol} avy amin'ny kitapom-bola",
+  "paypal.verify.networkPaypal": "Tsy ilaina raha handoa amin'ny PayPal. Tsy jerena ny tambajotran'ny kitapom-bolanao raha tsy handoa amin'ny {symbol} ianao.",
   "paypal.rails.paypalWord": "PayPal",
   "paypal.rails.payWith": "Andoavy amin'ny",
   "paypal.alert.recordMissingPill": "Misokatra indray ny PayPal",
