@@ -39,6 +39,13 @@ import type {
 /** How long a read may take before the page says the API did not answer; writes to PayPal get longer. */
 export const READ_TIMEOUT_MS = 10_000;
 export const WRITE_TIMEOUT_MS = 30_000;
+/**
+ * "Check my invoices" (`POST /v1/desk/sweep`) waits for the Worker's whole sweep: the payee's Durable Object waking, up
+ * to 20 twins read on PayPal one after the other (each GET with PayPal's own 8-second limit and retries), one chain read,
+ * then the desk assistant. The first sweep after the objects slept outlived 30 seconds twice in the owner's shoot of
+ * 2026-11-09, though the same call answered seconds later: it gets a minute, and `retryUnanswered`.
+ */
+export const SWEEP_TIMEOUT_MS = 60_000;
 
 /** Why a call failed: an RFC 9457 problem from the API, no answer at all, or an answer that is not the contract's. */
 export class ApiError extends Error {
@@ -307,6 +314,21 @@ export function paypalApi(url: string, fetcher: typeof fetch = (input, init) => 
   };
 }
 
+/**
+ * `work`, run once more when the API did not answer it (a timeout or a dropped connection), never after an answer: a
+ * desk read or a sweep is safe to repeat, and the second one finds the Worker awake and PayPal's token cached.
+ */
+export async function retryUnanswered<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof ApiError && (error.code === "timeout" || error.code === "network")) {
+      return await work();
+    }
+    throw error;
+  }
+}
+
 // ------------------------------------------------------------------------------------------- routes
 
 export async function getHealth(api: PaypalApi): Promise<HealthResponse> {
@@ -348,7 +370,7 @@ export async function getDesk(api: PaypalApi, token: string): Promise<DeskRespon
 /** `POST /v1/desk/sweep` in the payee's interface `locale`: the assistant explains and drafts in it. */
 export async function postSweep(api: PaypalApi, token: string, locale: DeskSweepRequest["locale"]): Promise<DeskSweepResponse> {
   const request: DeskSweepRequest = locale === undefined ? {} : { locale };
-  const { status, body } = await api.call({ route: "desk.sweep", token, body: request, timeoutMs: WRITE_TIMEOUT_MS });
+  const { status, body } = await api.call({ route: "desk.sweep", token, body: request, timeoutMs: SWEEP_TIMEOUT_MS });
   return checked(sweepShape(), body, status) as DeskSweepResponse;
 }
 

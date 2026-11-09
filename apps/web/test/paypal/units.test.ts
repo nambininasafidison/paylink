@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AccountProvider } from "../../src/accounts/types.ts";
 import type { App } from "../../src/app/context.ts";
 import type { ChainClient } from "../../src/core/clients.ts";
-import { ApiError, getDesk, getHealth, getRails, paypalApi, postApprove, postDraft, postTwin, routePath } from "../../src/editions/paypal/api.ts";
+import { ApiError, getDesk, getHealth, getRails, paypalApi, postApprove, postDraft, postSweep, postTwin, retryUnanswered, routePath, SWEEP_TIMEOUT_MS, WRITE_TIMEOUT_MS } from "../../src/editions/paypal/api.ts";
 import { failureText } from "../../src/editions/paypal/context.ts";
 import { paidRail, paypalPaid, railColumns } from "../../src/editions/paypal/ledger.ts";
 import { baseFromDecimal, seconds, usdFromBase } from "../../src/editions/paypal/money.ts";
@@ -119,6 +119,32 @@ describe("routes and problems", () => {
     const twin = { key: KEY, paypalId: "INV2-1", number: "PL-11155111-abababababab", status: "UNPAID", statusClass: "open", recipientViewUrl: null, amount: "120.00", currency: "USD", situation: "S1", checkedAt: "2026-10-22T10:00:00.000Z" };
     expect((await postTwin(api({ "POST /v1/twin": { status: 201, body: twin } }).client, "t", { link: "https://x/#y" })).created).toBe(true);
     expect((await postTwin(api({ "POST /v1/twin": { status: 200, body: twin } }).client, "t", { link: "https://x/#y" })).created).toBe(false);
+  });
+
+  it("gives Check my invoices a minute for the Worker's sweep, and tries once more only when the API did not answer", async () => {
+    // The Worker's real work: its Durable Object waking, PayPal read twin by twin (8 s each at most), the assistant.
+    expect(SWEEP_TIMEOUT_MS).toBeGreaterThanOrEqual(60_000);
+    expect(SWEEP_TIMEOUT_MS).toBeGreaterThan(WRITE_TIMEOUT_MS);
+    const seen: (number | undefined)[] = [];
+    const sweepBody = { proposals: [], autoRecords: [], alerts: [], checkedAt: null, assistant: { available: false, reason: "resting" }, sweep: { checked: 2, remaining: 0 } };
+    const recorder = { url: API, call: vi.fn((request: { timeoutMs?: number }) => (seen.push(request.timeoutMs), Promise.resolve({ status: 200, body: sweepBody }))) };
+    await postSweep(recorder, "t", "en");
+    expect(seen).toEqual([SWEEP_TIMEOUT_MS]);
+    // The first sweep timed out twice in the owner's shoot; a second one answered seconds later.
+    for (const code of ["timeout", "network"] as const) {
+      let tries = 0;
+      expect(await retryUnanswered(() => (tries += 1) === 1 ? Promise.reject(new ApiError(0, code)) : Promise.resolve("desk"))).toBe("desk");
+      expect(tries).toBe(2);
+    }
+    // Once only, and never after the API answered (a refusal, a failure or a lapsed session stand as they are).
+    let twice = 0;
+    await expect(retryUnanswered(() => ((twice += 1), Promise.reject(new ApiError(0, "timeout"))))).rejects.toMatchObject({ code: "timeout" });
+    expect(twice).toBe(2);
+    for (const error of [new ApiError(500, "internal"), new ApiError(401, "unauthorized"), new ApiError(429, "rate-limited")]) {
+      let once = 0;
+      await expect(retryUnanswered(() => ((once += 1), Promise.reject(error)))).rejects.toBe(error);
+      expect(once).toBe(1);
+    }
   });
 
   it("words every failure in the user's language with an engraved code, rule first", () => {
