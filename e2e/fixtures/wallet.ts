@@ -45,6 +45,10 @@ export interface MockWallet {
   /** Answer the next request of `method` with an EIP-1193 error. */
   failNext(method: string, code: number, message: string): void;
   sent(): WalletRequest[];
+  /** The accounts `eth_accounts` answers from now on (the first is the selected one; `[]`: none for a moment). */
+  setAccounts(accounts: readonly string[]): void;
+  /** Fires an EIP-1193 event on the page's provider, as an extension does (`accountsChanged`, `disconnect`, ...). */
+  emit(event: string, arg: unknown): Promise<void>;
 }
 
 type Answer = { result: unknown; events?: [string, unknown][] } | { error: { code: number; message: string } };
@@ -57,6 +61,9 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
   const failures = new Map<string, { code: number; message: string }>();
   const requests: WalletRequest[] = [];
   const batches = new Map<string, { chainId: string; receipts: unknown[] }>();
+  let accounts: string[] = [options.account.toLowerCase()];
+  /** The selected account: transactions from any other are refused. */
+  const selected = (): string => accounts[0] ?? options.account.toLowerCase();
 
   const answer = async (method: string, params: readonly unknown[]): Promise<Answer> => {
     requests.push({ method, params });
@@ -68,7 +75,7 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
     switch (method) {
       case "eth_requestAccounts":
       case "eth_accounts":
-        return { result: [options.account.toLowerCase()] };
+        return { result: [...accounts] };
       case "eth_chainId":
         return { result: hex(current) };
       case "wallet_switchEthereumChain": {
@@ -92,12 +99,12 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
         }
         const request = params[0] as { from: string; chainId: string; atomicRequired: boolean; calls: { to: string; data: string; value: string }[] };
         const url = options.endpoints.get(Number.parseInt(request.chainId, 16)) ?? null;
-        if (url === null || request.from.toLowerCase() !== options.account.toLowerCase()) {
+        if (url === null || request.from.toLowerCase() !== selected()) {
           return { error: { code: 4100, message: "unauthorized" } };
         }
         const receipts: unknown[] = [];
         for (const c of request.calls) {
-          const hash = await jsonRpc<string>(url, "eth_sendTransaction", [{ from: options.account, to: c.to, data: c.data, value: c.value }]);
+          const hash = await jsonRpc<string>(url, "eth_sendTransaction", [{ from: selected(), to: c.to, data: c.data, value: c.value }]);
           let receipt: { status: string } | null = null;
           for (let i = 0; i < 200 && receipt === null; i += 1) {
             receipt = await jsonRpc<{ status: string } | null>(url, "eth_getTransactionReceipt", [hash]);
@@ -135,7 +142,7 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
         try {
           if (method === "eth_sendTransaction") {
             const tx = params[0] as { from: string };
-            if (tx.from.toLowerCase() !== options.account.toLowerCase()) {
+            if (tx.from.toLowerCase() !== selected()) {
               return { error: { code: 4100, message: "unauthorized account" } };
             }
           }
@@ -183,6 +190,11 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
       const announce = (): void => {
         window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail: Object.freeze({ info, provider }) }));
       };
+      (window as unknown as { __paylinkTestWalletEmit: (event: string, arg: unknown) => void }).__paylinkTestWalletEmit = (event, arg) => {
+        for (const fn of listeners.get(event) ?? []) {
+          fn(arg);
+        }
+      };
       window.addEventListener("eip6963:requestProvider", announce);
       announce();
     },
@@ -195,6 +207,14 @@ export async function installWallet(page: Page, options: MockWalletOptions): Pro
       failures.set(method, { code, message });
     },
     sent: () => requests.filter((r) => r.method === "eth_sendTransaction"),
+    setAccounts: (next) => {
+      accounts = next.map((a) => a.toLowerCase());
+    },
+    emit: async (event, arg) => {
+      await page.evaluate(([e, a]) => {
+        (window as unknown as { __paylinkTestWalletEmit: (event: string, arg: unknown) => void }).__paylinkTestWalletEmit(e, a);
+      }, [event, arg] as const);
+    },
   };
 }
 

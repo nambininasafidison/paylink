@@ -434,6 +434,15 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     }
   };
 
+  /** Drops "This is your own invoice" once the wallet no longer holds the payee's account (accountsChanged). */
+  const clearSelfNote = (): void => {
+    if (stateNote.dataset["note"] === "self") {
+      delete stateNote.dataset["note"];
+      stateNote.textContent = "";
+      stateNote.hidden = true;
+    }
+  };
+
   /** Re-evaluates the key from the checks, the session and the wallet's network. */
   const refresh = async (): Promise<void> => {
     if (busy || paid) {
@@ -499,6 +508,7 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
     }
     if (account === null) {
       feeCopy(null);
+      clearSelfNote();
       net.set("wait", passkeys ? t("verify.network.key") : t("verify.network.connect"));
       // PayPal edition: with "Pay with PayPal" offered, the token rail is the second way, and says so.
       key.textContent = __PAYLINK_EDITION__ === "paypal" && paypalRails?.offers() === true ? t("paypal.rails.tokenKey", { symbol: token.symbol }) : passkeys ? t("pay.useKey") : t("pay.connect");
@@ -511,8 +521,10 @@ function bill(app: App, ui: PageUi, link: DecodedInvoiceLink): HTMLElement {
       lockKey(t("pay.locked"));
       stateNote.hidden = false;
       stateNote.textContent = t("pay.note.self");
+      stateNote.dataset["note"] = "self";
       return;
     }
+    clearSelfNote();
     if (account.kind === "passkey") {
       // A PayLink key signs for any network: nothing to switch, nothing to ask.
       await account.switchChain(chain);

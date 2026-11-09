@@ -34,7 +34,7 @@ import type { LampKind } from "../../ui/atoms.ts";
 import { h, replace } from "../../ui/h.ts";
 import type { Child } from "../../ui/h.ts";
 import { announce, copyText } from "../../ui/live.ts";
-import { encodeInvoiceFragment } from "@paylink/sdk";
+import { encodeInvoiceFragment, readLinkState } from "@paylink/sdk";
 import { ApiError } from "./api.ts";
 import { failureText, seconds } from "./context.ts";
 
@@ -231,6 +231,23 @@ async function cancelOnChain(app: App, proposal: ProposalView, status: HTMLEleme
   return true;
 }
 
+/**
+ * Whether the chain shows the link of `key` cancelled (false when it cannot be read): the API settles an approved cancel
+ * at its next check, but a card the chain already closed never reads "approving" again in the meantime.
+ */
+export async function cancelledOnChain(app: Pick<App, "registry" | "client">, key: Hex): Promise<boolean> {
+  try {
+    const chain = app.registry.get(PAYPAL_EDITION_CHAIN_ID);
+    const target = app.registry.v2Target(PAYPAL_EDITION_CHAIN_ID);
+    if (chain === undefined || target === undefined) {
+      return false;
+    }
+    return (await readLinkState(app.client(chain), target.deployment.address, key)).cancelled;
+  } catch {
+    return false;
+  }
+}
+
 /** One proposal card. */
 export function proposalCard(app: App, proposal: ProposalView, actions: DeskActions): HTMLLIElement {
   const { t } = app.i18n;
@@ -336,6 +353,12 @@ export function proposalCard(app: App, proposal: ProposalView, actions: DeskActi
     replace(keys, approveKey, rejectKey);
   } else if (proposal.state === "approving" && proposal.kind === "cancel_paylink") {
     setStatus(status, "", t("paypal.cancel.waiting"));
+    void cancelledOnChain(app, proposal.key).then((cancelled) => {
+      if (cancelled && card.getAttribute("data-state") === "approving") {
+        setState("done");
+        setStatus(status, "ok", t("paypal.cancel.done"));
+      }
+    });
   }
   const rails = proposal.rail === null ? null : h("span", { class: "rail-tag" }, proposal.rail);
   replace(

@@ -9,9 +9,12 @@
  */
 import type { ApproveResponse, AutoRecordView, ClarificationCode, DeskAlertCode, DraftResponse, ProposalView, TwinView } from "@paylink/api-contract";
 import type { IssuedInvoice } from "@paylink/sdk";
+import { payLinkV2Abi } from "@paylink/sdk";
+import { encodeFunctionResult } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountProvider } from "../../src/accounts/types.ts";
 import type { App } from "../../src/app/context.ts";
+import { appRegistry } from "../../src/core/registry.ts";
 import { ApiError } from "../../src/editions/paypal/api.ts";
 import { draftCard, openSheet, prefillOf } from "../../src/editions/paypal/assistant.ts";
 import type { DraftPrefill } from "../../src/editions/paypal/assistant.ts";
@@ -253,6 +256,41 @@ describe("the desk's cards", () => {
       ...over,
     };
   };
+
+  it("never shows approving for a cancel the chain already shows: done, until the API's next check closes it", async () => {
+    const registry = appRegistry("paypal");
+    const sepolia = registry.v2Target(11155111);
+    expect(sepolia).toBeDefined();
+    const calls: string[] = [];
+    const reads = (cancelled: boolean | "down"): App =>
+      ({
+        ...paypalApp(),
+        registry,
+        client: () => ({
+          call: ({ to }: { to: string }) => {
+            calls.push(to.toLowerCase());
+            return cancelled === "down"
+              ? Promise.reject(new Error("rpc down"))
+              : Promise.resolve({ data: encodeFunctionResult({ abi: payLinkV2Abi, functionName: "stateOf", result: { payments: 0, cancelled, lastPaidAt: 0n, total: 0n } }) });
+          },
+        }),
+      }) as unknown as App;
+    const approving = proposal({ kind: "cancel_paylink", state: "approving", reasonCode: "paid-on-paypal" });
+    // The desk read again after the wallet came back: the API has not seen the cancellation yet, the chain has.
+    const done = proposalCard(reads(true), approving, actions());
+    await vi.waitFor(() => {
+      expect(done.getAttribute("data-state")).toBe("done");
+    });
+    expect(done.querySelector(".status")?.textContent).toBe("The link is cancelled on the chain. The desk closes this at its next check.");
+    expect(calls).toContain(sepolia?.deployment.address.toLowerCase());
+    // Not cancelled yet, or the chain unreadable: it waits, as the API says.
+    for (const read of [false, "down"] as const) {
+      const waiting = proposalCard(reads(read), approving, actions());
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(waiting.getAttribute("data-state")).toBe("approving");
+      expect(waiting.querySelector(".status")?.textContent).toBe("Waiting for the link's cancellation on the chain.");
+    }
+  });
 
   it("shows the exact values in a display window, the assistant's words apart in an AI box (AI-4)", () => {
     const message = { text: "Hi Sarah, a gentle reminder: invoice PL-11155111-abababababab for 120.00 USD is due.", language: "en" as const, grounded: true };

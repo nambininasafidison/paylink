@@ -313,10 +313,47 @@ describe("session", () => {
     session.subscribe(() => (changes += 1));
     wallet.accounts = [];
     wallet.emit("accountsChanged", []);
-    await vi.waitFor(() => {
-      expect(session.account()).toBeNull();
-    });
+    // Declared gone only once every re-read of eth_accounts found nothing (REREAD_DELAYS_MS).
+    await vi.waitFor(
+      () => {
+        expect(session.account()).toBeNull();
+      },
+      { timeout: 3_000 },
+    );
     expect(changes).toBeGreaterThan(0);
+  });
+
+  it("keeps the connected payee through a switch, a lock or a restart, while eth_accounts still reports it", async () => {
+    const wallet = fakeWallet();
+    prefs.wallet.set(INFO.rdns);
+    const session = createSession([eip6963Layer(window, 5)], 20, [0, 30, 60]);
+    announce(window, wallet, INFO);
+    await session.ready;
+    const first = session.account();
+    expect(first?.address).toBe(payee.address);
+    const seen: (string | null)[] = [];
+    session.subscribe(() => seen.push(session.account()?.address ?? null));
+    // MetaMask switching accounts: accountsChanged, and eth_accounts empty for a moment though the site's permission stands.
+    wallet.accounts = [];
+    wallet.emit("accountsChanged", []);
+    setTimeout(() => {
+      wallet.accounts = [payee.address];
+    }, 40);
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(session.account()).toBe(first);
+    // Its background worker restarting: disconnect, then the same account.
+    wallet.emit("disconnect", {});
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(session.account()).toBe(first);
+    expect(seen).not.toContain(null);
+    // A real switch to another account the site may use: that account is adopted, and the pages follow it.
+    const other = "0x2222222222222222222222222222222222222222";
+    wallet.accounts = [other, payee.address];
+    wallet.emit("accountsChanged", [other, payee.address]);
+    await vi.waitFor(() => {
+      expect(session.account()?.address.toLowerCase()).toBe(other);
+    });
+    expect(seen.at(-1)?.toLowerCase()).toBe(other);
   });
 
   it("connects with a prompt, remembers the choice, and forgets it on disconnect", async () => {

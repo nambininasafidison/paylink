@@ -688,6 +688,48 @@ test.describe("desk (F5)", () => {
     });
   }
 
+  test("the wallet switching accounts: the desk keeps the payee while the wallet reports it, and the pay page follows a switch", async ({ browser }) => {
+    const a = await actor(browser);
+    const link = await createInvoice(a, "30", "Switch test");
+    a.api.on("desk.get", ok(desk()));
+    const view = await openDesk(a);
+    const reads = a.api.to("desk.get").length;
+    const sessions = a.api.to("session.create").length;
+    // MetaMask switching accounts or restarting its worker: accountsChanged with nothing for a moment, then disconnect,
+    // while eth_accounts still answers the payee. No "Connect wallet", no new signature, no second read.
+    a.wallet.setAccounts([]);
+    await a.wallet.emit("accountsChanged", []);
+    await a.page.waitForTimeout(150);
+    a.wallet.setAccounts([ACCOUNTS.payee]);
+    await a.wallet.emit("disconnect", { code: 1013, message: "reconnecting" });
+    await a.page.waitForTimeout(2_000);
+    await expect(view).toHaveAttribute("data-desk", "ready");
+    await expect(view.locator("[data-action=connect]")).toHaveCount(0);
+    expect(a.api.to("desk.get")).toHaveLength(reads);
+    expect(a.api.to("session.create")).toHaveLength(sessions);
+    // The payee's own invoice, then the wallet switched to the client: the pay page follows without a reload.
+    a.api.on("rails.get", ok(rails({ status: "none" })));
+    await a.page.goto(link);
+    const key = a.page.locator(".payform > .key");
+    await expect
+      .poll(
+        async () => {
+          if ((await key.getAttribute("data-action")) === "connect") {
+            await key.click({ timeout: 1_000 }).catch(() => undefined);
+          }
+          return await a.page.locator(".state-note").textContent();
+        },
+        { timeout: 30_000, intervals: [250] },
+      )
+      .toContain("This is your own invoice");
+    a.wallet.setAccounts([ACCOUNTS.payer, ACCOUNTS.payee]);
+    await a.wallet.emit("accountsChanged", [ACCOUNTS.payer, ACCOUNTS.payee]);
+    await expect(a.page.locator(".state-note")).toBeHidden();
+    await expect(key).toHaveAttribute("data-action", "pay");
+    await expect(key).toHaveText("Pay 30.00 USDC");
+    await clean(a);
+  });
+
   test("no session: one signature opens the desk (no transaction, no fee), then it reads", async ({ browser }) => {
     const a = await actor(browser);
     a.api.on("desk.get", ok(desk()));
