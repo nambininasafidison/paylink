@@ -21,6 +21,7 @@ import { ProblemError } from "../src/core/problem.ts";
 import { API_VERSION } from "../src/core/version.ts";
 import { secretsFromEnv, startNodeApi } from "../src/node/server.ts";
 import { utcDay } from "../src/reconciler/money.ts";
+import { assistantRowState, healthDocument, healthRows } from "../src/routes/health.ts";
 import { chargeAssistantCall, isDemoPayee } from "../src/store/quotas.ts";
 import { T0, TEST_ORIGIN, testApp, testRuntime, testServices } from "./helpers.ts";
 
@@ -75,9 +76,10 @@ describe("GET /v1/health", () => {
     expect(API_VERSION).toBe(PACKAGE.version);
     expect(doc.rows.map((r) => r.id)).toEqual(["paypal", "webhook", "assistant", "chain", "store"]);
     // The shipped registry records PayLinkV2 on Ethereum Sepolia (protocol/deployments/11155111.json), so the chain row
-    // is ok; PayPal has not been read and the assistant not called yet, so the document is degraded. The in-memory
-    // stores answer, so the store row is readable.
+    // is ok; PayPal has not been read yet, so the document is degraded. The in-memory stores answer, so the store row is
+    // readable, and so is the assistant's budget: the assistant row is ok before its first call, without spending one.
     expect(doc.status).toBe("degraded");
+    expect(doc.rows.find((r) => r.id === "assistant")).toMatchObject({ state: "ok", code: "model:@cf/google/gemma-4-26b-a4b-it" });
     expect(doc.rows.find((r) => r.id === "chain")).toMatchObject({ state: "ok", code: "deployed", values: { chainId: 11155111 } });
     expect(doc.rows.find((r) => r.id === "store")).toMatchObject({ state: "ok", code: "readable" });
   });
@@ -92,12 +94,26 @@ describe("GET /v1/health", () => {
   it("shows the assistant's neurons left today, and resting once a call no longer fits (§9.4)", async () => {
     const services = testServices();
     const row = async (): Promise<HealthResponse["rows"][number] | undefined> => ((await (await testApp(services).request("/v1/health")).json()) as HealthResponse).rows.find((r) => r.id === "assistant");
-    expect(await row()).toMatchObject({ code: "model:@cf/google/gemma-4-26b-a4b-it", values: { dailyNeuronBudget: 10_000, neuronsLeft: 10_000 } });
+    expect(await row()).toMatchObject({ state: "ok", code: "model:@cf/google/gemma-4-26b-a4b-it", values: { dailyNeuronBudget: 10_000, neuronsLeft: 10_000 } });
     await services.stores.global().spendAiBudget("2026-10-21", 9_990, 10_000);
     // The document is cached 5 seconds per isolate: a new app over the same services after the clock moves reads again.
     const later = testServices({ runtime: { ...services.runtime, clock: () => T0 + 6_000 }, stores: services.stores });
     const doc = (await (await testApp(later).request("/v1/health")).json()) as HealthResponse;
     expect(doc.rows.find((r) => r.id === "assistant")).toMatchObject({ state: "degraded", code: "resting", values: { dailyNeuronBudget: 10_000, neuronsLeft: 10 } });
+  });
+
+  it("reads a working assistant ok without spending a neuron, and keeps amber for a fault (the Status page's lamps)", () => {
+    const services = testServices();
+    expect(assistantRowState(services, { left: 9_607, resting: false })).toBe("ok");
+    expect(assistantRowState(services, { left: 10, resting: true })).toBe("degraded");
+    // The budget could not be read: nothing says the assistant works.
+    expect(assistantRowState(services, null)).toBe("unknown");
+    // Another provider stands in for the configured one.
+    expect(assistantRowState({ ...services, ai: { ...services.ai, kind: services.ai.kind === "fake" ? "workers-ai" : "fake" } }, { left: 9_607, resting: false })).toBe("degraded");
+    // Every row ok: the document, and so the API's own lamp, reads ok.
+    const rows = healthRows(services, { "paypal-get": { at: T0, value: null }, "webhook-verified": { at: T0, value: null } }, T0, { left: 9_607, resting: false });
+    expect(rows.map((r) => [r.id, r.state])).toEqual([["paypal", "ok"], ["webhook", "ok"], ["assistant", "ok"], ["chain", "ok"], ["store", "ok"]]);
+    expect(healthDocument(services, rows, T0).status).toBe("ok");
   });
 
   it("reports missing PayPal credentials and webhook id without revealing anything", async () => {

@@ -35958,6 +35958,17 @@ const iso = (ms) => ms === void 0 ? null : new Date(ms).toISOString();
 const readFacts = async (services) => await within(async () => await services.stores.global().readHealth());
 const readBudget = async (services, now) => services.runtime.config.ai.mode === "disabled" ? null : await within(async () => await assistantBudget(services.stores.global(), services.runtime.config.ai.dailyNeuronBudget, now));
 /**
+* The assistant row's state, without spending a neuron: `ok` when the provider wired is the one configured and today's
+* budget could be read with room for a call (the meter counts every successful call); `degraded` when another provider
+* stands in or the budget is spent; `unknown` only while the budget cannot be read; `not-configured` when switched off.
+*/
+function assistantRowState(services, budget) {
+	const { config } = services.runtime;
+	if (config.ai.mode === "disabled") return "not-configured";
+	if (services.ai.kind !== config.ai.mode || budget?.resting === true) return "degraded";
+	return budget === null ? "unknown" : "ok";
+}
+/**
 * The rows, from the runtime's configuration and the store's facts (`null`: the store could not be read). The assistant
 * row carries today's neurons left (`neuronsLeft`) when the budget could be read, and reads `resting` once a typical
 * call no longer fits (docs/paypal/SPEC.md §9.4: the Status page shows the budget left).
@@ -35984,7 +35995,7 @@ function healthRows(services, facts, now, budget = null) {
 		},
 		{
 			id: "assistant",
-			state: config.ai.mode === "disabled" ? "not-configured" : services.ai.kind !== config.ai.mode || budget?.resting === true ? "degraded" : "unknown",
+			state: assistantRowState(services, budget),
 			code: config.ai.mode === "disabled" ? "disabled" : budget?.resting === true ? "resting" : `model:${services.ai.model}`,
 			checkedAt: null,
 			values: {

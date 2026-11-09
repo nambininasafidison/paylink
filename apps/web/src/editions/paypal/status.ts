@@ -30,6 +30,18 @@ function row(name: string): { readonly element: HTMLLIElement; set(state: Light,
 
 const lampOf = (state: HealthRow["state"]): Light => (state === "ok" ? "ok" : state === "down" ? "err" : state === "not-configured" ? "" : "wait");
 
+/**
+ * The API's own lamp: green when it answers, red when it says it is down, amber only when it reports a dependency
+ * degraded or down. A dependency not read yet or not configured speaks on its own row, amber or grey, and does not turn
+ * the API's row amber while the API itself is online.
+ */
+export function apiLamp(health: Pick<HealthResponse, "status" | "rows">): "ok" | "wait" | "err" {
+  if (health.status === "down") {
+    return "err";
+  }
+  return health.status === "ok" || !health.rows.some((r) => r.state === "degraded" || r.state === "down") ? "ok" : "wait";
+}
+
 /** A count of neurons in the page's locale, or a dash when the API did not say. */
 const neurons = (app: Pick<App, "locale">, value: number | undefined): string => (value === undefined ? "—" : formatCount(app.locale, value));
 
@@ -94,7 +106,7 @@ export function paypalStatusRows(app: App): HTMLLIElement[] {
   } else {
     void getHealth(client)
       .then((health: HealthResponse) => {
-        api.set(health.status === "ok" ? "ok" : health.status === "down" ? "err" : "wait", t("paypal.status.apiOk", { version: health.version, contract: health.contract }));
+        api.set(apiLamp(health), t("paypal.status.apiOk", { version: health.version, contract: health.contract }));
         for (const [id, r] of Object.entries(rows)) {
           const item = health.rows.find((x) => x.id === id);
           if (item === undefined) {

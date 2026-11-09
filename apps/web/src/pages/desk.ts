@@ -33,6 +33,7 @@ import { apiFor, apiUrl, failureText, seconds } from "../editions/paypal/context
 import { alertCard, proposalCard, recordCard, verdictReadout } from "../editions/paypal/desk.ts";
 import type { DeskActions } from "../editions/paypal/desk.ts";
 import { forgetSession, openSession, storedSession, withSession } from "../editions/paypal/session.ts";
+import { apiLamp } from "../editions/paypal/status.ts";
 import { lamp, setStatus, statusLine } from "../ui/atoms.ts";
 import { h, replace } from "../ui/h.ts";
 import { announce } from "../ui/live.ts";
@@ -53,7 +54,7 @@ async function apiHealth(app: App, item: HTMLLIElement, detail: HTMLElement): Pr
   }
   try {
     const health = await getHealth(api);
-    set(health.status === "ok" ? "ok" : "wait", `${t("paypal.desk.apiOk")} · ${health.version}`);
+    set(apiLamp(health), `${t("paypal.desk.apiOk")} · ${health.version}`);
     return health;
   } catch {
     set("err", t("paypal.desk.apiDown"));

@@ -41,7 +41,7 @@ const RAW_KEY = /\b(app|create|pay|receipt|ledger|send|till|status|verify|share|
 
 type Health = "ok" | "down" | "unreachable";
 
-function stubNetwork(options: { readonly api?: unknown; readonly health?: Health } = {}): string[] {
+function stubNetwork(options: { readonly api?: unknown; readonly health?: Health; readonly healthDoc?: unknown } = {}): string[] {
   const calls: string[] = [];
   const config = { version: 1, banner: null, relayer: { url: "https://relayer.example", chains: [10143] }, indexer: null, ...(options.api === undefined ? {} : { api: options.api }), rpc: {} };
   vi.stubGlobal(
@@ -51,6 +51,9 @@ function stubNetwork(options: { readonly api?: unknown; readonly health?: Health
       calls.push(url);
       if (url.endsWith("/config.json")) {
         return Promise.resolve(new Response(JSON.stringify(config), { status: 200 }));
+      }
+      if (url === `${API}/v1/health` && options.healthDoc !== undefined) {
+        return Promise.resolve(new Response(JSON.stringify(options.healthDoc), { status: 200 }));
       }
       if (url === `${API}/v1/health` && options.health === "ok") {
         return Promise.resolve(new Response(JSON.stringify({ status: "ok", service: "paylink-api", version: "0.1.0", contract: 1, time: "2026-10-21T12:00:00.000Z", paypalEnvironment: "sandbox", rows: [] }), { status: 200 }));
@@ -231,7 +234,36 @@ describe("create, ledger and status", () => {
     const rows = [...document.querySelectorAll(".view-status > .vstrip")][0]?.querySelectorAll("li") ?? [];
     expect([...rows].map((li) => li.querySelector(".vstrip-name")?.textContent)).toEqual(["Relayer", "History service", "PayLink API", "PayPal sandbox", "PayPal webhook", "Assistant", "API store"]);
     expect(rows[2]?.textContent).toBe("PayLink APIOnline · 0.1.0 · contract 1");
+    expect(rows[2]?.getAttribute("data-lamp")).toBe("ok");
     expect(rows[3]?.getAttribute("data-lamp")).toBe("wait");
+  });
+
+  it("light an online API and a working assistant green, and keep amber and red for real faults (the shoot of 2026-11-09)", async () => {
+    const row = (id: string, state: string, code: string, values?: Record<string, number>): unknown => ({ id, state, code, checkedAt: "2026-11-09T10:00:00.000Z", ...(values === undefined ? {} : { values }) });
+    const doc = (status: string, assistant: string, extra: unknown[] = []): unknown => ({
+      status,
+      service: "paylink-api",
+      version: "0.1.0",
+      contract: 1,
+      time: "2026-11-09T10:00:00.000Z",
+      paypalEnvironment: "sandbox",
+      rows: [row("paypal", "ok", "last-get"), row("webhook", "ok", "last-verified", { ageSeconds: 60 }), row("assistant", assistant, "model:@cf/google/gemma-4-26b-a4b-it", { dailyNeuronBudget: 10_000, neuronsLeft: 9_607 }), row("chain", "ok", "deployed", { chainId: SEPOLIA }), row("store", "ok", "readable"), ...extra],
+    });
+    const lamps = async (healthDoc: unknown): Promise<(string | null)[]> => {
+      stubNetwork({ api: { url: API, chains: [SEPOLIA] }, healthDoc });
+      await render(statusPage, "/paypal/status/", "en");
+      const rows = [...document.querySelectorAll(".view-status > .vstrip")][0]?.querySelectorAll("li") ?? [];
+      const out = [...rows].slice(2).map((li) => li.getAttribute("data-lamp"));
+      document.body.replaceChildren();
+      return out;
+    };
+    // The API as the owner's shoot read it, then as it now answers: every row ok, the assistant included.
+    expect(await lamps(doc("ok", "ok"))).toEqual(["ok", "ok", "ok", "ok", "ok"]);
+    // A dependency merely not read yet stays amber on its own row; the API itself is online.
+    expect(await lamps(doc("degraded", "unknown"))).toEqual(["ok", "ok", "ok", "wait", "ok"]);
+    // A real fault: the assistant resting, or the API down.
+    expect(await lamps(doc("degraded", "degraded"))).toEqual(["wait", "ok", "ok", "wait", "ok"]);
+    expect(await lamps(doc("down", "ok", [])).then((l) => l[0])).toBe("err");
   });
 });
 
