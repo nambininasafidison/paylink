@@ -92,5 +92,16 @@
   "mezo.check.find.notPaylink": "{ref} : cette transaction n'est pas un paiement PayLink (aucun événement de paiement du contrat PayLink).",
   "mezo.check.find.forged": "{ref} : ce lien de reçu ne correspond pas à la chaîne. {why}",
   "mezo.check.find.badLink": "Un lien sur {host} n'est pas un lien PayLink valide du testnet Mezo : modifié, tronqué ou d'un autre réseau.",
-  "mezo.check.find.unavailable": "{ref} : le testnet Mezo n'a pas répondu."
+  "mezo.check.find.unavailable": "{ref} : le testnet Mezo n'a pas répondu.",
+  "mezo.paste.title": "Coller le message du client",
+  "mezo.paste.label": "Message du client",
+  "mezo.paste.hint": "Remplit le montant et la durée de validité du lien d'après le message, par des règles fixes : aucune IA ne le lit, et rien ne quitte cet appareil. Vérifiez chaque champ avant de signer.",
+  "mezo.paste.key": "Remplir le formulaire",
+  "mezo.paste.amount": "Montant : {amount} MUSD (le MUSD est un dollar).",
+  "mezo.paste.unsupported": "Le message demande {said} : ce terminal facture en MUSD uniquement. Convertissez vous-même ; le montant n'a pas été rempli.",
+  "mezo.paste.noAmount": "Aucun montant en MUSD ou en dollars trouvé : saisissez-le vous-même.",
+  "mezo.paste.due": "Échéance {date} : le lien reste valable {validity}, le choix le plus court qui la couvre.",
+  "mezo.paste.dueLate": "Échéance {date} : dans plus de 30 jours, la validité du lien a donc été laissée telle quelle.",
+  "mezo.paste.duePast": "La date {date} est passée : la validité du lien a été laissée telle quelle.",
+  "mezo.paste.noDue": "Aucune échéance trouvée : la validité du lien a été laissée telle quelle."
 }

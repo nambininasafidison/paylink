@@ -92,5 +92,16 @@
   "mezo.check.find.notPaylink": "{ref}: tsy fandoavana PayLink ity fifanakalozana ity (tsy misy hetsika fandoavana avy amin'ny contrat PayLink).",
   "mezo.check.find.forged": "{ref}: tsy mifanaraka amin'ny chain ity rohin'ny tapakila ity. {why}",
   "mezo.check.find.badLink": "Tsy rohy PayLink manan-kery ao amin'ny Mezo testnet ny rohy ao amin'ny {host}: novaina, tapaka, na avy amin'ny tambajotra hafa.",
-  "mezo.check.find.unavailable": "{ref}: tsy namaly ny Mezo testnet."
+  "mezo.check.find.unavailable": "{ref}: tsy namaly ny Mezo testnet.",
+  "mezo.paste.title": "Apetaho ny hafatry ny mpanjifa",
+  "mezo.paste.label": "Hafatry ny mpanjifa",
+  "mezo.paste.hint": "Fenoiny araka ny hafatra ny sandany sy ny faharetan'ny rohy, amin'ny fitsipika raikitra: tsy misy AI mamaky azy, ary tsy misy mivoaka ity fitaovana ity. Hamarino ny saha tsirairay alohan'ny hanaovanao sonia.",
+  "mezo.paste.key": "Fenoy ny taratasy",
+  "mezo.paste.amount": "Sandany: {amount} MUSD (dolara ny MUSD).",
+  "mezo.paste.unsupported": "{said} no angatahin'ny hafatra: MUSD ihany no faktiorain'ity terminal ity. Ovay ianao ihany; tsy nofenoina ny sandany.",
+  "mezo.paste.noAmount": "Tsy nahitana sanda amin'ny MUSD na dolara: soraty ianao ihany.",
+  "mezo.paste.due": "Fe-potoana {date}: manan-kery {validity} ny rohy, ilay safidy fohy indrindra mahatratra azy.",
+  "mezo.paste.dueLate": "Fe-potoana {date}: mihoatra ny 30 andro, ka navela toy izay ny faharetan'ny rohy.",
+  "mezo.paste.duePast": "Efa lasa ny daty {date}: navela toy izay ny faharetan'ny rohy.",
+  "mezo.paste.noDue": "Tsy nahitana fe-potoana: navela toy izay ny faharetan'ny rohy."
 }

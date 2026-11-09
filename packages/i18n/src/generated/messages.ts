@@ -902,7 +902,18 @@ export type MessageKey =
   | "mezo.check.find.notPaylink"
   | "mezo.check.find.forged"
   | "mezo.check.find.badLink"
-  | "mezo.check.find.unavailable";
+  | "mezo.check.find.unavailable"
+  | "mezo.paste.title"
+  | "mezo.paste.label"
+  | "mezo.paste.hint"
+  | "mezo.paste.key"
+  | "mezo.paste.amount"
+  | "mezo.paste.unsupported"
+  | "mezo.paste.noAmount"
+  | "mezo.paste.due"
+  | "mezo.paste.dueLate"
+  | "mezo.paste.duePast"
+  | "mezo.paste.noDue";
 
 /** The named placeholders of each message; `never` when it has none. */
 export interface MessageParams {
@@ -1803,6 +1814,17 @@ export interface MessageParams {
   readonly "mezo.check.find.forged": { readonly ref: ParamValue; readonly why: ParamValue };
   readonly "mezo.check.find.badLink": { readonly host: ParamValue };
   readonly "mezo.check.find.unavailable": { readonly ref: ParamValue };
+  readonly "mezo.paste.title": never;
+  readonly "mezo.paste.label": never;
+  readonly "mezo.paste.hint": never;
+  readonly "mezo.paste.key": never;
+  readonly "mezo.paste.amount": { readonly amount: ParamValue };
+  readonly "mezo.paste.unsupported": { readonly said: ParamValue };
+  readonly "mezo.paste.noAmount": never;
+  readonly "mezo.paste.due": { readonly date: ParamValue; readonly validity: ParamValue };
+  readonly "mezo.paste.dueLate": { readonly date: ParamValue };
+  readonly "mezo.paste.duePast": { readonly date: ParamValue };
+  readonly "mezo.paste.noDue": never;
 }
 
 /** Plural families: `<base>.one`, `<base>.other`, … selected with Intl.PluralRules. */
@@ -2023,4 +2045,15 @@ export type EditionKey =
   | "mezo.check.find.notPaylink"
   | "mezo.check.find.forged"
   | "mezo.check.find.badLink"
-  | "mezo.check.find.unavailable";
+  | "mezo.check.find.unavailable"
+  | "mezo.paste.title"
+  | "mezo.paste.label"
+  | "mezo.paste.hint"
+  | "mezo.paste.key"
+  | "mezo.paste.amount"
+  | "mezo.paste.unsupported"
+  | "mezo.paste.noAmount"
+  | "mezo.paste.due"
+  | "mezo.paste.dueLate"
+  | "mezo.paste.duePast"
+  | "mezo.paste.noDue";

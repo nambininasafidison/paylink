@@ -92,5 +92,16 @@
   "mezo.check.find.notPaylink": "{ref}: this transaction is not a PayLink payment (no payment event from the PayLink contract).",
   "mezo.check.find.forged": "{ref}: this receipt link does not match the chain. {why}",
   "mezo.check.find.badLink": "A link on {host} is not a valid Mezo testnet PayLink link: altered, cut, or for another network.",
-  "mezo.check.find.unavailable": "{ref}: Mezo testnet did not answer."
+  "mezo.check.find.unavailable": "{ref}: Mezo testnet did not answer.",
+  "mezo.paste.title": "Paste the client's message",
+  "mezo.paste.label": "Client's message",
+  "mezo.paste.hint": "Fills the amount and how long the link stays valid from what the message says, by fixed rules: no AI reads it, and nothing leaves this device. Check every field before you sign.",
+  "mezo.paste.key": "Fill the form",
+  "mezo.paste.amount": "Amount: {amount} MUSD (MUSD is a dollar).",
+  "mezo.paste.unsupported": "The message asks {said}: this terminal invoices MUSD only. Convert it yourself; the amount was not filled.",
+  "mezo.paste.noAmount": "No amount in MUSD or dollars found: type it yourself.",
+  "mezo.paste.due": "Due {date}: the link stays valid {validity}, the shortest choice that covers it.",
+  "mezo.paste.dueLate": "Due {date}: more than 30 days away, so the link's validity was left as it is.",
+  "mezo.paste.duePast": "The date {date} has passed: the link's validity was left as it is.",
+  "mezo.paste.noDue": "No due date found: the link's validity was left as it is."
 }

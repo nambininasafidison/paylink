@@ -22,6 +22,7 @@ import { AppError, decodeUiError } from "../core/errors.ts";
 import { displayAmount, parseTypedAmount, shortHex } from "../core/format.ts";
 import { ariaryLabel } from "../core/fx.ts";
 import { payUrl, tillUrl, whatsappUrl } from "../core/links.ts";
+import { pasteHelper } from "../editions/mezo/paste.ts";
 import { mezoNotes, mezoTestSteps } from "../editions/mezo/ui.ts";
 import { invoiceId } from "../store/db.ts";
 import { addr, fact, setStatus, statusLine } from "../ui/atoms.ts";
@@ -410,6 +411,22 @@ function renderTerminal(app: App, ui: PageUi): void {
       h("div", { class: "view-head" }, h("h2", { attrs: { id: "create-head" } }, t("create.head")), meta),
       h("div", { class: "field" }, h("span", { class: "label" }, t("create.network")), bands.element),
       notDeployed,
+      // Mezo edition: the amount and the link's validity read from a client's message, by fixed rules (no model).
+      __PAYLINK_EDITION__ === "mezo"
+        ? pasteHelper(app, {
+            setAmount: (amount) => {
+              amountInput.value = amount;
+              amountInput.dispatchEvent(new Event("input"));
+            },
+            setValidity: (choice) => {
+              const radio = expirySeg.element.querySelector<HTMLInputElement>(`input[value="${choice}"]`);
+              if (radio !== null && !radio.checked) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event("change"));
+              }
+            },
+          })
+        : null,
       h(
         "div",
         { class: "readout" },

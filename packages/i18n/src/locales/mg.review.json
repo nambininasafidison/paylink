@@ -898,7 +898,18 @@
     "mezo.check.find.notPaylink",
     "mezo.check.find.forged",
     "mezo.check.find.badLink",
-    "mezo.check.find.unavailable"
+    "mezo.check.find.unavailable",
+    "mezo.paste.title",
+    "mezo.paste.label",
+    "mezo.paste.hint",
+    "mezo.paste.key",
+    "mezo.paste.amount",
+    "mezo.paste.unsupported",
+    "mezo.paste.noAmount",
+    "mezo.paste.due",
+    "mezo.paste.dueLate",
+    "mezo.paste.duePast",
+    "mezo.paste.noDue"
   ],
   "pendingFormats": [
     "src/format.ts MG_MONTHS, MG_MONTHS_SHORT, MG_WEEKDAYS: CLDR mg names on fr-MG date patterns, 24-hour clock",
