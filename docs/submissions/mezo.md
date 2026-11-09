@@ -26,6 +26,7 @@ Tags as in the research: **C** confirmed (on chain, or a primary source read), *
 9. [Disclosures and commit range](#9-disclosures-and-commit-range)
 10. [Liste de contrôle (en français)](#10-liste-de-contrôle-en-français)
 11. [As submitted on AKINDO (wave 1, 2026-10-21)](#11-as-submitted-on-akindo-wave-1-2026-10-21)
+12. [Wave 2 (2026-11)](#12-wave-2-2026-11)
 
 ## 1. Facts this pack relies on
 
@@ -484,3 +485,83 @@ Submitted on 2026-10-21 from commit `79c3e67` of branch `mezo` to "Build with MU
 | Milestone 3rd Wave (required) | — | The "Later, only after a third-party audit" line of `mezo.milestones` (185 characters) |
 
 **Not sent, because AKINDO has no field for them:** the track and chain choices ("Build with" was set to Mezo and the category to Payments), `mezo.target`, `mezo.business`, `mezo.validation`, `mezo.stack` (only as tags), `mezo.existing`, `mezo.readiness` (only as "Prototype"), `mezo.integration`, `mezo.disclosure` and `mezo.judges`. The product page shows the repository as `nambininasafidison/paylink`, which opens `main`; the branch link is in "Deliverable URL" and "Updates in this Wave". Tag: `submission/mezo-wave1-2026-10-21` on `79c3e67`.
+
+## 12. Wave 2 (2026-11)
+
+| | |
+|---|---|
+| **Deadline** | 2026-11-15 15:00 UTC (the owner's reading of AKINDO's page) |
+| **Baseline** | Wave 1 was submitted on 2026-10-21 from `79c3e67` ([§11](#11-as-submitted-on-akindo-wave-1-2026-10-21)). Everything below is new since that commit |
+| **Written** | 2026-11-09 by Claude Code on branch `mezo` ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)); the owner submits |
+| **Live demo** | `https://mezo.paylink-mg.pages.dev/mezo/` (the preview of branch `mezo`, redeployed by each push, [§2](#2-where-judges-see-it-the-preview-of-branch-mezo)) |
+
+### What changed since `79c3e67`
+
+Between the wave 1 submission and 2026-11-09 the branch only got documentation (`cf43fa0`). Wave 2's product work is these commits:
+
+| Commit | What |
+|---|---|
+| `cf43fa0` | docs(submissions): what the Mezo wave 1 submission sent, and AKINDO's real limits |
+| `26af499` | feat(web): Mezo edition answers "Was I really paid?" from the chain alone |
+| `dfb0157` | feat(web): paste the client's message on the Mezo create terminal |
+| `a936963` | test(e2e): "Was I really paid?" and the paste helper on the Mezo fork |
+| the commits that add this section | docs(research): the survey ([mezo-survey-2026-11.md](../research/mezo-survey-2026-11.md)); docs(submissions): this section |
+
+### What the survey says, honestly
+
+An online survey in the FaceDev Facebook group of Malagasy developers, 2026-10-28 to 2026-10-30: 10 responses, 9 of them paid from abroad in the last 12 months (8 more than five times). Aggregates only, no personal data, nobody quoted: [mezo-survey-2026-11.md](../research/mezo-survey-2026-11.md).
+
+- **Payments from abroad mostly work for them.** The last one went fine for 8 of 9; 5 of 9 were international bank transfers; 8 of 9 lost under 3 % or nothing they know of; 6 of 9 receive ariary directly.
+- **What remains is trust.** One waited several days before being sure the money had arrived. One met a client who said they had paid while nothing arrived, a proof of payment that was false, and a disagreement on the amount or fees. One lost a bitcoin payment while converting it to ariary, because the reseller never paid. 4 of 9 have received or held crypto or stablecoins.
+- **Little willingness to pay for tools:** 2 of 9 pay for one, 3 use free tools, 4 none.
+- **Limits:** one Facebook group of developers, tech-savvy and self-selected, 10 answers. It does not represent Malagasy freelancers, and it does not show demand for MUSD: it shows where PayLink can help (proof of payment) and where it cannot (a trusted conversion to ariary, which PayLink does not do).
+
+So wave 2 builds for the pain that was reported, not for the one we had assumed (cheaper transfers). The "Demand validation" field of [§3](#demand-validation) is superseded by this survey for wave 2; no interview has been held yet.
+
+### New in wave 2
+
+1. **"Was I really paid?"** on the merchant's ledger (`/mezo/ledger/`, `apps/web/src/editions/mezo/verify.ts` and `apps/web/src/editions/mezo/check.ts`). The merchant pastes what a client sent: a message, the text of a screenshot, a transaction hash, a PayLink invoice link or receipt link. Code extracts the hashes, links, amounts and tokens (MUSD, dollars, BTC, sats); the verdict comes only from Mezo testnet (chain 31611), through the app's chain client and registry, never from the message:
+   - **Paid** when the transaction's receipt holds a `Paid` event of PayLinkV2 at `0x448eCce9711860502806A3d5B021a4f9Ba715082` naming the connected wallet as payee, when a receipt link re-verifies on chain, or when `stateOf` shows the merchant's own invoice paid. It shows the exact amount and token, the block (with an explorer link), the time, the payer and the invoice it paid. An amount the message claims that differs from the chain's is called out.
+   - **Not received**, with the reason: no such transaction (after Mezo's RPC is asked again for about 11 seconds), a payment to someone else, an unpaid or cancelled invoice, a failed transaction, a transaction that is no PayLink payment, a receipt link the chain contradicts, or an old receipt sent again for a new invoice.
+   - **Pending** when the node knows the transaction but it is not in a block; **Can't tell yet** when Mezo testnet does not answer, or when the message names nothing the chain can check ("ask your client for the transaction hash").
+   - The text never leaves the device: only the hashes and keys it names reach Mezo's RPC. No AI and no server decides. The rules are the PayPal edition's `POST /v1/check` (apps/api/src/reconciler/check.ts on branch `paypal`), with the chain as the only source. The chain client gained one optional lookup, `eth_getTransactionByHash`, to tell a pending payment from a made-up hash.
+2. **"Paste the client's message"** on the create terminal (`apps/web/src/editions/mezo/paste.ts`): a disclosure that fills the amount (MUSD or dollars; never converted from BTC, euros or ariary, and it says so) and the link's validity (the shortest of 1, 7 or 30 days that covers the due date) from a client's message, by fixed rules for English, French and Malagasy dates. It is labelled "no AI". Nothing is signed or sent.
+3. **Tests.** 12 unit tests (`apps/web/test/mezo/verify.test.ts`, `apps/web/test/mezo/paste.test.ts`) and one end-to-end test in `e2e/specs/mezo.spec.ts` on the anvil fork of Mezo testnet with the real MUSD: a pasted message fills the terminal; a real payment's hash and its receipt read Paid with the amount, the invoice and the block; a made-up hash, an unpaid invoice and a replayed receipt read Not received; "I paid" alone reads Can't tell yet. The existing axe and reflow matrix (EN, FR, MG; 320, 390 and 1280 px; light and dark) covers the new panel and disclosure.
+
+**Why the AI drafting assistant is not on the Mezo create page.** It exists on the PayPal edition's API Worker (`https://paylink-api.raherizonambinina.workers.dev`, branch `paypal`), and it cannot serve the Mezo edition without a change to that Worker, which is out of scope while the PayPal edition is judged: its CORS answers only `https://paypal.paylink-mg.pages.dev` and `https://paylink-mg.pages.dev` (a preflight from `https://mezo.paylink-mg.pages.dev` gets `origin-not-allowed`); `POST /v1/ai/draft` needs a session token, and sessions are signed for chain 11155111 (Sepolia) from one of those origins only (`E_SESSION_CHAIN`). Read from the Worker's source on branch `paypal`, never by calling it. Hence the deterministic helper, and the next step 2 below.
+
+**For judges (one minute).** Open `/mezo/ledger/`, connect any wallet, and paste the first real payment's hash `0xf44cf47b2b6290ae1014dedbe1b0bf8adf590974a619808b47560b4eed6d22cd`: it reads **Not received**, because that payment went to the owner's address, not yours; with the owner's wallet it reads **Paid**, 12.50 MUSD, block 16184418. Paste a made-up hash, or "I paid you yesterday", and see why neither proves anything.
+
+### Maturity: still testnet
+
+- **Mezo testnet only.** PayLinkV2 is deployed and source-verified on Mezo testnet; nothing runs on mainnet, and the app links Mezo's testnet pages only.
+- **Mainnet is deferred**, for three reasons: the payer's gas is BTC, so every payer needs BTC on Mezo; Mezo's minimum deposit is about 0.01 BTC per Mezo's blog (**UNVERIFIED** from the sandbox), a high entry cost for a client paying a small invoice; and PayLinkV2 has had no third-party audit (self-review and the test suites only, [§7](#7-honest-limitations)).
+- The Malagasy text of the new screens awaits the owner's review (`packages/i18n/src/locales/mg.review.json`). PayLink does not convert MUSD to ariary and names no one who does.
+
+### Next steps
+
+1. **By 2026-11-22:** the owner reviews the Malagasy copy of the wave 2 screens, and a testnet pilot of "Was I really paid?" with 3 to 5 volunteers from the surveyed group (a real payment, a fake proof, a replayed receipt each), reported as counts only.
+2. **By 2026-11-29:** the AI drafting assistant on the Mezo create page, once the API Worker accepts the Mezo origin and Mezo-chain sessions, as a reviewed change on its own branch after the PayPal judging; the deterministic helper stays as the fallback.
+3. **By 2026-12-13:** Bitcoin wallets as payers (Mezo Passport, Safe smart accounts paying with approve and pay) prototyped on Mezo testnet after its licence review (GPL-3.0 code in an MIT app), still with no mainnet before an audit.
+
+### "Updates in this Wave" (AKINDO, 3,000 characters)
+
+<!-- field: mezo.wave2 max=3000 -->
+```text
+New since our wave 1 submission (commit 79c3e67, Oct 21, 2026).
+
+What we learned. We surveyed Malagasy developers paid from abroad (FaceDev Facebook group, Oct 28-30, 10 responses, 9 of them paid from abroad). Honest reading: their payments mostly work. 8 of 9 say the last one went fine, 5 of 9 used a bank transfer, 8 of 9 lost under 3% or nothing they know of. What remains is trust: one waited days to be sure the money had arrived; one met a client who said "I paid" while nothing arrived, a fake proof of payment and a dispute on the amount; one lost a bitcoin payment to a reseller when converting to ariary. 4 of 9 have received or held crypto. A small, tech-savvy sample from one group: not representative.
+
+What we built, live on Mezo testnet:
+1. "Was I really paid?" on the merchant's ledger. Paste what the client sent: a message, a screenshot's text, a transaction hash, a PayLink invoice or receipt link. Code extracts the hashes, links, amounts and tokens (MUSD, dollars, BTC, sats); the answer comes only from Mezo testnet: the transaction receipt and its Paid event from our PayLinkV2 contract (0x448eCce9711860502806A3d5B021a4f9Ba715082), or the contract's state for the merchant's invoice. Paid shows the exact amount, the token, the block, the time and the invoice it paid, to the merchant's own address. Not received says why: a made-up hash, a payment to someone else, an unpaid or cancelled invoice, a failed transaction, an old receipt sent again for a new invoice, a forged receipt link. Pending and "Can't tell yet" say so instead of guessing. The message never leaves the device; no AI and no server decides.
+2. "Paste the client's message" on the create page: fills the MUSD amount and the link's validity from the client's message, by fixed rules in English, French and Malagasy, labelled "no AI". Our AI drafting assistant, built for another edition, runs on a server that does not accept the Mezo app yet; we will not change it while that edition is judged.
+3. Tests: 12 new unit tests, and an end-to-end test on a fork of Mezo testnet with the real MUSD that pays an invoice, then checks the real hash, its receipt, a fake hash, an unpaid invoice and a replayed receipt. The accessibility checks (English, French, Malagasy; phone to desktop; light and dark) cover the new screens.
+
+Still testnet. Mainnet waits: the payer's gas is BTC, Mezo's minimum deposit is about 0.01 BTC per Mezo's blog, and PayLinkV2 has no third-party audit yet. PayLink does not convert MUSD to ariary.
+
+Next: (1) by Nov 22, the Malagasy copy reviewed and a testnet pilot of the checker with volunteer freelancers, reported as counts; (2) by Nov 29, the AI drafting assistant on Mezo once its server accepts the Mezo app, as a reviewed change; (3) by Dec 13, Bitcoin wallets as payers (Mezo Passport) prototyped on testnet after a licence review.
+
+Try it: https://mezo.paylink-mg.pages.dev/mezo/ledger/
+Code: https://github.com/nambininasafidison/paylink/tree/mezo
+```
+Characters: 2,972 / 3,000
