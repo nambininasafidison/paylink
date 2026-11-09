@@ -12,6 +12,7 @@ import type { AccountProvider } from "../../src/accounts/types.ts";
 import type { App } from "../../src/app/context.ts";
 import { forgetSession, storedSession } from "../../src/editions/paypal/session.ts";
 import { paidOnPaypal, paypalTill, TWIN_POLL_MS } from "../../src/editions/paypal/till.ts";
+import { afterChainPoll } from "../../src/pages/till.ts";
 import { cachedTwin } from "../../src/editions/paypal/twins.ts";
 import { API, KEY, paypalApp } from "./fixtures.ts";
 
@@ -103,6 +104,21 @@ describe("paidOnPaypal: the till's only PayPal rule", () => {
     expect(paidOnPaypal(link, twin({ status: "PAID", statusClass: "paid", situation: "S2", key: `0x${"cd".repeat(32)}` }))).toBe(false);
     const open = { ...link, invoice: { ...link.invoice, amount: 0n } } as DecodedInvoiceLink;
     expect(paidOnPaypal(open, twin({ status: "PAID", statusClass: "paid", situation: "S2", amount: "0.00" }))).toBe(false);
+  });
+});
+
+describe("the till's verdict against the chain watcher (the owner's shoot of 2026-11-09)", () => {
+  it("keeps a verified payment lit: the chain's waiting or network-lost states never override it", () => {
+    // Paid on PayPal (verified with PayPal's own GET), then the chain's RPC drops and comes back.
+    expect(afterChainPoll("paid", "lost")).toBeNull();
+    expect(afterChainPoll("paid", "ok")).toBeNull();
+    // A stopped till stays idle, whatever a poll still in flight finds.
+    expect(afterChainPoll("idle", "lost")).toBeNull();
+    // Waiting: network lost, then back to waiting once the chain answers again; nothing to change otherwise.
+    expect(afterChainPoll("waiting", "lost")).toBe("error");
+    expect(afterChainPoll("error", "lost")).toBe("error");
+    expect(afterChainPoll("error", "ok")).toBe("waiting");
+    expect(afterChainPoll("waiting", "ok")).toBeNull();
   });
 });
 

@@ -52,6 +52,24 @@ export function longestWord(text: string): number {
 const MAX_RANGE = 99n;
 const POLL_MS = 1000;
 
+/** The till window's states (`data-state`). */
+export type TillState = "idle" | "waiting" | "paid" | "error";
+
+/**
+ * What the chain watcher's poll may show over the window's `current` state: the network lost ("error"), or, once read
+ * again, back to "waiting". A lit verdict stays lit: a payment verified on either rail (the chain's receipt, or PayPal's
+ * own GET) is never turned back to "waiting" or "network lost" by a later poll of the chain. `null`: leave it as it is.
+ */
+export function afterChainPoll(current: TillState, read: "ok" | "lost"): TillState | null {
+  if (current === "paid" || current === "idle") {
+    return null;
+  }
+  if (read === "lost") {
+    return "error";
+  }
+  return current === "error" ? "waiting" : null;
+}
+
 export const tillPage: PageDefinition = {
   route: "till",
   payer: false,
@@ -193,7 +211,8 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
   const seen = new Set<string>();
   const entries: HTMLElement[] = [];
 
-  const light = (state: "idle" | "waiting" | "paid" | "error", text: string): void => {
+  const current = (): TillState => (display.getAttribute("data-state") ?? "idle") as TillState;
+  const light = (state: TillState, text: string): void => {
     display.setAttribute("data-state", state === "waiting" ? "waiting" : state);
     stateWord.textContent = text;
     // The verdict is sized to the window and to its longest word, which never breaks: "VOALOA" (Malagasy) has six
@@ -256,12 +275,14 @@ function renderTill(app: App, ui: PageUi, section: HTMLElement): void {
         }
       }
       from = head + 1n;
-      if (display.getAttribute("data-state") === "error") {
+      if (afterChainPoll(current(), "ok") === "waiting") {
         light("waiting", t("till.waiting"));
         setStatus(status, "", "");
       }
     } catch {
-      light("error", t("till.error"));
+      if (afterChainPoll(current(), "lost") === "error") {
+        light("error", t("till.error"));
+      }
     }
   };
 
