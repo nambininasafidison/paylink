@@ -9,8 +9,10 @@
  * - Amount: the first amount in MUSD or dollars (MUSD is a dollar), with the same number rules as "Was I really
  *   paid?" (`verify.ts`). An amount in BTC, euros or ariary is not converted: the notice says so and nothing is filled.
  * - Due date: an ISO date, a day/month(/year) date (day first, as written in Madagascar and France), a day and a month
- *   name in English, French or Malagasy, "in N days/weeks/months" (EN, FR, MG), tomorrow, next week. The link's
- *   validity becomes the shortest choice that covers it (1, 7 or 30 days); a date further away or past is left alone.
+ *   name in English, French or Malagasy, "in N days/weeks/months" (EN, FR, MG), tomorrow, a weekday's name ("by
+ *   Friday", "vendredi", "zoma": its next occurrence after today, 1 to 7 days away, "next Friday" included), next week,
+ *   today. The link's validity becomes the shortest choice that covers it (1, 7 or 30 days); a date further away or
+ *   past is left alone.
  */
 import { LOCALE_INFO } from "@paylink/i18n";
 import { formatDateTime } from "@paylink/i18n";
@@ -59,7 +61,21 @@ const DAY_MONTH = new RegExp(String.raw`(?<![\p{L}\p{N}])(\d{1,2})(?:st|nd|rd|th
 const MONTH_DAY = new RegExp(String.raw`(?<![\p{L}\p{N}])(${MONTH})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?(?![\p{L}\p{N}])`, "iu");
 const RELATIVE = /(?<![\p{L}])(?:in|within|dans|sous|d['’]ici|afaka|ao\s+anatin['’]ny)\s+(\d{1,3}|an?|one|une?|iray)\s+(days?|jours?|andro|weeks?|semaines?|herinandro|months?|mois|volana)(?![\p{L}])/iu;
 const TOMORROW = /(?<![\p{L}])(?:tomorrow|demain|rahampitso)(?![\p{L}])/iu;
-const NEXT_WEEK = /(?<![\p{L}])(?:next\s+week|semaine\s+prochaine|herinandro\s+ho\s+avy)(?![\p{L}])/iu;
+const NEXT_WEEK = /(?<![\p{L}])(?:next\s+week|semaine\s+prochaine|herinandro\s+(?:ho\s+avy|manaraka))(?![\p{L}])/iu;
+const TODAY = /(?<![\p{L}])(?:today|aujourd['’]hui|androany|anio)(?![\p{L}])/iu;
+/** Weekday names in full (no abbreviation: "sat", "mar" or "sun" are other words too), 0 = Sunday as in `getUTCDay`. */
+const WEEKDAYS: Readonly<Record<string, number>> = Object.fromEntries(
+  [
+    ["sunday dimanche alahady", 0],
+    ["monday lundi alatsinainy", 1],
+    ["tuesday mardi talata", 2],
+    ["wednesday mercredi alarobia", 3],
+    ["thursday jeudi alakamisy", 4],
+    ["friday vendredi zoma", 5],
+    ["saturday samedi sabotsy", 6],
+  ].flatMap(([names, weekday]) => String(names).split(" ").map((name) => [name, Number(weekday)] as const)),
+);
+const WEEKDAY = new RegExp(String.raw`(?<![\p{L}])(${Object.keys(WEEKDAYS).join("|")})(?![\p{L}])`, "iu");
 const NUM = String.raw`\d{1,3}(?:[, \u00a0\u202f]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?`;
 const OTHER_CURRENCY = new RegExp(String.raw`(?<![\p{L}\p{N}])(?:(?:€|eur|ar|mga)\s?(?:${NUM})|(?:${NUM})\s?(?:€|eur|euros?|ar|ariary|mga))(?![\p{L}\p{N}])`, "iu");
 
@@ -114,8 +130,17 @@ export function dueDateOf(text: string, now: Date): Date | null {
   if (TOMORROW.test(text)) {
     return new Date(today.getTime() + DAY);
   }
+  const weekday = WEEKDAY.exec(text);
+  if (weekday !== null) {
+    const target = WEEKDAYS[(weekday[1] ?? "").toLowerCase()] ?? today.getUTCDay();
+    // Its next occurrence after today: "by Friday" said on a Friday is a week away.
+    return new Date(today.getTime() + ((target - today.getUTCDay() + 6) % 7 + 1) * DAY);
+  }
   if (NEXT_WEEK.test(text)) {
     return new Date(today.getTime() + 7 * DAY);
+  }
+  if (TODAY.test(text)) {
+    return today;
   }
   return null;
 }

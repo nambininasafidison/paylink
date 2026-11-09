@@ -30,11 +30,32 @@ describe("paste the client's message (paste.ts)", () => {
       ["in a month", "2026-12-09"],
       ["demain", "2026-11-10"],
       ["next week please", "2026-11-16"],
+      ["herinandro manaraka", "2026-11-16"],
+      // Weekdays (2026-11-09 is a Monday): the next occurrence after today, "next" or not.
+      ["Can you pay by Friday?", "2026-11-13"],
+      ["next Friday", "2026-11-13"],
+      ["avant vendredi", "2026-11-13"],
+      ["alohan'ny zoma", "2026-11-13"],
+      ["Sunday at the latest", "2026-11-15"],
+      ["mercredi prochain", "2026-11-11"],
+      ["amin'ny alakamisy", "2026-11-12"],
+      ["on Monday", "2026-11-16"],
+      ["today please", "2026-11-09"],
+      ["aujourd'hui", "2026-11-09"],
+      ["androany", "2026-11-09"],
     ];
     for (const [text, iso] of cases) {
       expect(dueDateOf(text, now)?.getTime(), text).toBe(day(iso));
     }
     expect(dueDateOf("12.50 MUSD for 3 days of work", now)).toBeNull();
+    // A weekday inside another word, or abbreviated, is not one; a dated mention wins over a weekday.
+    expect(dueDateOf("Mondays and Sundays are off; sat, sun", now)).toBeNull();
+    expect(dueDateOf("Friday, 20/11", now)?.getTime()).toBe(day("2026-11-20"));
+  });
+
+  it("reads 'by Friday' in a client's message as a due date (the owner's shoot of 2026-11-09)", () => {
+    expect(readMessage("Logo design, 120 USD, by Friday please", now)).toMatchObject({ amount: { value: "120", unit: "USD" }, due: { days: 4 }, validity: "7d" });
+    expect(readMessage("Vidin'ny logo 120 MUSD, aloa androany", now)).toMatchObject({ due: { days: 0 }, validity: "1d" });
   });
 
   it("fills a MUSD or dollar amount and the shortest validity that covers the due date; never converts another currency", () => {
