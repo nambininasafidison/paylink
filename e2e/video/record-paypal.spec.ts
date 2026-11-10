@@ -41,6 +41,7 @@ let anvil: ChildProcess | null = null;
 let rpcUrl = SEPOLIA_RPC;
 
 test.describe.configure({ mode: "serial" });
+test.use({ actionTimeout: 45_000, navigationTimeout: 90_000 });
 
 async function jsonRpc(url: string, method: string, params: readonly unknown[] = []): Promise<unknown> {
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
@@ -153,6 +154,7 @@ async function cap(id: string, minSeconds: number): Promise<void> {
   capStart = now();
   capMin = minSeconds;
   events.push({ t: capStart, kind: "cap", id });
+  console.log(`${new Date().toISOString()} cap ${id}`);
 }
 async function settle(): Promise<void> {
   const rest = capStart + capMin - now();
@@ -163,6 +165,7 @@ async function settle(): Promise<void> {
 /** The compositor plays real time faster from here (a wait: the chain, PayPal, the model), until speed 1 again. */
 function speed(factor: number): void {
   events.push({ t: now(), kind: "speed", value: String(factor) });
+  console.log(`${new Date().toISOString()} speed ${String(factor)}`);
 }
 function value(id: string, v: string): void {
   events.push({ t: now(), kind: "value", id, value: v });
@@ -370,6 +373,7 @@ async function recordTwin(browser: Browser): Promise<void> {
   const fill = async (sel: string, v: string): Promise<void> => {
     const l = cf.locator(sel);
     await l.click();
+    await l.fill("");
     await l.pressSequentially(v, { delay: 18 });
   };
   speed(2.5);
@@ -569,19 +573,25 @@ async function recordTwin(browser: Browser): Promise<void> {
   await cut(payer);
 }
 
-/** Opens the desk: connects the wallet if needed, then signs the desk session (no transaction). */
+/**
+ * Opens the desk: connects the wallet if needed, then signs the desk session (no transaction). The page restores a
+ * known wallet by itself a moment after it loads, so a key may vanish under the finger: clicks are short and retried.
+ */
 async function openDesk(p: Phone): Promise<Locator> {
   const view = p.page.locator(".view-desk");
+  await sleep(1500);
   for (let i = 0; i < 240; i += 1) {
-    const state = await view.getAttribute("data-desk").catch(() => null);
+    const state = await view.getAttribute("data-desk", { timeout: 5000 }).catch(() => null);
     if (state === "ready") {
       return view;
     }
     const action = state === "no-wallet" ? "connect" : state === "no-session" ? "open-session" : null;
     if (action !== null) {
-      const key = view.locator(`[data-action=${action}]:enabled`);
-      if (await key.isVisible().catch(() => false)) {
-        await tap(p, key, 400);
+      const key = view.locator(`[data-action=${action}]:enabled`).first();
+      const box = await key.boundingBox({ timeout: 1000 }).catch(() => null);
+      if (box !== null && (await key.click({ timeout: 2000 }).then(() => true).catch(() => false))) {
+        events.push({ t: now(), kind: "tap", side: p.side, x: box.x + box.width / 2, y: box.y + box.height / 2 });
+        await sleep(800);
         await chooseWallet(p);
       }
     }
@@ -595,24 +605,21 @@ function deskCard(view: Locator, kind: string, number: string): Locator {
   return view.locator(`li.desk-card[data-kind=${kind}]`).filter({ has: view.page().locator(`[data-exact] [data-label=invoice][data-value="${number}"]`) });
 }
 
-/** Not filmed: closes the dollar option of every rehearsal invoice PayPal shows paid (the desk's own proposals). */
+/** Not filmed: rejects the desk's open proposals for earlier rehearsal invoices, so the take's desk shows its own. */
 test("cleanup", async ({ browser }) => {
   test.skip(process.env["VIDEO_CLEANUP"] !== "1");
   test.setTimeout(600_000);
   const seller = await phone(browser, "L", "seller");
   await seller.page.goto(`${SITE}/desk/`);
   const view = await openDesk(seller);
-  await view.locator("[data-action=sweep]").click();
-  await expect(view).toHaveAttribute("data-desk", "ready", { timeout: 150_000 });
-  const open = view.locator("li.desk-card[data-kind=cancel_paylink][data-state=open]");
-  console.log("open cancel proposals:", await open.count());
-  while ((await open.count()) > 0) {
+  const open = view.locator("li.desk-card[data-state=open]");
+  console.log("open proposals:", await open.count());
+  for (let i = 0; i < 10 && (await open.count()) > 0; i += 1) {
     const card = open.first();
-    console.log("approving:", (await card.innerText()).replace(/\s+/gu, " ").slice(0, 200));
-    await card.locator("[data-action=approve]").click();
-    await expect(view.locator("li.desk-card[data-kind=cancel_paylink][data-state=done]")).not.toHaveCount(0, { timeout: 180_000 });
-    await sleep(1000);
+    console.log("rejecting:", (await card.innerText()).replace(/\s+/gu, " ").slice(0, 160));
+    await card.locator("[data-action=reject]").click();
+    await sleep(4000);
   }
-  console.log("sent:", seller.wallet?.sent.join(" "));
+  console.log("left open:", await open.count());
   await seller.page.screenshot({ path: join(SHOTS, "cleanup.png"), fullPage: true });
 });
