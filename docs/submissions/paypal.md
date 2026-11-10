@@ -4,7 +4,7 @@
 |---|---|
 | **Event** | PayPal AI Hackathon on Devpost ("Build what's next with PayPal and AI"), `https://paypalaihackathon.devpost.com/`. No tracks; the honourable mentions that fit are "Best Use of PayPal + AI" and "Best Use of Agentic Commerce". A project wins at most one sponsor prize plus one Grand Prize or one Honorable Mention (FAQ, **O**; [rules §7](../research/paypal/rules.md#7-prizes-usd)) |
 | **Deadline** | **Thursday 2026-11-12, 12:00 pm PT = 20:00 UTC = 23:00 in Antananarivo** (the Rules page, **O**, as the two participant copies of [rules §2](../research/paypal/rules.md#2-dates) said). Projects submitted before **Thursday 2026-11-05** get an early eligibility check and stay editable until the deadline (update "Two weeks to go", **O**). Plan: submit by 2026-11-01 ([SPEC, decisions of 2026-10-21](../paypal/SPEC.md#decisions-of-2026-10-21)). Judging from 2026-12-01 2:00 pm PT to 2026-12-15 8:00 am PT; the demo stays live and free until then |
-| **Status** | Paste-ready. §3 follows the Devpost form field by field, as read on 2026-10-29, with the owner's answers. `[TO FILL: …]` placeholders remain only where a fact does not exist yet: the judge links, the sandbox buyer logins (typed into Devpost only), the video, the live evals. PayLinkV2 is deployed on Ethereum Sepolia and its source verified on Etherscan; the edition, the API Worker and the PayPal webhook are online; the sandbox capture ran (all on 2026-10-29) |
+| **Status** | Paste-ready. §3 follows the Devpost form field by field, as read on 2026-10-29, with the owner's answers. `[TO FILL in Devpost only: …]` placeholders remain only for what must stay out of this public repository: the judge links (public links can be used up) and the sandbox buyer logins. PayLinkV2 is deployed on Ethereum Sepolia and its source verified on Etherscan; the edition, the API Worker and the PayPal webhook are online; the sandbox capture ran (all on 2026-10-29) |
 | **Written** | 2026-10-22, on the branch `paypal` (branched from `mezo` at `ffd952f`), by the integration step that applied every workstream's handoff; §1, §3, §6, §7 and §10 rebuilt on 2026-10-29 from the Devpost form read after "Start project", the sandbox capture and the Etherscan verification. `git log -- docs/submissions/paypal.md` lists the commits |
 | **Who submits** | The owner, from the owner's Devpost account (the private draft "PayLink Twin", with only its name entered on 2026-10-29). Claude Code drafts only ([AI_DISCLOSURE.md](../../AI_DISCLOSURE.md)) |
 | **Checklist** | [§10](#10-liste-de-contrôle-en-français), in French; going live step by step: [PayPal runbook](../runbooks/paypal.md) |
@@ -41,7 +41,7 @@ Checked on 2026-10-29 unless stated otherwise. If one of them changes, change th
 | Contract on Ethereum Sepolia (11155111) | **Deployed on 2026-10-29** at `0x448eCce9711860502806A3d5B021a4f9Ba715082`, through the CREATE2 factory `0x4e59b44847b379578588920cA78FbF26c0B4956C`, sent directly from the deploy kit by your "PayPal Demo" wallet: transaction `0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3`, block 12,017,054. `tools/verify-deployment` passed its ten checks (code, masked runtime hash, CBOR metadata, EIP-712 immutables, `eip712Domain()`, the transaction) and the kit's record is byte-identical to the committed one. **Source verified on Etherscan the same day**: "Source Code Verified - Exact Match", contract `PayLinkV2`, compiler `v0.8.30+commit.73712a01`, optimization on with 10,000 runs, EVM version `paris`, licence MIT, Solidity Standard Json-Input, at `https://sepolia.etherscan.io/address/0x448eCce9711860502806A3d5B021a4f9Ba715082#code` | `protocol/deployments/11155111.json`; [sepolia.md](../research/paypal/sepolia.md) (**C**); Etherscan (**O**, [runbook §9](../runbooks/paypal.md#9-paylinkv2-on-ethereum-sepolia)) |
 | Deployment gas | Sepolia runs Amsterdam: `eth_estimateGas` of the CREATE2 deployment is 19,249,557 on Sepolia (19,240,803 on a fork); a first USDC payment by EIP-3009 authorisation uses 457,705 gas and a cancellation 146,812, on the fork. The registry and the kit were re-measured under these rules on 2026-10-22, before any real deployment; the real deployment of 2026-10-29 used 18,946,483 gas (its receipt), at 1.5 gwei a gas: 0.0284 Sepolia ETH | [sepolia.md §5](../research/paypal/sepolia.md#5-gas-sepolia-runs-amsterdam-read-2026-10-22); `packages/chains/data/fork-gas-measurements.json` (**C**) |
 | Tokens | Circle USDC `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` (the default and the demo's) and PayPal USD (PYUSD, Paxos) `0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9`, both with EIP-3009 and EIP-2612 on Sepolia. No test PYUSD could be obtained (faucet.paxos.com is geo-blocked from Madagascar), so PYUSD is paid only on fork rehearsals | [SPEC D-CHAIN](../paypal/SPEC.md#d-chain-ethereum-sepolia-11155111-not-arbitrum-sepolia) (**C** on chain) |
-| PayPal | Sandbox only. REST app "PayLink Twin". Invoicing v2 and Webhooks: twelve operations in `apps/api/src/paypal/client.ts` ([§4](#4-the-paypal-integration-explained)), none that captures, refunds, pays out or disputes money. Built against PayPal's OpenAPI files (`paypal-rest-api-specifications` at `90e8041`, vendored in `apps/api/test/openapi/`) and a fake validated against them, because `api-m.sandbox.paypal.com` is not reachable from the build machine. The owner's capture run of 2026-10-29 then recorded what the sandbox does: a shared twin reads `UNPAID`, a payer's payment `PAID`, PayLink's record `MARKED_AS_PAID` (its note kept exactly), an undo `UNPAID` again, a cancel `CANCELLED`; the payer page is `https://www.sandbox.paypal.com/invoice/p/#{id}`; a twin needs no client e-mail, but PayPal's reminder does; the reference search also matches part of a reference; a payment id has 22 characters; a token lives 32,326 s. The code and the fake follow it. Open: K4, whether PayPal still takes a payment on a twin marked as paid, checked at the rehearsal | [capture report](../research/paypal/capture-2026-10-29.md) (**C**); [SPEC, Capture of 2026-10-29](../paypal/SPEC.md#capture-of-2026-10-29); `apps/api/test/openapi/contract.test.ts` |
+| PayPal | Sandbox only. REST app "PayLink Twin". Invoicing v2 and Webhooks: twelve operations in `apps/api/src/paypal/client.ts` ([§4](#4-the-paypal-integration-explained)), none that captures, refunds, pays out or disputes money. Built against PayPal's OpenAPI files (`paypal-rest-api-specifications` at `90e8041`, vendored in `apps/api/test/openapi/`) and a fake validated against them, because `api-m.sandbox.paypal.com` is not reachable from the build machine. The owner's capture run of 2026-10-29 then recorded what the sandbox does: a shared twin reads `UNPAID`, a payer's payment `PAID`, PayLink's record `MARKED_AS_PAID` (its note kept exactly), an undo `UNPAID` again, a cancel `CANCELLED`; the payer page is `https://www.sandbox.paypal.com/invoice/p/#{id}`; a twin needs no client e-mail, but PayPal's reminder does; the reference search also matches part of a reference; a payment id has 22 characters; a token lives 32,326 s. The code and the fake follow it. K4, settled at the owner's rehearsal: once PayLink records an on-chain payment on a twin (`MARKED_AS_PAID`), PayPal's payer page shows the invoice paid and offers no way to pay it again | [capture report](../research/paypal/capture-2026-10-29.md) (**C**); [SPEC, Capture of 2026-10-29](../paypal/SPEC.md#capture-of-2026-10-29); `apps/api/test/openapi/contract.test.ts` |
 | PayPal webhook | Proven on 2026-10-29 by real sandbox deliveries: five `webhook.received` events in the Worker's logs (two `INVOICING.INVOICE.PAID`, two `INVOICING.INVOICE.CANCELLED`, one `INVOICING.INVOICE.UPDATED`), each verified with PayPal and processed, no error; `/v1/health` read `webhook` ok (`last-verified`). PayPal's simulator events do not verify by postback | the owner's Worker logs and health read (**O**); [runbook §4](../runbooks/paypal.md#4-the-webhook-subscription) |
 | PayPal Agent Toolkit | Not a dependency. The desk's read tools take the toolkit's tool names and parameter schemas (`list_invoices`, `get_invoice`, `search_invoicing`), parity-tested against the vendored sources of `@paypal/agent-toolkit` 1.11.0. Wording rule: "follows the PayPal Agent Toolkit tool contract", never "built with" it ([SPEC §7.6](../paypal/SPEC.md#76-paypal-agent-toolkit-paypalagent-toolkit-1110)) | `apps/api/test/ai/parity.test.ts` |
 | AI in the product | Cloudflare Workers AI through the Worker's `AI` binding: `@cf/google/gemma-4-26b-a4b-it`, fallback `@cf/meta/llama-3.3-70b-instruct-fp8-fast`; free allocation 10,000 neurons a day; chosen from Cloudflare's docs repository at `3fe915d`. **No live call has been made yet** (on 2026-10-29 the API's health read the assistant "unknown", not used yet): the model's quality (A1 extraction, French and Malagasy) is unmeasured until your live evals; the CI evals replay scripted answers and measure code only | `apps/api/src/ai/models.ts`; [evals](../../apps/api/evals/README.md) |
@@ -159,11 +159,11 @@ Publish a live, dated eval scoreboard; per-freelancer PayPal onboarding instead 
 
 ## Honest status
 
-PayPal sandbox and Ethereum Sepolia testnet only; no real money. One sandbox PayPal merchant stands for every freelancer in the demo; whether a Malagasy PayPal account can receive is unverified, and the product claims nothing about it. Not audited: our own review only. No users, revenue or partners yet. PayLinkV2 on Ethereum Sepolia: deployed on 2026-10-29, transaction 0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3, source verified on Etherscan. Built during the hackathon, from 2026-10-21, on top of PayLink v2 (built from 2026-10-05, also entered in other events); the commit range is in the repository. [TO FILL: the live evals' date and scores, or delete this sentence.]
+PayPal sandbox and Ethereum Sepolia testnet only; no real money. One sandbox PayPal merchant stands for every freelancer in the demo; whether a Malagasy PayPal account can receive is unverified, and the product claims nothing about it. Not audited: our own review only. No users, revenue or partners yet. PayLinkV2 on Ethereum Sepolia: deployed on 2026-10-29, transaction 0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3, source verified on Etherscan. Built during the hackathon, from 2026-10-21, on top of PayLink v2 (built from 2026-10-05, also entered in other events); the commit range is in the repository.
 
 AI in the product: Cloudflare Workers AI (@cf/google/gemma-4-26b-a4b-it, fallback @cf/meta/llama-3.3-70b-instruct-fp8-fast). Development assisted by Claude Code (Anthropic); the owner directed, reviewed and is responsible for the work.
 ```
-Characters: 10,879 (no stated limit)
+Characters: 10,810 (no stated limit)
 
 #### Built with
 
@@ -214,7 +214,7 @@ Optional; JPG, PNG or GIF, 5 MB each, at most 15, 3:2. Screenshots of the live e
 
 #### Demo video (you)
 
-Required; YouTube only, under 3 minutes (only the first 3 minutes are judged), public or unlisted, no password. The rules ask for a public video: upload it public. [TO FILL: the YouTube link] ([§8](#8-video-storyboard-under-300-captions-no-invented-numbers)).
+Required; YouTube only, under 3 minutes (only the first 3 minutes are judged), public or unlisted, no password. The rules ask for a public video: upload it public. https://youtu.be/iJGo_hvZy-o ([§8](#8-video-storyboard-under-300-captions-no-invented-numbers)).
 
 ### Step 4: Additional info (for judges and organizers)
 
@@ -266,11 +266,11 @@ Characters: 3 (no stated limit)
 
 #### New or existing
 
-"Is your project new, or did it exist before Oct 1, 2026 (9:15 am PT)?" Required. Your answer of 2026-10-29. The git history has no commit before 2026-10-04 (`31a4fdd`), after the period opened; "Existing" tells the judges that this entry builds on PayLink work done earlier in October for other events, and the next field says both. If you choose "New" instead, the next field takes "N/A".
+"Is your project new, or did it exist before Oct 1, 2026 (9:15 am PT)?" Required. Your answer of 2026-11-08: "New", since the git history has no commit before 2026-10-04 (`31a4fdd`), after the period opened. The next field still says what was built earlier in October for other events.
 
 <!-- field: paypal.new-or-existing choice -->
 ```text
-Existing
+New
 ```
 One of: New · Existing
 
@@ -280,13 +280,9 @@ One of: New · Existing
 
 <!-- field: paypal.existed-before max=0 -->
 ```text
-Nothing of this project existed before Oct 1, 2026 (9:15 am PT): the repository's first commit, 31a4fdd, is from 2026-10-04. Before this entry, inside the submission period, I built PayLink for other events, where it is also entered:
-- PayLink v1 on Arc, 2026-10-04 and 2026-10-05 (commits 31a4fdd and 93ed4e3; Arc Microgrants).
-- PayLink v2 from 2026-10-07 (88ac2d9): the PayLinkV2 contract, its SDK, the chain registry, the web app, the deploy kit, the relayer and the history indexer (Monad Metropolis, Colosseum).
-- The Mezo edition, 2026-10-13 to 2026-10-20 (f0fb1ce to ffd952f; Mezo Buildathon).
-Built for this hackathon, on the branch paypal from 2026-10-21 (first commit 828b9ff, on top of ffd952f): Ethereum Sepolia with USDC and PayPal USD in the chain registry and the deploy kit; the API Worker (PayPal client, webhook verification, twins, the reconciler and its fence, approvals, sessions, Durable Objects, cron); the Workers AI assistant (drafting and the collections desk) with its invariants, injection suite and evals; the PayPal edition of the web app (assistant, twin panel, two-rail pay page, desk, till via PayPal, Status); the end-to-end tests of both rails; and, on 2026-10-29, the deployment of the unchanged PayLinkV2 contract on Ethereum Sepolia and a capture run on PayPal's sandbox. All the PayPal and AI features of the project were built on this branch. The commit range is in the repository: docs/submissions/paypal.md, section 9.
+N/A: new. The repository's first commit, 31a4fdd, is from 2026-10-04, after the period opened. For transparency: earlier in the period I built parts of PayLink (the PayLinkV2 contract, its SDK and the web app) for other events, where it is also entered; every PayPal and AI feature was built for this hackathon on the branch paypal, from 2026-10-21 (first commit 828b9ff). The commit range is in the repository: docs/submissions/paypal.md, section 9.
 ```
-Characters: 1,461 (no stated limit)
+Characters: 450 (no stated limit)
 
 #### Main technology requirement
 
@@ -352,8 +348,8 @@ Everything runs on the PayPal sandbox and the Ethereum Sepolia testnet: no real 
 
 PATH B: PayPal only, no wallet, about 5 minutes
 1. Open one of your invoice links:
-   Judge A: [TO FILL: three links]
-   Judge B: [TO FILL: three links]
+   Judge A: [TO FILL in Devpost only: three links]
+   Judge B: [TO FILL in Devpost only: three links]
 2. The page checks the invoice on the chain and shows "Two ways to pay". Press "Pay with PayPal".
 3. On PayPal's sandbox page (www.sandbox.paypal.com), log in with your sandbox buyer and pay.
    Judge A sandbox buyer: [TO FILL in Devpost only: email / password]
@@ -374,7 +370,7 @@ pnpm install --frozen-lockfile && pnpm --filter @paylink/e2e exec playwright ins
 pnpm --filter @paylink/e2e test specs/paypal-rails.spec.ts
 (Node 22.22, pnpm 10.28, Foundry's anvil, and internet access to Ethereum Sepolia's public RPC for the fork; nothing is sent to Sepolia or PayPal.)
 ```
-Characters: 2,710 (no stated limit)
+Characters: 2,742 (no stated limit)
 
 #### PayPal rating
 
@@ -473,7 +469,7 @@ Operation keys are those of [SPEC §7.1](../paypal/SPEC.md#71-operations); paths
 | P11 | `POST /v1/notifications/webhooks` | Subscribe the Worker's URL to `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`, `INVOICING.INVOICE.UPDATED` (the owner's script) | `apps/api/scripts/capture/main.ts` |
 | P13, P14 | `GET /v2/invoicing/invoices`, `GET /v1/notifications/webhooks-events/{event_id}` | In the client and its contract tests; no route calls them in this release | `apps/api/src/paypal/http.ts` |
 
-Trust: a webhook body never decides anything (it triggers P5); the pay page follows only PayPal's payer page itself, `https://www.sandbox.paypal.com/invoice/p/#{id}` (that host and path, the invoice in the fragment, no port and no query), and only when PayPal's amount equals the signed one (`apps/web/src/editions/paypal/rails.ts`); PayLink's own P6 record is recognised by the echo filter (`apps/api/src/reconciler/echo.ts`) so it is never a second payment. The capture run of 2026-10-29 settled what only the sandbox could show (the statuses after a share, a payment, a record, an undo and a cancel; the payer page; the reference search; reminders), [runbook §5](../runbooks/paypal.md#5-what-the-capture-decides); K4 remains for the rehearsal.
+Trust: a webhook body never decides anything (it triggers P5); the pay page follows only PayPal's payer page itself, `https://www.sandbox.paypal.com/invoice/p/#{id}` (that host and path, the invoice in the fragment, no port and no query), and only when PayPal's amount equals the signed one (`apps/web/src/editions/paypal/rails.ts`); PayLink's own P6 record is recognised by the echo filter (`apps/api/src/reconciler/echo.ts`) so it is never a second payment. The capture run of 2026-10-29 settled what only the sandbox could show (the statuses after a share, a payment, a record, an undo and a cancel; the payer page; the reference search; reminders), [runbook §5](../runbooks/paypal.md#5-what-the-capture-decides); The rehearsal settled K4: PayPal's payer page shows a twin marked as paid as paid, with no payment button.
 
 ## 5. The AI, explained
 
@@ -513,7 +509,7 @@ What a judge sees on each path, and what can go wrong:
 | Limitation | What it means | Where it is said |
 |---|---|---|
 | Sandbox and testnet only | No real money moves; PayPal's live API is not used | story, Status, every page's notes |
-| PayPal sandbox: one capture run | The run of 2026-10-29 recorded the statuses after a share, a payment, a record, an undo and a cancel, the payer page, the reference search, reminders, the payment id and the token's lifetime; what it could not observe stays UNVERIFIED. **K4 is open**: whether PayPal still takes a payment on a twin marked as paid (`MARKED_AS_PAID`). It is checked at the rehearsal; if PayPal does, the desk must also propose cancelling the PayPal invoice after a record (SPEC §10.4) | [capture report](../research/paypal/capture-2026-10-29.md); [runbook §5, §11](../runbooks/paypal.md#11-rehearsal) |
+| PayPal sandbox: one capture run | The run of 2026-10-29 recorded the statuses after a share, a payment, a record, an undo and a cancel, the payer page, the reference search, reminders, the payment id and the token's lifetime; what it could not observe stays UNVERIFIED. **K4 is settled**: the rehearsal showed that PayPal does not take a payment on a twin marked as paid (`MARKED_AS_PAID`); its payer page shows it paid with no payment button, so the desk need not propose cancelling the PayPal invoice after a record (SPEC §10.4) | [capture report](../research/paypal/capture-2026-10-29.md); [runbook §5, §11](../runbooks/paypal.md#11-rehearsal) |
 | PayPal's reminder needs the client's email | PayPal refuses its own reminder for an invoice without a billing email (400 `CANNOT_REMIND_AS_BILLING_INFO_ABSENT`); the desk then offers only a message for the freelancer to send, and says why | the desk; [apps/api/README.md](../../apps/api/README.md) |
 | One PayPal merchant | One sandbox business account stands for every freelancer; per-freelancer onboarding is future work | story, "What's next" |
 | Receiving PayPal in Madagascar | Secondary sources say Malagasy PayPal accounts may be send-only (**UNVERIFIED**); the product claims nothing about it. The story says so: the PayPal rail is for freelancers wherever PayPal lets them receive, and in Madagascar the on-chain rail is the one that can still pay them | story ("Inspiration", "Honest status"); [SPEC §1.2](../paypal/SPEC.md#12-reality-check-published-at-the-top-of-the-readme-and-the-devpost-text) |
@@ -593,7 +589,7 @@ Dans l'ordre : chaque étape a besoin de la précédente. Ne pousse jamais `main
 4. **Worker `paylink-api` par l'intégration Git : fait le 28 octobre** avec les réglages du [runbook §8](../runbooks/paypal.md#8-the-worker-paylink-api). Le 29, `/v1/health` : chaîne ok (déployé), PayPal ok, webhook ok, stockage ok, assistant « unknown » (pas encore utilisé).
 5. **Secrets du Worker : faits.** Le 29 octobre, tu as remplacé `PAYPAL_CLIENT_SECRET` par le secret vérifié (une demande de jeton avait répondu HTTP 200).
 6. **PayLinkV2 sur Ethereum Sepolia : déployé le 29 octobre** par ton portefeuille « PayPal Demo » depuis le kit (transaction `0x9a5ade1164108da82f79a2f522d8247e1822f8f182d87d338484c358fab0e5b3`, bloc 12 017 054, 18 946 483 gas consommés à 1,5 gwei, soit 0,0284 ETH de Sepolia). Claude l'a revérifié avec `tools/verify-deployment` (les dix contrôles passent, ton fichier `11155111.json` est identique octet pour octet à l'enregistrement) et l'a enregistré dans `protocol/deployments/11155111.json`. **Code source vérifié sur Etherscan le 29 octobre** : « Source Code Verified - Exact Match » pour le contrat `PayLinkV2` (compilateur `v0.8.30+commit.73712a01`, optimisation activée avec 10 000 runs, EVM `paris`, licence MIT, format Solidity Standard Json-Input).
-7. **Capture sandbox : faite le 29 octobre vers 05:30 UTC.** Claude a fixé ce qu'elle montre dans le code, le faux PayPal et les tests (page payeur `https://www.sandbox.paypal.com/invoice/p/#…`, statuts `UNPAID`, `PAID`, `MARKED_AS_PAID`, `CANCELLED`, rappel refusé sans e-mail, recherche par référence partielle, identifiant de paiement de 22 caractères, durée du jeton). P9 et P10 ont leur réponse ; **K4 reste à vérifier pendant la répétition** (étape 10).
+7. **Capture sandbox : faite le 29 octobre vers 05:30 UTC.** Claude a fixé ce qu'elle montre dans le code, le faux PayPal et les tests (page payeur `https://www.sandbox.paypal.com/invoice/p/#…`, statuts `UNPAID`, `PAID`, `MARKED_AS_PAID`, `CANCELLED`, rappel refusé sans e-mail, recherche par référence partielle, identifiant de paiement de 22 caractères, durée du jeton). P9 et P10 ont leur réponse ; **K4 vérifié à la répétition : PayPal affiche le jumeau payé, sans bouton de paiement**.
 8. **Abonnement webhook : fait le 29 octobre.** Cinq livraisons réelles `processed` sans erreur dans les journaux du Worker, la ligne `webhook` de `/v1/health` ok (`last-verified`).
 
 **Reste à faire.**
