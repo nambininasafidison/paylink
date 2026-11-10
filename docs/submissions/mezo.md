@@ -544,6 +544,12 @@ So wave 2 builds for the pain that was reported, not for the one we had assumed 
 2. **By 2026-11-29:** the AI drafting assistant on the Mezo create page, once the API Worker accepts the Mezo origin and Mezo-chain sessions, as a reviewed change on its own branch after the PayPal judging; the deterministic helper stays as the fallback.
 3. **By 2026-12-13:** Bitcoin wallets as payers (Mezo Passport, Safe smart accounts paying with approve and pay) prototyped on Mezo testnet after its licence review (GPL-3.0 code in an MIT app), still with no mainnet before an audit.
 
+### Wave 2 links
+
+- Video (1:33): https://youtu.be/jn84wU99VnE, recorded on a local fork of Mezo testnet with test wallets; the music is original, generated for it.
+- Deck (7 slides, PDF): [mezo-wave2-deck.pdf](mezo-wave2-deck.pdf), https://github.com/nambininasafidison/paylink/blob/mezo/docs/submissions/mezo-wave2-deck.pdf
+- Team: the owner, founder and full-stack developer, on X as @safidisonrah.
+
 ### "Updates in this Wave" (AKINDO, 3,000 characters)
 
 <!-- field: mezo.wave2 max=3000 -->
