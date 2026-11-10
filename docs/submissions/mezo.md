@@ -571,3 +571,15 @@ Try it: https://mezo.paylink-mg.pages.dev/mezo/ledger/
 Code: https://github.com/nambininasafidison/paylink/tree/mezo
 ```
 Characters: 2,972 / 3,000
+
+### As submitted on AKINDO (wave 2, 2026-11-10)
+
+Submitted by the owner on 2026-11-10 to the 2nd Wave, for the existing product "PayLink" of team "PayLink MG" (no new product); the product page now lists "[2nd Wave]" next to "[1st Wave]". From the texts of commit `94cbc29`:
+
+| AKINDO field | What was sent |
+|---|---|
+| Product category | Payments, kept |
+| Updates in this Wave | `mezo.wave2`, with its last two lines ("Try it" and "Code") replaced by the deck's link at the owner's choice: 2,954 / 3,000 characters |
+| Milestone 3rd Wave (required) | Points 1 to 3 of [Next steps](#next-steps), word for word (742 characters; AKINDO shows the `**` marks as typed) |
+| Milestone 4th Wave (required) | The "Later, only after a third-party audit" line, moved from the 3rd wave (185 characters) |
+| Product page | Video changed to https://youtu.be/jn84wU99VnE; live demo, name, tagline, About (5,974 characters), type and GitHub link unchanged. Adding the deck's link to About was refused: AKINDO's limit is 6,000 characters |
