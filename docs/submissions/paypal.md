@@ -106,7 +106,7 @@ Optional; JPG, PNG or GIF, 5 MB, 3:2 advised. No 3:2 image of the PayPal edition
 
 #### About the project
 
-Required; Markdown and LaTeX; no limit shown. The form's template suggests Inspiration, What it does, How I built it, Challenges and so on; the text below uses those sections. Before pasting, fill the placeholder of "Honest status" (the live evals) or delete its sentence.
+Required; Markdown and LaTeX; no limit shown. The form's template suggests Inspiration, What it does, How I built it, Challenges and so on; the text below uses those sections.
 
 <!-- field: paypal.story max=0 -->
 ```text
@@ -575,6 +575,15 @@ What a judge sees on each path, and what can go wrong:
 | AI | The [AI tools](#ai-tools) answer of §3, word for word; the repository's full disclosure, including how commits are attributed, is [AI_DISCLOSURE.md](../../AI_DISCLOSURE.md) |
 | Third-party components | PayPal's OpenAPI files (vendored as test data with their licence), the PayPal Agent Toolkit's tool sources (vendored as test data for the parity test), OpenZeppelin Contracts 5.3.0, viem, Hono, zod, qrcode-generator, the Archivo and Martian Mono fonts ([NOTICE.md](../../NOTICE.md)) |
 | Tag | `submission/paypal-<date>` on the submitted commit, created and pushed by you |
+
+## 11. As submitted on Devpost (2026-11-10)
+
+Submitted by the owner on 2026-11-10 ("Project submitted!"), submission `1270165-paylink-twin` on paypalaihackathon.devpost.com, from the texts of commit `ac81563` of this file; the owner ticked the eligibility boxes and submitted. What differs from §3:
+
+- **Built with:** 22 tags. Devpost silently removes `paypal-invoicing` on every save, so it was dropped here too (`a4ee21d`).
+- **Testing instructions:** 4,692 characters, with the six judge links (three per judge, all open and unpaid when checked on 2026-11-10) and the two sandbox buyer logins typed by the owner in Devpost only; none of them is in this repository.
+- **Demo video:** https://youtu.be/iJGo_hvZy-o (2:43, public, original music).
+- **Gallery:** a thumbnail and six frames of the video (3:2), each captioned with the title and sentence written on it.
 
 ## 10. Liste de contrôle (en français)
 
