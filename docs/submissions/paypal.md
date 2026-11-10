@@ -172,7 +172,6 @@ Required; free tags with autocomplete, up to 25 ("Languages, frameworks, platfor
 <!-- field: paypal.built-with tags=25 -->
 ```text
 paypal
-paypal-invoicing
 paypal-webhooks
 paypal-sandbox
 cloudflare-workers-ai
@@ -195,7 +194,7 @@ vitest
 fast-check
 foundry
 ```
-Tags: 23 / 25
+Tags: 22 / 25
 
 #### "Try it out" links
 
