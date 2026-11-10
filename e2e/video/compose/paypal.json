@@ -1,0 +1,27 @@
+{
+  "wordmark": "PayLink",
+  "badge": "ETHEREUM SEPOLIA · PAYPAL SANDBOX",
+  "footer": "Live edition · PayPal sandbox · Ethereum Sepolia testnet · test wallets",
+  "labels": { "L": "SELLER · ANTANANARIVO", "R": "CLIENT · ABROAD" },
+  "steps": 11,
+  "geometry": { "phoneW": 405, "phoneH": 847, "phoneLX": 905, "phoneRX": 1385, "phoneY": 155, "inset": 12, "screenW": 381, "screenH": 823,
+                "labelY": 118, "barY": 962, "barW": 721, "colW": 730, "colTop": 300, "cardX": 146 },
+  "caps": {
+    "p02": { "n": 1, "title": "The assistant drafts", "desc": "The client's message goes to Cloudflare Workers AI; code checks every number it returns. The desk opens with one signature, no transaction.", "tag": "Cloudflare Workers AI · EIP-712" },
+    "p03": { "n": 2, "title": "Read, then sign", "desc": "The seller checks the exact values, then signs the invoice: a signature, not a transaction. No gas.", "tag": "EIP-712 typed data · no gas" },
+    "p04": { "n": 3, "title": "Its PayPal twin", "desc": "One PayPal sandbox invoice for the same amount, made and read back from PayPal.", "tag": "PayPal Invoicing API" },
+    "p05": { "n": 4, "title": "One link, two rails", "desc": "The link goes to the client. On the till, the chain and PayPal are both watched.", "tag": "Seller · till" },
+    "p06": { "n": 5, "title": "The client pays on PayPal", "desc": "The pay page checks the invoice first, then opens PayPal's own sandbox page. A guest card payment, sandbox test card.", "tag": "Client · PayPal sandbox" },
+    "p07": { "n": 6, "title": "Verified with PayPal", "desc": "The till reads PayPal's own record of the invoice, at its exact amount, never a message.", "tag": "via PayPal" },
+    "p08": { "n": 7, "title": "Close the other rail", "desc": "Paid on PayPal, so the desk proposes cancelling the dollar link. The seller approves the exact values: one transaction.", "tag": "Seller's wallet · one transaction" },
+    "p09": { "n": 8, "title": "Or dollars on chain", "desc": "A second invoice and its twin, paid in USDC from the client's wallet: one signature, one transaction.", "tag": "EIP-3009 · USDC" },
+    "p10": { "n": 9, "title": "Recorded on PayPal", "desc": "Check my invoices: the chain payment is recorded on the PayPal invoice, with Undo. PayPal now shows it paid.", "tag": "PayLink's rules, not the assistant" },
+    "p11": { "n": 10, "title": "Was I really paid?", "desc": "A pasted message is never proof: the verdict comes from PayPal and the chain.", "tag": "PayPal · chain" },
+    "p12": { "n": 11, "title": "Every light, checked live", "desc": "The status page reads the network, the contract, PayPal and the assistant.", "tag": "Status" }
+  },
+  "cards": {
+    "title": { "html": "<div style='position:absolute;top:150px'><div class='brandbig'>{{mark}}<span class='word'>PayLink Twin</span></div></div><div style='position:absolute;top:330px'><h1>One invoice, two rails:<br>PayPal or dollars on <em>chain</em>.</h1><p class='lede' style='margin-top:40px'>An AI desk that never moves money.</p><p class='meta' style='margin-top:48px'>Ethereum Sepolia · PayPal sandbox · testnet</p></div><div class='fine'>Recorded automatically on the live edition, paypal.paylink-mg.pages.dev, with test wallets.</div>" },
+    "end": { "html": "<div style='position:absolute;top:130px'><div class='brandbig'>{{mark}}<span class='word'>PayLink Twin</span></div></div><div style='position:absolute;top:290px'><h2>One invoice, two rails:<br>PayPal or dollars on <em>chain</em>.</h2><table style='margin-top:64px'><tr><td class='k'>Live</td><td class='v'>paypal.paylink-mg.pages.dev/paypal</td></tr><tr><td class='k'>Code</td><td class='v'>github.com/nambininasafidison/paylink (branch paypal)</td></tr><tr><td class='k'>Built on</td><td class='v'>PayPal Invoicing API · Cloudflare Workers AI · Ethereum Sepolia</td></tr><tr><td class='k'>Contract</td><td class='v'>0x448eCce9711860502806A3d5B021a4f9Ba715082</td></tr></table></div><div class='fine'>sandbox · testnet · not audited · Built with Claude Code (Anthropic) as the project's AI assistant</div>" }
+  },
+  "segments": [ { "card": "title", "dur": 5.5 }, { "take": ["p02", "p12"] }, { "card": "end", "dur": 8 } ]
+}
